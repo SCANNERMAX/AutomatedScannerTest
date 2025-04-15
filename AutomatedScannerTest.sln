@@ -1,0 +1,27 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35806.99
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "AutomatedScannerTest", "AutomatedScannerTest\AutomatedScannerTest.pyproj", "{AC905E11-9872-4D8A-BD1D-9802BCA77056}"
+EndProject
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "BearingTest", "BearingTest\BearingTest.pyproj", "{773CA8A2-1A68-4910-8186-97D1DE6CE333}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AC905E11-9872-4D8A-BD1D-9802BCA77056}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AC905E11-9872-4D8A-BD1D-9802BCA77056}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{773CA8A2-1A68-4910-8186-97D1DE6CE333}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{773CA8A2-1A68-4910-8186-97D1DE6CE333}.Release|Any CPU.ActiveCfg = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {0EEE7889-1B07-4E15-ACE6-6EB3957F1821}
+	EndGlobalSection
+EndGlobal
