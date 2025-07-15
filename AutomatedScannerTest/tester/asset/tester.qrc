@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="rsc">
+    <file>logo.png</file>
+    <file>Pangolin.ico</file>
+  </qresource>
+</RCC>

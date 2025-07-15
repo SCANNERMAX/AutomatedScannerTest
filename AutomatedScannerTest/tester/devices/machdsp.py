@@ -1,26 +1,22 @@
 # -*- coding: utf-8 -*-
-from tester import _get_member_wrapper, _package_logger
-import logging
+from PySide6.QtCore import QSettings
+import tester
+from tester.devices import Device
 
-_logger = (
-    _package_logger.getChild("tester")
-    .getChild("devices")
-    .getChild("machdsp")
-    .getChild("MachDSP")
-)
-_member_wrapper = _get_member_wrapper(_logger)
-
-
-class MachDSP:
+class MachDSP(Device):
     """
-    MachDSP device class
+    Represents a MachDSP device, inheriting from the Device base class.
+    This class is responsible for initializing and configuring a MachDSP device
+    using the provided QSettings object.
+    Attributes:
+        Inherits all attributes from the Device base class.
     """
 
-    __logger = _logger
+    def __init__(self, settings: QSettings):
+        """
+        Initializes the MachDSP device with the provided settings.
 
-    @_member_wrapper
-    def __init__(self):
+        Args:
+            settings (QSettings): The settings object used to configure the device.
         """
-        Constructor
-        """
-        pass
+        super().__init__("MachDSP", settings)

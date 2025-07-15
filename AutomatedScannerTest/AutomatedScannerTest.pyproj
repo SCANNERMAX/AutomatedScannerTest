@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>ac905e11-9872-4d8a-bd1d-9802bca77056</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>main.py</StartupFile>
+    <StartupFile>tester\main_cli.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -13,6 +13,7 @@
     <RootNamespace>AutomatedScannerTest</RootNamespace>
     <InterpreterId>MSBuild|env|$(MSBuildProjectFullPath)</InterpreterId>
     <TestFramework>Pytest</TestFramework>
+    <SuppressPackageInstallationPrompt>True</SuppressPackageInstallationPrompt>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -23,28 +24,38 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="tester\tester.py" />
+    <Compile Include="tester\gui\gui.py" />
+    <Compile Include="tester\asset\tester_rc.py" />
+    <Compile Include="tester\gui\tester_ui.py" />
+    <Compile Include="tester\main_cli.py" />
+    <Compile Include="tester\manager\devices.py" />
+    <Compile Include="tester\manager\report.py" />
     <Compile Include="tester\tests\bearing_test.py" />
     <Compile Include="tester\devices\machdsp.py" />
     <Compile Include="tester\devices\mso5000.py" />
-    <Compile Include="tester\devices\station.py" />
-    <Compile Include="main.py" />
-    <Compile Include="tester\tests\test.py" />
+    <Compile Include="tester\devices\__init__.py" />
+    <Compile Include="tester\main_gui.py" />
+    <Compile Include="tester\tests\__init__.py" />
+    <Compile Include="tester\manager\test_sequence.py" />
     <Compile Include="tester\tests\torque_center_test.py" />
     <Compile Include="tester\__init__.py" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="tester\" />
-    <Folder Include="asset\" />
+    <Folder Include="tester\asset\" />
     <Folder Include="docs\" />
     <Folder Include="data\" />
     <Folder Include="tester\devices\" />
+    <Folder Include="tester\gui\" />
+    <Folder Include="tester\manager\" />
     <Folder Include="tester\tests\" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="asset\Pangolin.ico" />
-    <Content Include="asset\logo.png" />
+    <Content Include="tester\asset\Pangolin.ico" />
+    <Content Include="tester\asset\logo.png" />
     <Content Include="requirements.txt" />
+    <Compile Include="tester\gui\tester.ui" />
+    <Content Include="tester\asset\tester.qrc" />
   </ItemGroup>
   <ItemGroup>
     <Interpreter Include="env\">
