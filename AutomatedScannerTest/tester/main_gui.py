@@ -1,20 +1,26 @@
 # -*- coding: utf-8 -*-
-from tester.gui.gui import TesterWindow
-from tester.gui.gui import TesterApp
-
+import sys
+from tester.gui.gui import TesterWindow, TesterApp
 
 def main():
     """
-    Entry point for the application. Initializes the TesterApp with command-line arguments,
-    creates and displays the main TesterWindow, and starts the application's event loop.
-    """
-    import sys
+    Entry point for the application.
 
+    This function initializes the TesterApp with command-line arguments,
+    creates and displays the main TesterWindow, and starts the application's event loop.
+
+    Returns:
+        int: The exit status code returned by the application's event loop.
+    """
     app = TesterApp(sys.argv)
     window = TesterWindow()
     window.show()
-    sys.exit(app.exec())
-
+    return app.exec()
 
 if __name__ == "__main__":
-    main()
+    """
+    Main execution block.
+
+    Exits the program with the status code returned by the main() function.
+    """
+    sys.exit(main())

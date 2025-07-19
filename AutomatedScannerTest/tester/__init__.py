@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """This application runs a series of tests designed to validate the quality of Pangolin Laser System scanners."""
 import logging
+from functools import wraps
 
 _package_name = "PangolinLaserSystems.AutomatedScannerTest"
 __version__ = "1.1.0"
@@ -21,9 +22,7 @@ def _get_class_logger(class_):
     Returns:
         logging.Logger: A logger instance scoped to the specified class.
     """
-    _module = class_.__module__
-    _name = class_.__name__
-    return logging.getLogger(_package_name).getChild(_module).getChild(_name)
+    return logging.getLogger(f"{_package_name}.{class_.__module__}.{class_.__name__}")
 
 
 def _member_logger(func):
@@ -39,17 +38,23 @@ def _member_logger(func):
         - Exception details if an error occurs during execution.
     """
 
+    @wraps(func)
     def wrapper(*args, **kwargs):
-        try:
-            logger = _get_class_logger(args[0].__class__)
+        logger = _get_class_logger(args[0].__class__)
+        if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
-                f"Calling function: {func.__name__} with arguments: {args} and keyword arguments: {kwargs}"
+                "Calling function: %s with arguments: %s and keyword arguments: %s",
+                func.__name__,
+                args[1:] if len(args) > 1 else "",
+                kwargs,
             )
+        try:
             _result = func(*args, **kwargs)
-            logger.debug(f"Function: {func.__name__} returned: {_result}")
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Function: %s returned: %r", func.__name__, _result)
             return _result
         except Exception as e:
-            logger.error(f"Function: {func.__name__} failed with error: {e}")
-            raise e
+            logger.error("Function: %s failed with error: %s", func.__name__, e, exc_info=True)
+            raise
 
     return wrapper

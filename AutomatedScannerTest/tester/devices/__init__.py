@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
-import importlib
-import inspect
 from PySide6.QtCore import QObject, QSettings
-import pyvisa
 
 import tester
 
@@ -10,14 +7,15 @@ import tester
 class Device(QObject):
     """
     Device base class for hardware abstraction.
+
     This class provides a foundation for device objects, managing device-specific settings
-    and providing a structure for instrument discovery. It is intended to be subclassed
-    by specific device implementations.
-    Methods:
-        _get_setting(key: str, default=None):
-        _set_setting(key: str, value):
-        find_instrument():
-            Should be overridden by subclasses to provide device-specific instrument discovery logic.
+    and a structure for instrument discovery. It is intended to be subclassed by concrete
+    device implementations.
+
+    Attributes:
+        logger: Logger instance for the device.
+        _settings: QSettings instance for application/device settings.
+        Name: Name of the device.
     """
 
     def __init__(self, name: str, settings: QSettings):
@@ -26,19 +24,11 @@ class Device(QObject):
 
         Args:
             name (str): The name of the device.
-            settings (QSettings): The settings object for device configuration.
-
-        Attributes:
-            logger: Logger instance for the class.
-            __settings (QSettings): Stores the settings object.
-            Name (str): The name of the device.
-
-        Calls:
-            find_instrument(): Attempts to locate and initialize the instrument.
+            settings (QSettings): The settings object for storing device configuration.
         """
         super().__init__()
-        self.logger = tester._get_class_logger(self.__class__)
-        self.__settings = settings
+        self.logger = tester._get_class_logger(type(self))
+        self._settings = settings
         self.Name = name
         self.find_instrument()
 
@@ -47,40 +37,36 @@ class Device(QObject):
         Retrieve a setting value for the device from the application's settings storage.
 
         Args:
-            key (str): The name of the setting to retrieve.
-            default (optional): The value to return if the setting is not found. Defaults to None.
+            key (str): The key of the setting to retrieve.
+            default: The default value to return if the key does not exist.
 
         Returns:
-            The value of the requested setting if it exists, otherwise the default value.
+            The value of the setting, or the default if not found.
         """
-        self.__settings.beginGroup("Devices")
-        self.__settings.beginGroup(self.Name)
-        _value = self.__settings.value(key, default)
-        self.__settings.endGroup()
-        self.__settings.endGroup()
-        return _value
+        group_path = f"Devices/{self.Name}"
+        self._settings.beginGroup(group_path)
+        value = self._settings.value(key, default)
+        self._settings.endGroup()
+        return value
 
     def _set_setting(self, key: str, value):
         """
         Sets a configuration setting for the device.
 
-        This method stores the given key-value pair in the device's settings group,
-        organizing it under the "Devices" group and the specific device's name.
-
         Args:
-            key (str): The name of the setting to set.
-            value: The value to assign to the setting.
+            key (str): The key of the setting to set.
+            value: The value to set for the specified key.
         """
-        self.__settings.beginGroup("Devices")
-        self.__settings.beginGroup(self.Name)
-        self.__settings.setValue(key, value)
-        self.__settings.endGroup()
-        self.__settings.endGroup()
+        group_path = f"Devices/{self.Name}"
+        self._settings.beginGroup(group_path)
+        self._settings.setValue(key, value)
+        self._settings.endGroup()
 
     def find_instrument(self):
         """
         Logs a warning indicating that the 'find_instrument' method is not implemented for this device.
 
-        This method should be overridden by subclasses to provide device-specific instrument discovery logic.
+        This method should be overridden by subclasses to implement device-specific
+        instrument discovery logic.
         """
         self.logger.warning("find_instrument() not implemented for this device.")

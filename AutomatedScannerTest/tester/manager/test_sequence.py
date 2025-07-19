@@ -1,3 +1,4 @@
+#-*- coding: utf-8 -*-
 from PySide6 import QtCore, QtWidgets
 from datetime import datetime
 from dateutil import tz
@@ -15,58 +16,15 @@ from tester.tests import _test_list, Test, CancelToken
 class TestSequence(QtCore.QAbstractTableModel):
     """
     TestSequence manages the execution, logging, and reporting of a sequence of hardware or software tests.
-    This class is responsible for:
-    - Initializing test environment, logging, and device management.
-    - Discovering and instantiating all available Test subclasses dynamically.
-    - Managing test parameters and settings, including data directories, serial numbers, model names, and tester information.
-    - Providing properties for accessing and modifying test metadata (e.g., StartTime, EndTime, Duration, Status).
-    - Handling command-line options for test execution.
-    - Running tests, collecting results, and updating status.
-    - Generating PDF reports summarizing test results.
-    - Saving and loading test data to and from JSON files.
-    - Printing available tests and their descriptions.
-    - Supporting cancellation and cleanup of test runs.
-    Attributes:
-        DataDirectory (Path): The root directory for storing test data.
-        RunDataDirectory (Path): The directory for the current test run.
-        DataFilePath (Path): The path to the JSON file storing test data.
-        PdfReportPath (Path): The path to the generated PDF report.
-        SerialNumber (str): The serial number of the device under test.
-        ModelName (str): The model name of the device under test.
-        TesterName (str): The name of the tester.
-        StartTime (datetime): The start time of the test sequence.
-        EndTime (datetime): The end time of the test sequence.
-        Duration (float): The duration of the test sequence in seconds.
-        Status (bool): The overall pass/fail status of the test sequence.
-        StatusText (str): Human-readable status ("Pass", "Fail", or "Incomplete").
-    Methods:
-        command_line(app): Parse and return command-line options for test execution.
-        get_test(index): Retrieve a test instance by index.
-        on_generate_report(path=None, test=None): Generate a PDF report for the test sequence or a specific test.
-        on_open(path): Load test data from a JSON file.
-        on_save(path=None): Save test data to a JSON file.
-        on_start_test(serial_number, model_name="", test=None): Execute the test sequence or a specific test.
-        on_stop_test(): Cancel the running test sequence.
-        print_test_list(): Print the list of available tests and their descriptions.
-        test_count(): Return the number of available tests.
-        test_name(index=-1): Return the name(s) of the test(s).
-        test_status(index=-1): Return the status text(s) of the test(s).
+
+    This class provides a Qt model for test management, including test execution, result logging, 
+    report generation, and parameter management. It integrates with device management and supports 
+    both GUI and command-line workflows.
     """
 
     def __init__(self):
         """
-        Initializes the manager class by setting up logging, application settings, timezone, cancellation token, data storage, and device management.
-        Dynamically discovers and instantiates all subclasses of the `Test` class found in the `tester.tests` package.
-        Attributes initialized:
-            __logger: Logger instance for the class.
-            __settings: Application settings loaded from an INI file using QtCore.QSettings.
-            __timezone: Local timezone information.
-            __cancel: Cancellation token for managing test interruptions.
-            __data: Dictionary for storing runtime data.
-            __devices: DeviceManager instance for handling connected devices.
-            __tests: List of instantiated Test subclasses discovered in the `tester.tests` package.
-        Raises:
-            Logs a warning if any test module cannot be imported.
+        Initialize the TestSequence, set up logging, device manager, test list, and default parameters.
         """
         super().__init__()
         self.__logger = tester._get_class_logger(self.__class__)
@@ -77,34 +35,38 @@ class TestSequence(QtCore.QAbstractTableModel):
             tester.__application__,
             self,
         )
-        self._start_logging(self.DataDirectory)
-        logging.root.setLevel(logging.DEBUG)
         self.__timezone = tz.tzlocal()
         self.__cancel = CancelToken()
         self.__parameters = {}
         self.__devices = DeviceManager(self.__settings)
         self.__tests = []
-        for _test in _test_list():
-            self.addTest(_test(self.__settings, self.__cancel))
+        self._currentui = None
+        self._init_tests()
         self.reset_test_data()
         self.ComputerName = self.__devices.ComputerName
         self.TesterName = self.__devices.UserName
+        self._start_logging(self.DataDirectory)
+        logging.root.setLevel(logging.DEBUG)
+
+    @tester._member_logger
+    def _init_tests(self):
+        """
+        Initialize the list of tests using the test list factory.
+        """
+        # Use local variable for performance, avoid attribute lookups in loop
+        add_test = self.addTest
+        settings = self.__settings
+        cancel = self.__cancel
+        for _test in _test_list():
+            add_test(_test(settings, cancel))
 
     @tester._member_logger
     def _start_logging(self, log_path: Path = None):
         """
-        Starts logging to a rotating file handler with a timestamped log file name.
-
-        If a log path is provided, creates a log file in that directory with the current date and time in its name.
-        Configures the logging system to use a rotating file handler with a maximum file size of 5 MB and up to 7 backup files.
-        Sets the log message format to include the timestamp, logger name, log level, and message.
-        Logs an informational message indicating the start of logging and the log file location.
+        Start logging to a rotating file handler in the specified log path.
 
         Args:
-            log_path (Path, optional): The directory where the log file will be created. Defaults to None.
-
-        Raises:
-            TypeError: If log_path is not a Path object when provided.
+            log_path (Path): Directory where log files will be stored.
         """
         log_file = log_path / datetime.today().strftime("log_%Y%m%d_%H%M%S.log")
         _log_file_handler = logging.handlers.RotatingFileHandler(
@@ -118,455 +80,427 @@ class TestSequence(QtCore.QAbstractTableModel):
         self.__logger.info(f"Logging started at {log_file}")
 
     computerNameChanged = QtCore.Signal(str)
+    """Signal emitted when the computer name changes."""
 
     def get_computer_name(self) -> str:
         """
-        Retrieves the computer name from the parameters.
+        Get the current computer name.
 
         Returns:
-            str: The value of the "ComputerName" parameter if it exists, otherwise an empty string.
+            str: The computer name.
         """
         return self._get_parameter("ComputerName", "")
 
     def set_computer_name(self, value: str):
         """
-        Sets the computer name parameter and emits a signal indicating the change.
+        Set the computer name and emit the change signal.
 
         Args:
-            value (str): The new computer name to set.
-
-        Emits:
-            computerNameChanges (str): Signal emitted with the new computer name.
+            value (str): The new computer name.
         """
         self._set_parameter("ComputerName", value)
         self.computerNameChanged.emit(value)
 
     ComputerName = QtCore.Property(str, get_computer_name, set_computer_name)
+    """Qt property for the computer name."""
 
     durationChanged = QtCore.Signal(str)
+    """Signal emitted when the test duration changes."""
 
     def get_duration(self) -> float:
         """
-        Returns the duration parameter value.
-
-        Retrieves the value of the "Duration" parameter. If the parameter is not set,
-        returns 0.0 by default.
+        Get the test duration.
 
         Returns:
-            float: The value of the "Duration" parameter, or 0.0 if not set.
+            float: The duration in seconds.
         """
         return self._get_parameter("Duration", 0.0)
 
     def set_duration(self, value: float):
         """
-        Sets the duration parameter for the test sequence.
+        Set the test duration and emit the change signal.
 
         Args:
-            value (float): The duration value to set, in seconds.
+            value (float): The new duration in seconds.
         """
         self._set_parameter("Duration", value)
         self.durationChanged.emit(f"{value} sec")
 
     Duration = QtCore.Property(float, get_duration, set_duration)
+    """Qt property for the test duration."""
 
     endTimeChanged = QtCore.Signal(str)
+    """Signal emitted when the end time changes."""
 
     def get_end_time(self) -> datetime:
         """
-        Returns the end time parameter.
-
-        Retrieves the value of the "EndTime" parameter. If the parameter is not set, it returns the current time as a default.
+        Get the end time of the test sequence.
 
         Returns:
-            datetime: The end time value.
+            datetime: The end time.
         """
         return self._get_parameter("EndTime", self._get_time())
 
     def set_end_time(self, value: datetime):
         """
-        Sets the end time parameter for the sequence.
+        Set the end time and emit the change signal.
 
         Args:
-            value (datetime): The end time to set.
+            value (datetime): The new end time.
         """
         self._set_parameter("EndTime", value)
         try:
             self.endTimeChanged.emit(value.strftime("%H:%M:%S"))
-        except:
+        except Exception:
             self.endTimeChanged.emit("")
 
     EndTime = QtCore.Property(datetime, get_end_time, set_end_time)
+    """Qt property for the end time."""
 
     modelNameChanged = QtCore.Signal(str)
+    """Signal emitted when the model name changes."""
 
     def get_model_name(self) -> str:
         """
-        Returns the model name parameter.
+        Get the model name.
 
         Returns:
-            str: The value of the "ModelName" parameter, or an empty string if not set.
+            str: The model name.
         """
         return self._get_parameter("ModelName", "")
 
     def set_model_name(self, value: str):
         """
-        Sets the model name parameter.
+        Set the model name and emit the change signal.
 
         Args:
-            value (str): The name of the model to set.
+            value (str): The new model name.
         """
         self._set_parameter("ModelName", value)
-        try:
-            self.modelNameChanged.emit(value.strftime("%H:%M:%S"))
-        except:
-            self.modelNameChanged.emit("")
+        self.modelNameChanged.emit(value)
 
     ModelName = QtCore.Property(str, get_model_name, set_model_name)
+    """Qt property for the model name."""
 
     serialNumberChanged = QtCore.Signal(str)
+    """Signal emitted when the serial number changes."""
 
     def get_serial_number(self) -> str:
         """
-        Retrieves the serial number parameter.
+        Get the serial number.
 
         Returns:
-            str: The serial number as a string. Returns an empty string if not set.
+            str: The serial number.
         """
         return self._get_parameter("SerialNumber", "")
 
     def set_serial_number(self, value: str):
         """
-        Sets the serial number parameter.
+        Set the serial number and emit the change signal.
 
         Args:
-            value (str): The serial number to set.
+            value (str): The new serial number.
         """
         self._set_parameter("SerialNumber", value)
+        self.serialNumberChanged.emit(value)
 
     SerialNumber = QtCore.Property(str, get_serial_number, set_serial_number)
+    """Qt property for the serial number."""
 
     startTimeChanged = QtCore.Signal(str)
+    """Signal emitted when the start time changes."""
 
     def get_start_time(self) -> datetime:
         """
-        Returns the start time parameter.
-
-        If the "StartTime" parameter is not set, returns the current time.
+        Get the start time of the test sequence.
 
         Returns:
-            datetime: The start time as a datetime object.
+            datetime: The start time.
         """
         return self._get_parameter("StartTime", self._get_time())
 
     def set_start_time(self, value: datetime):
         """
-        Sets the start time parameter.
+        Set the start time and emit the change signal.
 
         Args:
-            value (datetime): The start time to be set.
+            value (datetime): The new start time.
         """
         self._set_parameter("StartTime", value)
         try:
             self.startTimeChanged.emit(value.strftime("%H:%M:%S"))
-        except:
+        except Exception:
             self.startTimeChanged.emit("")
 
     StartTime = QtCore.Property(datetime, get_start_time, set_start_time)
+    """Qt property for the start time."""
 
     statusChanged = QtCore.Signal(str)
+    """Signal emitted when the test status changes."""
 
     def get_status(self) -> str:
         """
-        Retrieves the current status parameter.
+        Get the current status of the test sequence.
 
         Returns:
-            The value of the "Status" parameter, or None if not set.
+            str: The status string.
         """
         return self._get_parameter("Status", "Idle")
 
     def set_status(self, value: str):
         """
-        Sets the 'Status' parameter to the specified value.
+        Set the status and emit the change signal.
 
         Args:
-            value: The value to set for the 'Status' parameter.
+            value (str): The new status.
         """
         self._set_parameter("Status", value)
         self.statusChanged.emit(value)
 
     Status = QtCore.Property(object, get_status, set_status)
+    """Qt property for the test status."""
 
     testerNameChanged = QtCore.Signal(str)
+    """Signal emitted when the tester name changes."""
 
     def get_tester_name(self) -> str:
         """
-        Returns the name of the tester.
-
-        This method retrieves the tester's name by first attempting to get the "TesterName" parameter.
-        If the parameter is not set, it falls back to using the current user's name.
+        Get the tester's name.
 
         Returns:
-            str: The name of the tester.
+            str: The tester's name.
         """
         return self._get_parameter("TesterName", "")
 
     def set_tester_name(self, value: str):
         """
-        Sets the name of the tester.
+        Set the tester's name and emit the change signal.
 
         Args:
-            value (str): The name to assign to the tester.
+            value (str): The new tester name.
         """
         self._set_parameter("TesterName", value)
         self.testerNameChanged.emit(value)
 
     TesterName = QtCore.Property(str, get_tester_name, set_tester_name)
+    """Qt property for the tester name."""
 
     @property
     def DataDirectory(self) -> Path:
         """
-        Returns the resolved path to the data directory, creating it if it does not exist.
-
-        This method retrieves the data directory path from the settings using the key "DataDirectory".
-        If the setting is not found, it defaults to "C:/Test Data/{tester.__application__}". The method
-        ensures that the directory exists by creating it (including any necessary parent directories)
-        if it does not already exist, and then returns the resolved Path object.
+        Get or create the root data directory for test results.
 
         Returns:
-            Path: The resolved and ensured data directory path.
+            Path: The data directory path.
         """
         _data_path = self._get_setting(
             "DataDirectory", f"C:/Test Data/{tester.__application__}"
         )
         _data_directory = Path(_data_path).resolve()
-        _data_directory.mkdir(parents=True, exist_ok=True)
+        if not _data_directory.exists():
+            _data_directory.mkdir(parents=True, exist_ok=True)
         return _data_directory
 
     @DataDirectory.setter
     def DataDirectory(self, value: Path):
         """
-        Updates the data directory to a new location.
-
-        If the new directory is different from the current one, this method:
-        - Logs the directory change.
-        - Shuts down the current logging system and removes any RotatingFileHandler handlers.
-        - Moves all files from the old data directory to the new one, preserving the directory structure.
-        - Restarts logging in the new directory.
-        - Updates the internal setting for the data directory.
+        Set the data directory, move existing files, and restart logging.
 
         Args:
-            value (Path): The new path for the data directory.
+            value (Path): The new data directory path.
         """
         _old = self.DataDirectory
-        if value.resolve() == _old.resolve():
+        new_value = value.resolve()
+        if new_value == _old.resolve():
             return
         self.__logger.info(
-            f"Moving data directory from {self.DataDirectory} to {value}"
+            f"Moving data directory from {_old} to {value}"
         )
         logging.shutdown()
-        for _handler in logging.root.handlers[:]:
-            if isinstance(_handler, logging.handlers.RotatingFileHandler):
-                _handler.close()
-                logging.root.removeHandler(_handler)
-        for _dirpath, _dirnames, _filenames in _old.walk():
-            for _item in _filenames:
-                _old_file = Path(_dirpath) / _item
-                _new_file = value / _old_file.relative_to(_old)
-                if not _new_file.parent.exists():
-                    _new_file.parent.mkdir(parents=True, exist_ok=True)
+        # Remove only RotatingFileHandlers
+        handlers = [h for h in logging.root.handlers if isinstance(h, logging.handlers.RotatingFileHandler)]
+        for _handler in handlers:
+            _handler.close()
+            logging.root.removeHandler(_handler)
+        # Use rglob for recursive file move, more efficient than walk
+        for _old_file in _old.rglob('*'):
+            if _old_file.is_file():
+                _new_file = new_value / _old_file.relative_to(_old)
+                _new_file.parent.mkdir(parents=True, exist_ok=True)
                 if not _new_file.exists():
                     _old_file.rename(_new_file)
-        self._start_logging(value)
-        self._set_setting("DataDirectory", str(value))
+        self._start_logging(new_value)
+        self._set_setting("DataDirectory", str(new_value))
 
     @property
     def DataFilePath(self) -> Path:
         """
-        Returns the full path to the 'data.json' file located in the run data directory.
+        Get the path to the JSON data file for the current run.
 
         Returns:
-            Path: The path object representing the location of 'data.json' within the run data directory.
+            Path: The data file path.
         """
         return self.RunDataDirectory / "data.json"
 
     @property
     def PdfReportPath(self) -> Path:
         """
-        Returns the file path to the PDF report within the run data directory.
+        Get the path to the PDF report file for the current run.
 
         Returns:
-            Path: The full path to the "report.pdf" file located in the run data directory.
+            Path: The PDF report file path.
         """
         return self.RunDataDirectory / "report.pdf"
 
     @property
     def RunDataDirectory(self) -> Path:
         """
-        Creates and returns the directory path for storing run data.
-
-        The directory is constructed using the base data directory, the serial number,
-        and the start time formatted as 'YYYYMMDD_HHMMSS'. If the directory does not exist,
-        it is created along with any necessary parent directories.
+        Get or create the directory for the current test run, based on serial number and start time.
 
         Returns:
-            Path: The path to the created (or existing) run data directory.
+            Path: The run data directory.
         """
-        _dir = (
-            self.DataDirectory
-            / self.SerialNumber
-            / self.StartTime.strftime("%Y%m%d_%H%M%S")
-        )
-        _dir.mkdir(parents=True, exist_ok=True)
+        # Cache values to avoid repeated property lookups
+        data_dir = self.DataDirectory
+        serial = self.SerialNumber
+        start_time = self.StartTime
+        if not serial or not start_time:
+            # Fallback to a default directory if not set
+            _dir = data_dir / "Unknown" / "Unknown"
+        else:
+            _dir = data_dir / serial / start_time.strftime("%Y%m%d_%H%M%S")
+        if not _dir.exists():
+            _dir.mkdir(parents=True, exist_ok=True)
         return _dir
 
     parameterChanged = QtCore.Signal(str, object)
+    """Signal emitted when any parameter changes."""
 
     def _get_parameter(self, key: str, default=None):
         """
-        Retrieve the value associated with the given key from the internal data dictionary.
-        If the key does not exist, set it to the provided default value and return the default.
+        Get a parameter value.
 
         Args:
-            key (str): The key to look up in the internal data dictionary.
-            default (Any, optional): The value to set and return if the key is not found. Defaults to None.
+            key (str): The parameter key.
+            default: The default value if not set.
 
         Returns:
-            Any: The value associated with the key, or the default value if the key was not present.
+            The parameter value or default.
         """
-        if key in self.__parameters:
-            return self.__parameters[key]
-        else:
-            self._set_parameter(key, default)
-            return default
+        return self.__parameters.get(key, default)
 
     def _set_parameter(self, key: str, value):
         """
-        Sets the value of a parameter in the internal data dictionary.
+        Set a parameter value and emit the parameterChanged signal.
 
         Args:
-            key (str): The key identifying the parameter to set.
-            value: The value to assign to the parameter.
-
+            key (str): The parameter key.
+            value: The value to set.
         """
         self.__parameters[key] = value
         self.parameterChanged.emit(key, value)
 
     def _get_setting(self, key: str, default=None):
         """
-        Retrieve the value associated with the given key from the settings.
-
-        If the key exists in the settings, its value is returned. If the key does not exist,
-        the default value is set for the key and returned.
+        Get a persistent setting from QSettings.
 
         Args:
-            key (str): The key to look up in the settings.
-            default (Any, optional): The value to set and return if the key does not exist. Defaults to None.
+            key (str): The setting key.
+            default: The default value if not set.
 
         Returns:
-            Any: The value associated with the key, or the default value if the key was not present.
+            The setting value or default.
         """
         if self.__settings.contains(key):
             return self.__settings.value(key)
-        else:
-            self._set_setting(key, default)
-            return default
+        self._set_setting(key, default)
+        return default
 
     def _set_setting(self, key: str, value):
         """
-        Sets a configuration setting by assigning the specified value to the given key.
+        Set a persistent setting in QSettings.
 
         Args:
-            key (str): The name of the setting to update.
-            value: The value to assign to the setting.
-
-        Returns:
-            None
+            key (str): The setting key.
+            value: The value to set.
         """
         self.__settings.setValue(key, value)
 
     def _get_time(self) -> datetime:
         """
-        Returns the current date and time in the configured timezone.
+        Get the current local time.
 
         Returns:
-            datetime: The current datetime object localized to the instance's timezone.
+            datetime: The current time in the configured timezone.
         """
         return datetime.now(self.__timezone)
 
     def rowCount(self, parent=None):
         """
-        Returns the number of rows in the model.
+        Get the number of rows (tests) in the model.
 
         Args:
-            parent (QModelIndex, optional): The parent index. Defaults to None.
+            parent: Not used.
 
         Returns:
-            int: The number of rows (tests) in the model.
+            int: The number of tests.
         """
         return len(self.__tests)
 
     def columnCount(self, parent=None):
         """
-        Returns the number of columns for the model.
+        Get the number of columns in the model.
 
         Args:
-            parent (QModelIndex, optional): The parent index. Defaults to None.
+            parent: Not used.
 
         Returns:
-            int: The number of columns in the model (always 2).
+            int: The number of columns (always 2: Test, Status).
         """
         return 2
 
     def data(self, index, role=QtCore.Qt.DisplayRole):
         """
-        Returns the data associated with the specified index and role in the model.
+        Get the data for a given index and role.
 
         Args:
-            index (QModelIndex): The index of the item in the model.
-            role (int, optional): The role for which the data is requested. Defaults to QtCore.Qt.DisplayRole.
+            index (QModelIndex): The model index.
+            role (int): The Qt role.
 
         Returns:
-            Any: The data for the given index and role. Returns the test's name if the first column is selected,
-                 the test's status text if the second column is selected, the test object itself for UserRole,
-                 or None if the index is invalid or the role is unrecognized.
+            The data for the cell, or None.
         """
-        if not index.isValid() or index.row() >= len(self.__tests):
+        row = index.row()
+        col = index.column()
+        if not index.isValid() or row >= len(self.__tests) or col >= 2:
             return None
+        _test = self.__tests[row]
         if role == QtCore.Qt.DisplayRole:
-            _test = self.__tests[index.row()]
-            if index.column() >= 2:
-                return None
-            if index.column() == 0:
-                return _test.Name
-            elif index.column() == 1:
-                return _test.Status
+            return _test.Name if col == 0 else _test.Status
         elif role == QtCore.Qt.UserRole:
-            return self.__tests[index.row()]
+            return _test
         return None
 
     def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
         """
-        Returns the header data for a given section and orientation.
+        Get the header data for the table.
 
-        Parameters:
-            section (int): The index of the header section.
-            orientation (Qt.Orientation): The orientation (horizontal or vertical) of the header.
-            role (int, optional): The display role for which the data is requested. Defaults to QtCore.Qt.DisplayRole.
+        Args:
+            section (int): The section index.
+            orientation (Qt.Orientation): The orientation.
+            role (int): The Qt role.
 
         Returns:
-            Any: The header data for the specified section and orientation if the role is DisplayRole and orientation is Horizontal; otherwise, delegates to the superclass implementation.
+            The header label or None.
         """
         if role == QtCore.Qt.DisplayRole and orientation == QtCore.Qt.Horizontal:
-            if section == 0:
-                return "Test"
-            elif section == 1:
-                return "Status"
+            return ("Test", "Status")[section] if section in (0, 1) else None
         return super().headerData(section, orientation, role)
 
     @tester._member_logger
     def addTest(self, test: Test):
         """
-        Adds a test to the end of the test list and emits the appropriate signals.
+        Add a test to the sequence and connect its signals for UI updates.
 
         Args:
             test (Test): The test instance to add.
@@ -574,39 +508,39 @@ class TestSequence(QtCore.QAbstractTableModel):
         row = len(self.__tests)
         self.beginInsertRows(QtCore.QModelIndex(), row, row)
         self.__tests.append(test)
-        test.nameChanged.connect(
-            lambda: self.dataChanged.emit(
-                self.index(row, 0), self.index(row, 0), [QtCore.Qt.DisplayRole]
-            )
-        )
-        test.statusChanged.connect(
-            lambda: self.dataChanged.emit(
-                self.index(row, 1), self.index(row, 1), [QtCore.Qt.DisplayRole]
-            )
-        )
+        # Use partial to avoid late binding in lambda
+        # from functools import partial
+        # test.nameChanged.connect(
+        #     partial(self._emit_data_changed, row, 0)
+        # )
+        # test.statusChanged.connect(
+        #     partial(self._emit_data_changed, row, 1)
+        # )
         self.endInsertRows()
         self.layoutChanged.emit()
+
+    def _emit_data_changed(self, row, col):
+        """
+        Emit the dataChanged signal for a specific cell.
+
+        Args:
+            row (int): The row index.
+            col (int): The column index.
+        """
+        self.dataChanged.emit(
+            self.index(row, col), self.index(row, col), [QtCore.Qt.DisplayRole]
+        )
 
     @tester._member_logger
     def get_command_line_parser(self, app: QtWidgets.QApplication):
         """
-        Configures and processes command-line options for the application using Qt's QCommandLineParser.
+        Create and process a QCommandLineParser for command-line options.
 
         Args:
-            app (QtWidgets.QApplication): The QApplication instance required for processing command-line options.
+            app (QApplication): The application instance.
 
         Returns:
-            QtCore.QCommandLineParser: The configured command-line parser after processing the application's arguments.
-
-        Command-line options added:
-            -d, --directory <directory> : Set the data directory (default: self.DataDirectory)
-            -s, --serial <serial>       : The serial number on which to test (default: self.SerialNumber)
-            -m, --model <model>         : The model number on which to test (default: self.ModelName)
-            -t, --test <test>           : The test to run
-            -l, --list                  : List the available tests
-            -r, --run                   : Run the tests
-            --help                      : Show help information
-            --version                   : Show version information
+            QCommandLineParser: The configured parser.
         """
         _options = QtCore.QCommandLineParser()
         _context = _options.__class__.__name__
@@ -669,20 +603,13 @@ class TestSequence(QtCore.QAbstractTableModel):
     @tester._member_logger
     def load_ui(self, index: int, container: QtWidgets.QWidget):
         """
-        Loads the UI for the test at the specified index into the provided container widget.
-
-        This method first releases the UI of any previously loaded test. If the index is valid,
-        it loads the UI for the test at the given index into the container and updates the
-        current UI reference. If the index is invalid, it clears the current UI reference.
+        Load the UI for the test at the given index into the provided container.
 
         Args:
-            index (int): The index of the test whose UI should be loaded.
-            container (QtWidgets.QWidget): The widget container where the test UI will be loaded.
-
-        Returns:
-            None
+            index (int): The test index.
+            container (QWidget): The container widget.
         """
-        prev_ui = getattr(self, "_currentui", None)
+        prev_ui = self._currentui
         if prev_ui is not None:
             prev_ui.release_ui()
         if 0 <= index < len(self.__tests):
@@ -695,21 +622,11 @@ class TestSequence(QtCore.QAbstractTableModel):
     @tester._member_logger
     def on_generate_report(self, path: str = None, test: str = None):
         """
-        Generates a PDF report for the test sequence.
-
-        If a specific test name is provided, generates a report section for that test only.
-        Otherwise, generates report sections for all tests in the sequence.
+        Generate a PDF report for the test sequence or a specific test.
 
         Args:
-            path (str, optional): The file path where the PDF report will be saved. If not provided, uses the default report path.
-            test (str, optional): The name of a specific test to generate a report for. If not provided, includes all tests.
-
-        Returns:
-            None
-
-        Logs:
-            - Info message when report generation starts.
-            - Error message if a specified test is not found.
+            path (str, optional): The output path for the report.
+            test (str, optional): The name of a specific test to report.
         """
         _path = path or str(self.PdfReportPath.resolve())
         _parent = Path(_path).parent
@@ -717,7 +634,6 @@ class TestSequence(QtCore.QAbstractTableModel):
             _parent.mkdir(parents=True, exist_ok=True)
         self.__logger.info(f"Generating report at {_path}")
 
-        # Begin generating a PDF document at _path
         _report = TestReport(_path)
         _start_time = self.StartTime
         _end_time = self.EndTime
@@ -733,14 +649,11 @@ class TestSequence(QtCore.QAbstractTableModel):
             self.Status,
         )
 
-        # Each test can append its own report section
-        if test is None:
+        if test is None or test == "":
             for _test in self.__tests:
                 _test.on_generate_report(_report)
         else:
-            # Use a dict for O(1) lookup if many tests
-            _test_map = {t.Name: t for t in self.__tests}
-            _selected_test = _test_map.get(test)
+            _selected_test = next((t for t in self.__tests if t.Name == test), None)
             if _selected_test:
                 _selected_test.on_generate_report(_report)
             else:
@@ -752,81 +665,56 @@ class TestSequence(QtCore.QAbstractTableModel):
     @tester._member_logger
     def on_open(self, path: str):
         """
-        Opens a JSON file at the specified path and loads its contents.
-        Iterates through the key-value pairs in the JSON data:
-        - If the key is "Tests", it matches test names in self.__tests and
-          calls their on_open method with the corresponding data.
-        - For all other keys, stores the value in self.__data.
+        Load test sequence data and test results from a JSON file.
 
         Args:
-            path (str): The file path to the JSON file to open.
-
-        Raises:
-            FileNotFoundError: If the specified file does not exist.
-            json.JSONDecodeError: If the file is not valid JSON.
+            path (str): The path to the JSON file.
         """
         with open(path, "r") as _file:
             _data = json.load(_file)
-            for _key, _value in _data:
-                if _key == "Tests":
-                    for _test in self.__tests:
-                        if _test.Name in _value:
-                            _test.on_open(_value[_test.Name])
-                else:
-                    self._set_parameter(_key, _value)
+            tests_data = _data.pop("Tests", None)
+            if tests_data:
+                name_to_test = {t.Name: t for t in self.__tests}
+                for test_name, test_data in tests_data.items():
+                    test_obj = name_to_test.get(test_name)
+                    if test_obj:
+                        test_obj.on_open(test_data)
+            for _key, _value in _data.items():
+                self._set_parameter(_key, _value)
 
     @tester._member_logger
     def on_save(self, path: str = None):
         """
-        Saves the current test sequence data to a JSON file.
-        Serializes the internal data, including all contained tests, and writes
-        it to the specified file path.
-        If no path is provided, uses the default data file path. Handles
-        serialization of datetime objects.
-        Args:
-            path (str, optional): The file path to save the data to. If None,
-                                  uses the default data file path.
-        Raises:
-            TypeError: If an object that is not serializable is encountered
-                       during JSON serialization.
-        """
-        _data = self.__parameters
-        _test_data = {}
-        for _test in self.__tests:
-            _test_data[_test.Name] = _test.on_save()
-        _data["Tests"] = _test_data
-        if path is None:
-            _path = str(self.DataFilePath.resolve())
-        else:
-            _path = path
+        Save the current test sequence data and test results to a JSON file.
 
-        def _json_serial(object):
-            if isinstance(object, datetime):
-                return object.isoformat()
-            raise TypeError(f"Type {type(object)} not serializable")
+        Args:
+            path (str, optional): The path to save the file. Defaults to DataFilePath.
+        """
+        _data = dict(self.__parameters)
+        _test_data = {t.Name: t.on_save() for t in self.__tests}
+        _data["Tests"] = _test_data
+        _path = str(self.DataFilePath.resolve()) if path is None else path
+
+        def _json_serial(obj):
+            if isinstance(obj, datetime):
+                return obj.isoformat()
+            raise TypeError(f"Type {type(obj)} not serializable")
 
         with open(_path, "w") as _file:
             json.dump(_data, _file, indent=4, default=_json_serial)
 
     testStarted = QtCore.Signal(int)
+    """Signal emitted when a test is started (by index)."""
 
     @tester._member_logger
     def on_start_test(self, serial_number: str, model_name: str = "", test: str = None):
         """
-        Executes the test sequence for a given serial number and model name.
-
-        This method initializes the test environment, resets test states, sets up devices,
-        and runs either all tests or a specified test. It manages test timing, status tracking,
-        and handles cancellation requests. After execution, it tears down devices, calculates
-        duration, updates the overall status, saves results, and generates a report.
+        Start the test sequence or a specific test.
 
         Args:
-            serial_number (str): The serial number of the device under test.
-            model_name (str, optional): The model name of the device. Defaults to "".
-            test (str, optional): The name of a specific test to run. If None, all tests are run. Defaults to None.
-
-        Returns:
-            None
+            serial_number (str): The serial number for the test run.
+            model_name (str, optional): The model name.
+            test (str, optional): The name of a specific test to run.
         """
         self.__logger.info(f"Executing tests for serial number {serial_number}")
         self.reset_test_data()
@@ -837,25 +725,23 @@ class TestSequence(QtCore.QAbstractTableModel):
         self.__devices.setup()
         _data_directory = self.RunDataDirectory
         _statuses = []
+        test_name = test
+        cancel = self.__cancel
         for _index, _test in enumerate(self.__tests):
-            if self.__cancel.cancelled:
+            if cancel.cancelled:
                 break
-            if test and _test.Name != test:
+            if test_name and _test.Name != test_name:
                 continue
             self.testStarted.emit(_index)
             _test.set_data_directory(_data_directory)
-            _status = _test.on_start_test(serial_number, self.__devices)
-            _statuses.append(_status)
-        if self.__cancel.cancelled:
+            _statuses.append(_test.on_start_test(serial_number, self.__devices))
+        if cancel.cancelled:
             self.Status = "Cancelled"
         else:
-            if len(_statuses) == 0:
+            if not _statuses:
                 self.__logger.error(f"Test '{test}' not found.")
             else:
-                if all(_statuses):
-                    self.Status = "Pass"
-                else:
-                    self.Status = "Fail"
+                self.Status = "Pass" if all(_statuses) else "Fail"
         self.__devices.teardown()
         self.EndTime = datetime.now(self.__timezone)
         self.Duration = (self.EndTime - self.StartTime).total_seconds()
@@ -865,40 +751,26 @@ class TestSequence(QtCore.QAbstractTableModel):
     @tester._member_logger
     def on_stop_test(self):
         """
-        Handles the stop test event by triggering the cancellation process.
-
-        This method calls the `cancel` method of the `__cancel` attribute to stop the ongoing test sequence.
+        Request cancellation of the running test sequence.
         """
         self.__cancel.cancel()
 
     @tester._member_logger
     def print_test_list(self):
         """
-        Prints the list of available tests along with their docstrings.
-
-        This method iterates over all tests stored in the `self.__tests` attribute,
-        printing each test's name followed by its docstring, line by line, with indentation.
+        Print the list of available tests and their descriptions to the console.
         """
         print("Available tests:")
         for test in self.__tests:
             print(f"- {test.Name}:")
-            for line in test.__doc__.strip().splitlines():
-                print(f"    {line.strip()}")
+            if test.__doc__:
+                for line in test.__doc__.strip().splitlines():
+                    print(f"    {line.strip()}")
 
     @tester._member_logger
     def reset_test_data(self):
         """
-        Resets the test sequence data and all contained tests to their initial state.
-
-        This method performs the following actions:
-        - Sets the Duration to 0.
-        - Sets EndTime and StartTime to None.
-        - Clears ModelName and SerialNumber.
-        - Sets Status to "Idle".
-        - Resets the cancellation token.
-        - Calls the reset method on each test in the sequence.
-
-        This ensures that all test parameters and statuses are cleared, preparing the sequence for a new test run.
+        Reset all test parameters and test states to their initial values.
         """
         self.Duration = 0
         self.EndTime = None
@@ -907,5 +779,5 @@ class TestSequence(QtCore.QAbstractTableModel):
         self.StartTime = None
         self.Status = "Idle"
         self.__cancel.reset()
-        # Use list comprehension for faster iteration and potential future extension
-        [_test.reset() for _test in self.__tests]
+        for _test in self.__tests:
+            _test.reset()
