@@ -76,7 +76,7 @@ class Ui_TesterWindow(object):
         sizePolicy.setHeightForWidth(self.frameTitle.sizePolicy().hasHeightForWidth())
         self.frameTitle.setSizePolicy(sizePolicy)
         self.frameTitle.setAutoFillBackground(False)
-        self.frameTitle.setStyleSheet(u"background-color: rgb(98, 208, 255);")
+        self.frameTitle.setStyleSheet(u"background-color: rgb(0, 0, 255);")
         self.frameTitle.setFrameShape(QFrame.Shape.NoFrame)
         self.frameTitle.setFrameShadow(QFrame.Shadow.Raised)
         self.layoutTitle = QHBoxLayout(self.frameTitle)

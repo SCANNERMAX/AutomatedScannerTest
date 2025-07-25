@@ -1,275 +1,81 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from PySide6 import QtCore, QtWidgets
 from datetime import datetime
 from dateutil import tz
 import json
-import logging
-import logging.handlers
 from pathlib import Path
 
 import tester
 from tester.manager.devices import DeviceManager
 from tester.manager.report import TestReport
-from tester.tests import _test_list, Test, CancelToken
+from tester.tests import _test_list, CancelToken
 
 
-class TestSequence(QtCore.QAbstractTableModel):
+class TestSequenceModel(QtCore.QAbstractTableModel):
     """
-    Manages the execution, logging, and reporting of a sequence of hardware or software tests.
+    TestSequenceModel manages the execution, logging, and reporting of a sequence of hardware or software tests.
 
-    Provides a Qt model for test management, including test execution, result logging,
-    report generation, and parameter management. Integrates with device management and supports
+    This class provides a Qt model for test management, including test execution, result logging,
+    report generation, and parameter management. It integrates with device management and supports
     both GUI and command-line workflows.
     """
 
-    computerNameChanged = QtCore.Signal(str)
-    """Signal emitted when the computer name changes."""
-    durationChanged = QtCore.Signal(str)
-    """Signal emitted when the test duration changes."""
-    endTimeChanged = QtCore.Signal(str)
-    """Signal emitted when the end time changes."""
-    modelNameChanged = QtCore.Signal(str)
-    """Signal emitted when the model name changes."""
-    serialNumberChanged = QtCore.Signal(str)
-    """Signal emitted when the serial number changes."""
-    startTimeChanged = QtCore.Signal(str)
-    """Signal emitted when the start time changes."""
-    statusChanged = QtCore.Signal(str)
-    """Signal emitted when the test status changes."""
-    testerNameChanged = QtCore.Signal(str)
-    """Signal emitted when the tester name changes."""
-    parameterChanged = QtCore.Signal(str, object)
-    """Signal emitted when any parameter changes."""
-    testStarted = QtCore.Signal(int)
-    """Signal emitted when a test is started (by index)."""
-
-    def __init__(self):
+    def __init__(self, settings: QtCore.QSettings):
         """
-        Initialize the TestSequence, set up logging, device manager, test list, and default parameters.
+        Initialize the TestSequenceModel, set up logging, device manager, test list, and default parameters.
+
+        Args:
+            settings (QtCore.QSettings): The application settings object.
         """
         super().__init__()
-        self.__logger = tester._get_class_logger(self.__class__)
-        self.__settings = QtCore.QSettings(
-            QtCore.QSettings.Format.IniFormat,
-            QtCore.QSettings.Scope.SystemScope,
-            tester.__company__,
-            tester.__application__,
-            self,
-        )
+        self.__settings = settings
         self.__timezone = tz.tzlocal()
         self.__cancel = CancelToken()
         self.__parameters = {}
         self.__devices = DeviceManager(self.__settings)
         self.__tests = []
-        self._currentui = None
-        self._init_tests()
-        self.reset_test_data()
-        self.ComputerName = self.__devices.ComputerName
-        self.TesterName = self.__devices.UserName
-        self._start_logging(self.DataDirectory)
-        logging.root.setLevel(logging.DEBUG)
+        self.__currentui = None
 
-    @tester._member_logger
-    def _init_tests(self):
-        """
-        Initialize the list of tests using the test list factory.
-        """
-        settings = self.__settings
-        cancel = self.__cancel
-        for _test in _test_list():
-            self.addTest(_test(settings, cancel))
-
-    @tester._member_logger
-    def _start_logging(self, log_path: Path = None):
-        """
-        Start logging to a rotating file handler in the specified log path.
-
-        Args:
-            log_path (Path): Directory where log files will be stored.
-        """
-        log_file = log_path / datetime.today().strftime("log_%Y%m%d_%H%M%S.log")
-        handler = logging.handlers.RotatingFileHandler(
-            log_file, maxBytes=5 * 1048576, backupCount=7
-        )
-        handler.setFormatter(logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        ))
-        logging.root.addHandler(handler)
-        self.__logger.info(f"Logging started at {log_file}")
-
-    def get_computer_name(self) -> str:
-        """
-        Get the current computer name.
-
-        Returns:
-            str: The computer name.
-        """
-        return self._get_parameter("ComputerName", "")
-
-    def set_computer_name(self, value: str):
-        """
-        Set the computer name and emit the change signal.
-
-        Args:
-            value (str): The new computer name.
-        """
-        self._set_parameter("ComputerName", value)
-        self.computerNameChanged.emit(value)
-
-    ComputerName = QtCore.Property(str, get_computer_name, set_computer_name)
-
-    def get_duration(self) -> float:
-        """
-        Get the test duration.
-
-        Returns:
-            float: The duration in seconds.
-        """
-        return self._get_parameter("Duration", 0.0)
-
-    def set_duration(self, value: float):
-        """
-        Set the test duration and emit the change signal.
-
-        Args:
-            value (float): The new duration in seconds.
-        """
-        self._set_parameter("Duration", value)
-        self.durationChanged.emit(f"{value} sec")
-
-    Duration = QtCore.Property(float, get_duration, set_duration)
-
-    def get_end_time(self) -> datetime:
-        """
-        Get the end time of the test sequence.
-
-        Returns:
-            datetime: The end time.
-        """
-        return self._get_parameter("EndTime", self._get_time())
-
-    def set_end_time(self, value: datetime):
-        """
-        Set the end time and emit the change signal.
-
-        Args:
-            value (datetime): The new end time.
-        """
-        self._set_parameter("EndTime", value)
-        try:
-            self.endTimeChanged.emit(value.strftime("%H:%M:%S"))
-        except Exception:
-            self.endTimeChanged.emit("")
-
-    EndTime = QtCore.Property(datetime, get_end_time, set_end_time)
-
-    def get_model_name(self) -> str:
-        """
-        Get the model name.
-
-        Returns:
-            str: The model name.
-        """
-        return self._get_parameter("ModelName", "")
-
-    def set_model_name(self, value: str):
-        """
-        Set the model name and emit the change signal.
-
-        Args:
-            value (str): The new model name.
-        """
-        self._set_parameter("ModelName", value)
-        self.modelNameChanged.emit(value)
-
-    ModelName = QtCore.Property(str, get_model_name, set_model_name)
-
-    def get_serial_number(self) -> str:
-        """
-        Get the serial number.
-
-        Returns:
-            str: The serial number.
-        """
-        return self._get_parameter("SerialNumber", "")
-
-    def set_serial_number(self, value: str):
-        """
-        Set the serial number and emit the change signal.
-
-        Args:
-            value (str): The new serial number.
-        """
-        self._set_parameter("SerialNumber", value)
-        self.serialNumberChanged.emit(value)
-
-    SerialNumber = QtCore.Property(str, get_serial_number, set_serial_number)
-
-    def get_start_time(self) -> datetime:
-        """
-        Get the start time of the test sequence.
-
-        Returns:
-            datetime: The start time.
-        """
-        return self._get_parameter("StartTime", self._get_time())
-
-    def set_start_time(self, value: datetime):
-        """
-        Set the start time and emit the change signal.
-
-        Args:
-            value (datetime): The new start time.
-        """
-        self._set_parameter("StartTime", value)
-        try:
-            self.startTimeChanged.emit(value.strftime("%H:%M:%S"))
-        except Exception:
-            self.startTimeChanged.emit("")
-
-    StartTime = QtCore.Property(datetime, get_start_time, set_start_time)
-
-    def get_status(self) -> str:
-        """
-        Get the current status of the test sequence.
-
-        Returns:
-            str: The status string.
-        """
-        return self._get_parameter("Status", "Idle")
-
-    def set_status(self, value: str):
-        """
-        Set the status and emit the change signal.
-
-        Args:
-            value (str): The new status.
-        """
-        self._set_parameter("Status", value)
-        self.statusChanged.emit(value)
-
-    Status = QtCore.Property(str, get_status, set_status)
-
-    def get_tester_name(self) -> str:
-        """
-        Get the tester's name.
-
-        Returns:
-            str: The tester's name.
-        """
-        return self._get_parameter("TesterName", "")
-
-    def set_tester_name(self, value: str):
-        """
-        Set the tester's name and emit the change signal.
-
-        Args:
-            value (str): The new tester name.
-        """
-        self._set_parameter("TesterName", value)
-        self.testerNameChanged.emit(value)
-
-    TesterName = QtCore.Property(str, get_tester_name, set_tester_name)
+    ComputerName = QtCore.Property(
+        str,
+        fget=lambda self: self._get_parameter("ComputerName", ""),
+        fset=lambda self, value: self._set_parameter("ComputerName", value),
+    )
+    Duration = QtCore.Property(
+        float,
+        fget=lambda self: self._get_parameter("Duration", 0.0),
+        fset=lambda self, value: self._set_parameter("Duration", value),
+    )
+    EndTime = QtCore.Property(
+        datetime,
+        fget=lambda self: self._get_parameter("EndTime", self._get_time()),
+        fset=lambda self, value: self._set_parameter("EndTime", value),
+    )
+    ModelName = QtCore.Property(
+        str,
+        fget=lambda self: self._get_parameter("ModelName", ""),
+        fset=lambda self, value: self._set_parameter("ModelName", value),
+    )
+    SerialNumber = QtCore.Property(
+        str,
+        fget=lambda self: self._get_parameter("SerialNumber", ""),
+        fset=lambda self, value: self._set_parameter("SerialNumber", value),
+    )
+    StartTime = QtCore.Property(
+        datetime,
+        fget=lambda self: self._get_parameter("StartTime", self._get_time()),
+        fset=lambda self, value: self._set_parameter("StartTime", value),
+    )
+    Status = QtCore.Property(
+        str,
+        fget=lambda self: self._get_parameter("Status", "Idle"),
+        fset=lambda self, value: self._set_parameter("Status", value),
+    )
+    TesterName = QtCore.Property(
+        str,
+        fget=lambda self: self._get_parameter("TesterName", ""),
+        fset=lambda self, value: self._set_parameter("TesterName", value),
+    )
 
     @property
     def DataDirectory(self) -> Path:
@@ -286,33 +92,6 @@ class TestSequence(QtCore.QAbstractTableModel):
         if not _data_directory.exists():
             _data_directory.mkdir(parents=True, exist_ok=True)
         return _data_directory
-
-    @DataDirectory.setter
-    def DataDirectory(self, value: Path):
-        """
-        Set the data directory, move existing files, and restart logging.
-
-        Args:
-            value (Path): The new data directory path.
-        """
-        _old = self.DataDirectory
-        new_value = value.resolve()
-        if new_value == _old.resolve():
-            return
-        self.__logger.info(f"Moving data directory from {_old} to {value}")
-        logging.shutdown()
-        for handler in list(logging.root.handlers):
-            if isinstance(handler, logging.handlers.RotatingFileHandler):
-                handler.close()
-                logging.root.removeHandler(handler)
-        for _old_file in _old.rglob('*'):
-            if _old_file.is_file():
-                _new_file = new_value / _old_file.relative_to(_old)
-                _new_file.parent.mkdir(parents=True, exist_ok=True)
-                if not _new_file.exists():
-                    _old_file.rename(_new_file)
-        self._start_logging(new_value)
-        self._set_setting("DataDirectory", str(new_value))
 
     @property
     def DataFilePath(self) -> Path:
@@ -368,14 +147,13 @@ class TestSequence(QtCore.QAbstractTableModel):
 
     def _set_parameter(self, key: str, value):
         """
-        Set a parameter value and emit the parameterChanged signal.
+        Set a parameter value.
 
         Args:
             key (str): The parameter key.
             value: The value to set.
         """
         self.__parameters[key] = value
-        self.parameterChanged.emit(key, value)
 
     def _get_setting(self, key: str, default=None):
         """
@@ -403,12 +181,21 @@ class TestSequence(QtCore.QAbstractTableModel):
         """
         self.__settings.setValue(key, value)
 
-    def _get_time(self) -> datetime:
+    def _get_time(self):
         """
-        Get the current local time.
+        Get the current local time in the configured timezone.
 
         Returns:
-            datetime: The current time in the configured timezone.
+            datetime: The current time.
+        """
+        return datetime.now(self.__timezone)
+
+    def getTime(self) -> datetime:
+        """
+        Get the current local time in the configured timezone.
+
+        Returns:
+            datetime: The current time.
         """
         return datetime.now(self.__timezone)
 
@@ -447,13 +234,13 @@ class TestSequence(QtCore.QAbstractTableModel):
         Returns:
             The data for the cell, or None.
         """
-        row = index.row()
-        col = index.column()
-        if not index.isValid() or row >= len(self.__tests) or col >= 2:
+        _row = index.row()
+        _col = index.column()
+        if not index.isValid() or _row >= len(self.__tests) or _col >= 2:
             return None
-        _test = self.__tests[row]
+        _test = self.__tests[_row]
         if role == QtCore.Qt.DisplayRole:
-            return _test.Name if col == 0 else _test.Status
+            return _test.Name if _col == 0 else _test.Status
         elif role == QtCore.Qt.UserRole:
             return _test
         return None
@@ -474,103 +261,20 @@ class TestSequence(QtCore.QAbstractTableModel):
             return ("Test", "Status")[section] if section in (0, 1) else None
         return super().headerData(section, orientation, role)
 
-    @tester._member_logger
-    def addTest(self, test: Test):
+    def extend(self, tests: list):
         """
-        Add a test to the sequence and connect its signals for UI updates.
+        Extend the list of tests with new test objects.
 
         Args:
-            test (Test): The test instance to add.
+            tests (list): A list of test objects to add.
         """
-        row = len(self.__tests)
-        self.beginInsertRows(QtCore.QModelIndex(), row, row)
-        self.__tests.append(test)
-        self.endInsertRows()
+        if not isinstance(tests, list):
+            raise TypeError("tests must be a list")
+        self.__tests.extend(tests)
         self.layoutChanged.emit()
 
-    def _emit_data_changed(self, row, col):
-        """
-        Emit the dataChanged signal for a specific cell.
-
-        Args:
-            row (int): The row index.
-            col (int): The column index.
-        """
-        self.dataChanged.emit(
-            self.index(row, col), self.index(row, col), [QtCore.Qt.DisplayRole]
-        )
-
     @tester._member_logger
-    def get_command_line_parser(self, app: QtWidgets.QApplication):
-        """
-        Create and process a QCommandLineParser for command-line options.
-
-        Args:
-            app (QApplication): The application instance.
-
-        Returns:
-            QCommandLineParser: The configured parser.
-        """
-        _options = QtCore.QCommandLineParser()
-        _context = _options.__class__.__name__
-        _options.setApplicationDescription(tester.__doc__)
-        _options.addOption(
-            QtCore.QCommandLineOption(
-                ["d", "directory"],
-                QtCore.QCoreApplication.translate(_context, "Set the data directory."),
-                "directory",
-                str(self.DataDirectory),
-            )
-        )
-        _options.addOption(
-            QtCore.QCommandLineOption(
-                ["s", "serial"],
-                QtCore.QCoreApplication.translate(
-                    _context, "The serial number on which to test."
-                ),
-                "serial",
-                self.SerialNumber,
-            )
-        )
-        _options.addOption(
-            QtCore.QCommandLineOption(
-                ["m", "model"],
-                QtCore.QCoreApplication.translate(
-                    _context, "The model number on which to test."
-                ),
-                "model",
-                self.ModelName,
-            )
-        )
-        _options.addOption(
-            QtCore.QCommandLineOption(
-                ["t", "test"],
-                QtCore.QCoreApplication.translate(_context, "The test to run."),
-                "test",
-                None,
-            )
-        )
-        _options.addOption(
-            QtCore.QCommandLineOption(
-                ["l", "list"],
-                QtCore.QCoreApplication.translate(
-                    _context, "List the available tests."
-                ),
-            )
-        )
-        _options.addOption(
-            QtCore.QCommandLineOption(
-                ["r", "run"],
-                QtCore.QCoreApplication.translate(_context, "Run the tests."),
-            )
-        )
-        _options.addHelpOption()
-        _options.addVersionOption()
-        _options.process(app)
-        return _options
-
-    @tester._member_logger
-    def load_ui(self, index: int, container: QtWidgets.QWidget):
+    def loadUi(self, index: int, container: QtWidgets.QWidget):
         """
         Load the UI for the test at the given index into the provided container.
 
@@ -578,91 +282,364 @@ class TestSequence(QtCore.QAbstractTableModel):
             index (int): The test index.
             container (QWidget): The container widget.
         """
-        prev_ui = self._currentui
+        prev_ui = self.__currentui
         if prev_ui is not None:
             prev_ui.release_ui()
         if 0 <= index < len(self.__tests):
             current_ui = self.__tests[index]
-            self._currentui = current_ui
+            self.__currentui = current_ui
             current_ui.load_ui(container)
         else:
-            self._currentui = None
+            self.__currentui = None
 
     @tester._member_logger
-    def on_generate_report(self, path: str = None, test: str = None):
+    def printTestList(self):
+        """
+        Print the list of available tests and their descriptions to the console.
+        """
+        print("Available tests:")
+        for test in self.__tests:
+            print(f"- {test.Name}:")
+            if test.__doc__:
+                print(
+                    "\n".join(
+                        f"    {line.strip()}"
+                        for line in test.__doc__.strip().splitlines()
+                    )
+                )
+
+    @property
+    def Tests(self):
+        """
+        Get the list of available tests.
+
+        Returns:
+            list: The list of test objects.
+        """
+        return self.__tests
+
+    @tester._member_logger
+    def setupDevices(self):
+        """
+        Set up the devices required for the test sequence.
+        """
+        self.__devices.setup()
+
+    @property
+    def Parameters(self):
+        """
+        Get the current parameters of the test sequence.
+
+        Returns:
+            dict: A dictionary of parameter names and values.
+        """
+        return self.__parameters
+
+    @property
+    def Cancel(self):
+        """
+        Get the cancel token for the test sequence.
+
+        Returns:
+            CancelToken: The cancel token.
+        """
+        return self.__cancel
+
+    @property
+    def Devices(self):
+        """
+        Get the device manager.
+
+        Returns:
+            DeviceManager: The device manager instance.
+        """
+        return self.__devices
+
+
+class TestWorker(QtCore.QObject):
+    """
+    Worker class to run tests in a separate thread.
+    This allows the UI to remain responsive during test execution.
+    """
+
+    computerNameChanged = QtCore.Signal(str)
+    durationChanged = QtCore.Signal(str)
+    endTimeChanged = QtCore.Signal(str)
+    finishedGeneratingReport = QtCore.Signal()
+    finishedLoadingData = QtCore.Signal()
+    finishedSavingData = QtCore.Signal()
+    finishedTest = QtCore.Signal(int, bool)
+    finishedTesting = QtCore.Signal(bool)
+    modelNameChanged = QtCore.Signal(str)
+    serialNumberChanged = QtCore.Signal(str)
+    startTimeChanged = QtCore.Signal(str)
+    startedTest = QtCore.Signal(int)
+    statusChanged = QtCore.Signal(str)
+    testerNameChanged = QtCore.Signal(str)
+
+    def __init__(self, sequence: TestSequenceModel):
+        """
+        Initialize the TestWorker.
+
+        Args:
+            sequence (TestSequenceModel): The test sequence model to operate on.
+        """
+        super().__init__()
+        self.sequence = sequence
+
+    def getComputerName(self) -> str:
+        """
+        Get the current computer name.
+
+        Returns:
+            str: The computer name.
+        """
+        return self.sequence.ComputerName
+
+    def setComputerName(self, value: str):
+        """
+        Set the computer name and emit the change signal.
+
+        Args:
+            value (str): The new computer name.
+        """
+        self.sequence.ComputerName = value
+        self.computerNameChanged.emit(value)
+
+    def getDuration(self) -> float:
+        """
+        Get the test duration.
+
+        Returns:
+            float: The duration in seconds.
+        """
+        return self.sequence.Duration
+
+    def setDuration(self, value: float):
+        """
+        Set the test duration and emit the change signal.
+
+        Args:
+            value (float): The new duration in seconds.
+        """
+        self.sequence.Duration = value
+        self.durationChanged.emit(f"{value} sec")
+
+    def getEndTime(self) -> datetime:
+        """
+        Get the end time of the test sequence.
+
+        Returns:
+            datetime: The end time.
+        """
+        return self.sequence.EndTime
+
+    def setEndTime(self, value: datetime):
+        """
+        Set the end time and emit the change signal.
+
+        Args:
+            value (datetime): The new end time.
+        """
+        self.sequence.EndTime = value
+        try:
+            self.endTimeChanged.emit(value.strftime("%H:%M:%S"))
+        except Exception:
+            self.endTimeChanged.emit("")
+
+    def getModelName(self) -> str:
+        """
+        Get the model name.
+
+        Returns:
+            str: The model name.
+        """
+        return self.sequence.ModelName
+
+    def setModelName(self, value: str):
+        """
+        Set the model name and emit the change signal.
+
+        Args:
+            value (str): The new model name.
+        """
+        self.sequence.ModelName = value
+        self.modelNameChanged.emit(value)
+
+    def getSerialNumber(self) -> str:
+        """
+        Get the serial number.
+
+        Returns:
+            str: The serial number.
+        """
+        return self.sequence.SerialNumber
+
+    def setSerialNumber(self, value: str):
+        """
+        Set the serial number and emit the change signal.
+
+        Args:
+            value (str): The new serial number.
+        """
+        self.sequence.SerialNumber = value
+        self.serialNumberChanged.emit(value)
+
+    def getStartTime(self) -> datetime:
+        """
+        Get the start time of the test sequence.
+
+        Returns:
+            datetime: The start time.
+        """
+        return self.sequence.StartTime
+
+    def setStartTime(self, value: datetime):
+        """
+        Set the start time and emit the change signal.
+
+        Args:
+            value (datetime): The new start time.
+        """
+        self.sequence.StartTime = value
+        try:
+            self.startTimeChanged.emit(value.strftime("%H:%M:%S"))
+        except Exception:
+            self.startTimeChanged.emit("")
+
+    def getStatus(self) -> str:
+        """
+        Get the current status of the test sequence.
+
+        Returns:
+            str: The status string.
+        """
+        return self.sequence.Status
+
+    def setStatus(self, value: str):
+        """
+        Set the status and emit the change signal.
+
+        Args:
+            value (str): The new status.
+        """
+        self.sequence.Status = value
+        self.statusChanged.emit(value)
+
+    def getTesterName(self) -> str:
+        """
+        Get the tester's name.
+
+        Returns:
+            str: The tester's name.
+        """
+        return self.sequence.TesterName
+
+    def setTesterName(self, value: str):
+        """
+        Set the tester's name and emit the change signal.
+
+        Args:
+            value (str): The new tester name.
+        """
+        self.sequence.TesterName = value
+        self.testerNameChanged.emit(value)
+
+    def resetTestData(self):
+        """
+        Reset all test parameters and test states to their initial values.
+        """
+        QtCore.qInfo("Resetting test data")
+        self.Duration = 0
+        self.EndTime = None
+        self.ModelName = ""
+        self.SerialNumber = ""
+        self.StartTime = None
+        self.Status = "Idle"
+        self.sequence.Cancel.reset()
+        for _test in self.sequence.Tests:
+            _test.reset()
+
+    ComputerName = QtCore.Property(str, getComputerName, setComputerName)
+    Duration = QtCore.Property(float, getDuration, setDuration)
+    EndTime = QtCore.Property(datetime, getEndTime, setEndTime)
+    ModelName = QtCore.Property(str, getModelName, setModelName)
+    SerialNumber = QtCore.Property(str, getSerialNumber, setSerialNumber)
+    StartTime = QtCore.Property(datetime, getStartTime, setStartTime)
+    Status = QtCore.Property(object, getStatus, setStatus)
+    TesterName = QtCore.Property(str, getTesterName, setTesterName)
+
+    @QtCore.Slot(str)
+    def onGenerateReport(self, path: str = None):
         """
         Generate a PDF report for the test sequence or a specific test.
 
         Args:
             path (str, optional): The output path for the report.
-            test (str, optional): The name of a specific test to report.
         """
-        _path = path or str(self.PdfReportPath.resolve())
+        _path = path or str(self.sequence.PdfReportPath.resolve())
         _parent = Path(_path).parent
         if not _parent.exists():
             _parent.mkdir(parents=True, exist_ok=True)
-        self.__logger.info(f"Generating report at {_path}")
+        QtCore.qInfo(f"Generating report at {_path}")
 
         _report = TestReport(_path)
-        _start_time = self.StartTime
-        _end_time = self.EndTime
+        _startTime = self.StartTime
+        _endTime = self.EndTime
         _report.titlePage(
             self.SerialNumber,
             self.ModelName,
-            _start_time.strftime("%A, %B %d, %Y") if _start_time else "",
-            _start_time.strftime("%H:%M:%S") if _start_time else "",
-            _end_time.strftime("%H:%M:%S") if _end_time else "",
+            _startTime.strftime("%A, %B %d, %Y") if _startTime else "",
+            _startTime.strftime("%H:%M:%S") if _startTime else "",
+            _endTime.strftime("%H:%M:%S") if _endTime else "",
             f"{self.Duration} sec",
             self.TesterName,
             self.ComputerName,
             self.Status,
         )
 
-        if not test:
-            for _test in self.__tests:
+        for _test in self.sequence.Tests:
+            if _test.Status != "Skipped":
                 _test.on_generate_report(_report)
-        else:
-            _selected_test = next((t for t in self.__tests if t.Name == test), None)
-            if _selected_test:
-                _selected_test.on_generate_report(_report)
-            else:
-                self.__logger.error(f"Test '{test}' not found.")
-                return
 
         _report.finish()
+        self.finishedGeneratingReport.emit()
 
-    @tester._member_logger
-    def on_open(self, path: str):
+    @QtCore.Slot(str)
+    def onLoadData(self, path: str):
         """
         Load test sequence data and test results from a JSON file.
 
         Args:
             path (str): The path to the JSON file.
         """
+        QtCore.qInfo(f"Loading test data from file {path}")
         with open(path, "r") as _file:
             _data = json.load(_file)
-            tests_data = _data.pop("Tests", None)
-            if tests_data:
-                name_to_test = {t.Name: t for t in self.__tests}
-                for test_name, test_data in tests_data.items():
-                    test_obj = name_to_test.get(test_name)
-                    if test_obj:
-                        test_obj.on_open(test_data)
+            _tests_data = _data.pop("Tests", None)
+            if _tests_data:
+                _name_to_test = {t.Name: t for t in self.sequence.Tests}
+                for _test_name, _test_data in _tests_data.items():
+                    _test_obj = _name_to_test.get(_test_name)
+                    if _test_obj:
+                        _test_obj.on_open(_test_data)
             for _key, _value in _data.items():
-                self._set_parameter(_key, _value)
+                self.sequence._set_parameter(_key, _value)
+        self.finishedLoadingData.emit()
 
-    @tester._member_logger
-    def on_save(self, path: str = None):
+    @QtCore.Slot(str)
+    def onSaveData(self, path: str = None):
         """
         Save the current test sequence data and test results to a JSON file.
 
         Args:
             path (str, optional): The path to save the file. Defaults to DataFilePath.
         """
-        _data = dict(self.__parameters)
-        _test_data = {t.Name: t.on_save() for t in self.__tests}
+        QtCore.qInfo("Saving test data to file")
+        _data = self.sequence.Parameters.copy()
+        _test_data = {t.Name: t.on_save() for t in self.sequence.Tests}
         _data["Tests"] = _test_data
-        _path = str(self.DataFilePath.resolve()) if path is None else path
+        _path = str(self.sequence.DataFilePath.resolve()) if path is None else path
 
         def _json_serial(obj):
             if isinstance(obj, datetime):
@@ -671,79 +648,75 @@ class TestSequence(QtCore.QAbstractTableModel):
 
         with open(_path, "w") as _file:
             json.dump(_data, _file, indent=4, default=_json_serial)
+        self.finishedSavingData.emit()
 
-    @tester._member_logger
-    def on_start_test(self, serial_number: str, model_name: str = "", test: str = None):
+    @QtCore.Slot(str, str, str)
+    def onStartTest(self, serial_number: str, model_name: str, test: str = None):
         """
         Start the test sequence or a specific test.
 
         Args:
             serial_number (str): The serial number for the test run.
-            model_name (str, optional): The model name.
+            model_name (str): The model name.
             test (str, optional): The name of a specific test to run.
         """
-        self.__logger.info(f"Executing tests for serial number {serial_number}")
-        self.reset_test_data()
+        QtCore.qInfo(f"Executing tests for serial number {serial_number}.")
+        self.resetTestData()
         self.SerialNumber = serial_number
         self.ModelName = model_name
-        self.StartTime = datetime.now(self.__timezone)
+        self.StartTime = self.sequence.getTime()
         self.Status = "Running"
-        self.__devices.setup()
-        _data_directory = self.RunDataDirectory
+        self.sequence.setupDevices()
+        _data_directory = self.sequence.RunDataDirectory
         _statuses = []
-        test_name = test
-        cancel = self.__cancel
-        for _index, _test in enumerate(self.__tests):
-            if cancel.cancelled:
+        _test_name = test
+        _cancel = self.sequence.Cancel
+        for _index, _test in enumerate(self.sequence.Tests):
+            self.startedTest.emit(_index)
+            if _cancel.cancelled:
                 break
-            if test_name and _test.Name != test_name:
+            if _test_name and _test.Name != _test_name:
+                _test.Status = "Skipped"
                 continue
-            self.testStarted.emit(_index)
             _test.set_data_directory(_data_directory)
-            _statuses.append(_test.on_start_test(serial_number, self.__devices))
-        if cancel.cancelled:
+            result = _test.on_start_test(serial_number, self.sequence.Devices)
+            _statuses.append(result)
+            self.finishedTest.emit(_index, result)
+        _final_status = all(_statuses) if _statuses else False
+        if _cancel.cancelled:
             self.Status = "Cancelled"
         else:
             if not _statuses:
-                self.__logger.error(f"Test '{test}' not found.")
+                logger = getattr(self.sequence, "logger", None)
+                if logger:
+                    logger.error(f"Test '{test}' not found.")
             else:
-                self.Status = "Pass" if all(_statuses) else "Fail"
-        self.__devices.teardown()
-        self.EndTime = datetime.now(self.__timezone)
+                self.Status = "Pass" if _final_status else "Fail"
+        self.sequence.Devices.teardown()
+        self.EndTime = datetime.now(self.sequence._timezone)
         self.Duration = (self.EndTime - self.StartTime).total_seconds()
-        self.on_save()
-        self.on_generate_report(test=test)
+        self.onSaveData()
+        self.onGenerateReport()
+        self.finishedTesting.emit(_final_status)
 
-    @tester._member_logger
-    def on_stop_test(self):
+    @QtCore.Slot()
+    def threadStarted(self):
         """
-        Request cancellation of the running test sequence.
+        Initialize the test sequence, setting up the model and connecting signals.
+        Loads the available tests and populates the model.
         """
-        self.__cancel.cancel()
+        seq = self.sequence
+        if hasattr(seq, "beginResetModel"):
+            seq.beginResetModel()
+        if hasattr(seq, "Devices"):
+            self.ComputerName = seq.Devices.ComputerName
+            self.TesterName = seq.Devices.UserName
+        tests = list(_test_list())
+        if hasattr(seq, "beginInsertRows") and hasattr(seq, "endInsertRows"):
+            seq.beginInsertRows(QtCore.QModelIndex(), 0, len(tests) - 1)
+            if hasattr(seq, "extend"):
+                seq.extend(tests)
+            seq.endInsertRows()
+        if hasattr(seq, "endResetModel"):
+            seq.endResetModel()
 
-    @tester._member_logger
-    def print_test_list(self):
-        """
-        Print the list of available tests and their descriptions to the console.
-        """
-        print("Available tests:")
-        for test in self.__tests:
-            print(f"- {test.Name}:")
-            if test.__doc__:
-                for line in test.__doc__.strip().splitlines():
-                    print(f"    {line.strip()}")
-
-    @tester._member_logger
-    def reset_test_data(self):
-        """
-        Reset all test parameters and test states to their initial values.
-        """
-        self.Duration = 0
-        self.EndTime = None
-        self.ModelName = ""
-        self.SerialNumber = ""
-        self.StartTime = None
-        self.Status = "Idle"
-        self.__cancel.reset()
-        for _test in self.__tests:
-            _test.reset()

@@ -1,26 +1,51 @@
 #-*- coding: utf-8 -*-
 from PySide6 import QtCharts, QtCore, QtGui, QtWidgets
+import math
+
 import tester
 import tester.asset.tester_rc
 
 
 class TestReport:
     """
-    Generates a PDF report for test results, including formatted pages, headers, footers, and graphical data.
+    TestReport generates a PDF report for test results, including formatted pages, headers, footers, and graphical data.
+
+    This class uses Qt's PDF and painting APIs to create professional test reports with customizable fonts, page decorations, and embedded images or plots. It supports multi-page reports with automatic page numbering, company branding, and test metadata. The report can include a title page, test sections, blank pages for formatting, and XY data plots.
 
     Attributes:
         pageSize (QtGui.QPageSize.PageSizeId): The size of the PDF pages (default: Letter).
         resolution (int): The resolution of the PDF pages in DPI (default: 300).
-        writer (QtGui.QPdfWriter): The PDF writer object.
-        painter (QtGui.QPainter): The painter used to draw on the PDF.
-        buffer (int): The buffer space in pixels.
-        margin (int): The margin size in pixels.
-        header_height (int): The header height in pixels.
-        footer_height (int): The footer height in pixels.
-        _font_cache (dict): Cache for QFont objects to avoid redundant creation.
-        fontMetrics (QtGui.QFontMetrics): The metrics of the current font for layout calculations.
         rect (QtCore.QRect): The current drawing rectangle for content.
         pageNumber (int): The current page number in the report.
+        fontMetrics (QtGui.QFontMetrics): The metrics of the current font for layout calculations.
+
+    Methods:
+        __init__(path: str):
+            Initializes the TestReport object, sets up the PDF writer and painter, and prepares the report for content generation.
+        finish():
+            Finalizes the PDF report, ensuring an even number of pages and closing the painter.
+        setFont(family: str = "Helvetica", pointSize: int = 10, bold: bool = False, italic: bool = False, underline: bool = False, strikeOut: bool = False):
+            Sets the font properties for the painter.
+        writeLine(text: str = "", pointSize: int = 10, bold: bool = False, italic: bool = False, underline: bool = False, strikeOut: bool = False, halign: QtCore.Qt.AlignmentFlag = QtCore.Qt.AlignmentFlag.AlignLeft):
+            Writes a line of text to the PDF with specified formatting and alignment.
+        newPage():
+            Starts a new page, draws headers, footers, and page decorations, and updates the drawing rectangle.
+        titlePage(serial_number: str, model_name: str, date: str, start_time: str, end_time: str, duration: str, tester_name: str, computer_name: str, status: str):
+            Creates a formatted title page with test and device metadata.
+        blankPage():
+            Inserts a new blank page with a centered message indicating intentional blankness.
+        startTest(name: str, serial_number: str, start_time: str, end_time: str, duration: str, status: str):
+            Starts a new test section, adding test metadata and formatting the page.
+        plotXYData(data: list, title: str, xlabel: str, ylabel: str, path: str):
+            Plots XY data, saves the plot as a PNG, and inserts it into the PDF report.
+
+    Usage:
+        report = TestReport("output.pdf")
+        report.titlePage(...)
+        report.startTest(...)
+        report.writeLine(...)
+        report.plotXYData(...)
+        report.finish()
     """
 
     pageSize = QtGui.QPageSize.PageSizeId.Letter
@@ -41,7 +66,6 @@ class TestReport:
         self.margin = self._convertInches(0.5)
         self.header_height = self._convertInches(1)
         self.footer_height = self._convertInches(1 / 3)
-        self._font_cache = {}
 
     @tester._member_logger
     def _convertInches(self, inches: float) -> int:
@@ -98,6 +122,9 @@ class TestReport:
             underline (bool): Whether the font is underlined.
             strikeOut (bool): Whether the font is struck out.
         """
+        # Cache font objects to avoid redundant creation
+        if not hasattr(self, "_font_cache"):
+            self._font_cache = {}
         key = (family, pointSize, bold, italic, underline, strikeOut)
         font = self._font_cache.get(key)
         if font is None:
@@ -164,7 +191,9 @@ class TestReport:
             self.writer.newPage()
 
         self.rect = self.painter.window()
-        self.rect.adjust(self.margin, self.margin, -self.margin, -self.margin)
+        self.rect.adjust(
+            self.margin, self.margin, -self.margin, -self.margin
+        )
         _header = QtCore.QRect(
             self.rect.left(), self.rect.top(), self.rect.width(), self.header_height
         )
@@ -178,10 +207,12 @@ class TestReport:
             0, self.header_height + self.buffer, 0, -self.footer_height - self.buffer
         )
 
+        # Draw a box around the header
         self.painter.setPen(QtGui.QPen(QtCore.Qt.black, 5))
         self.painter.drawRect(_header)
         _header.adjust(self.buffer, self.buffer, -self.buffer, -self.buffer)
 
+        # Draw logo only if resource exists
         _logo_path = ":/rsc/logo.png"
         _logo_image = QtGui.QImage(_logo_path)
         if not _logo_image.isNull():
@@ -192,6 +223,7 @@ class TestReport:
             _logo_top = _header.top() + (_header.height() - _scaled_logo.height()) / 2
             self.painter.drawImage(_header.left(), int(_logo_top), _scaled_logo)
 
+        # Application title
         _app_title = getattr(tester, "__application__", "Application")
         self.setFont(pointSize=16, bold=True)
         self.painter.drawText(
@@ -203,6 +235,7 @@ class TestReport:
             ),
         )
 
+        # Footer
         self.setFont(pointSize=9)
         self.painter.drawText(
             _footer,
@@ -376,41 +409,47 @@ class TestReport:
         if _height > self.rect.height():
             self.newPage()
 
+        # Prepare the series efficiently
         _series = QtCharts.QLineSeries()
         _series.append([QtCore.QPointF(float(x), float(y)) for x, y in data])
         _series.setPen(QtGui.QPen(QtCore.Qt.blue, 4))
 
+        # Create chart and configure
         _chart = QtCharts.QChart()
         _chart.addSeries(_series)
         _chart.setTitle(title)
         _chart.createDefaultAxes()
-        axis_x = _chart.axisX()
-        axis_y = _chart.axisY()
-        axis_x.setTitleText(xlabel)
-        axis_y.setTitleText(ylabel)
+        _chart.axisX().setTitleText(xlabel)
+        _chart.axisY().setTitleText(ylabel)
         _chart.legend().hide()
         _chart.setBackgroundVisible(False)
         _chart.setBackgroundRoundness(0)
 
+        # Set font only once
         self.setFont()
         _font = self.painter.font()
-        for axis in (axis_x, axis_y):
+        for axis in (_chart.axisX(), _chart.axisY()):
             axis.setTitleFont(_font)
             axis.setLabelsFont(_font)
         _chart.setFont(_font)
         _chart.setTitleFont(_font)
-        axis_x.setGridLinePen(QtGui.QPen(QtCore.Qt.lightGray, 3, QtCore.Qt.PenStyle.DotLine))
-        axis_y.setGridLinePen(QtGui.QPen(QtCore.Qt.lightGray, 3, QtCore.Qt.PenStyle.DotLine))
-        axis_x.setLinePen(QtGui.QPen(QtCore.Qt.black, 5))
-        axis_y.setLinePen(QtGui.QPen(QtCore.Qt.black, 5))
+        _chart.axisX().setGridLinePen(
+            QtGui.QPen(QtCore.Qt.lightGray, 3, QtCore.Qt.PenStyle.DotLine)
+        )
+        _chart.axisY().setGridLinePen(
+            QtGui.QPen(QtCore.Qt.lightGray, 3, QtCore.Qt.PenStyle.DotLine)
+        )
+        _chart.axisX().setLinePen(QtGui.QPen(QtCore.Qt.black, 5))
+        _chart.axisY().setLinePen(QtGui.QPen(QtCore.Qt.black, 5))
 
-        axis_x.setRange(xmin, xmax)
-        axis_x.setTickCount(xTickCount)
-        axis_y.setRange(ymin, ymax)
-        axis_y.setTickCount(yTickCount)
+        _chart.axisX().setRange(xmin, xmax)
+        _chart.axisX().setTickCount(xTickCount)
+        _chart.axisY().setRange(ymin, ymax)
+        _chart.axisY().setTickCount(yTickCount)
 
         _chart.resize(_width, _height)
 
+        # Use QGraphicsScene only once for rendering
         _scene = QtWidgets.QGraphicsScene()
         _scene.addItem(_chart)
         _scene.setSceneRect(0, 0, _width, _height)
