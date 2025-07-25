@@ -6,31 +6,28 @@ import tester
 
 class Device(QObject):
     """
-    Device base class for hardware abstraction.
+    Base class for hardware abstraction.
 
-    This class provides a foundation for device objects, managing device-specific settings
-    and a structure for instrument discovery. It is intended to be subclassed by concrete
-    device implementations.
+    Manages device-specific settings and provides a structure for instrument discovery.
+    Intended to be subclassed by concrete device implementations.
 
     Attributes:
         logger: Logger instance for the device.
         _settings: QSettings instance for application/device settings.
-        Name: Name of the device.
+        Name: Name of the device (defaults to class name).
     """
 
-    def __init__(self, name: str, settings: QSettings):
+    def __init__(self, settings: QSettings):
         """
-        Initializes the device instance with a name and settings.
+        Initialize the device instance with settings.
 
         Args:
-            name (str): The name of the device.
             settings (QSettings): The settings object for storing device configuration.
         """
         super().__init__()
         self.logger = tester._get_class_logger(type(self))
         self._settings = settings
-        self.Name = name
-        self.find_instrument()
+        self.Name = self.__class__.__name__
 
     def _get_setting(self, key: str, default=None):
         """
@@ -51,7 +48,7 @@ class Device(QObject):
 
     def _set_setting(self, key: str, value):
         """
-        Sets a configuration setting for the device.
+        Set a configuration setting for the device.
 
         Args:
             key (str): The key of the setting to set.
@@ -64,7 +61,7 @@ class Device(QObject):
 
     def find_instrument(self):
         """
-        Logs a warning indicating that the 'find_instrument' method is not implemented for this device.
+        Log a warning indicating that the 'find_instrument' method is not implemented for this device.
 
         This method should be overridden by subclasses to implement device-specific
         instrument discovery logic.

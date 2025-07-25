@@ -25,34 +25,31 @@ def main():
     """
     # Configure logging only if not already configured
     if not logging.root.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(logging.INFO)
-        formatter = logging.Formatter("%(levelname)s - %(message)s")
-        handler.setFormatter(formatter)
-        logging.root.addHandler(handler)
-        logging.root.setLevel(logging.INFO)
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(levelname)s - %(message)s",
+            stream=sys.stdout
+        )
 
-    options = sys.argv  # Exclude script name
-    options.append("-s")
-    options.append("PS501861")
-    options.append("-m")
-    options.append("Saturn 5")
-    options.append("-r")
-    app = TesterApp(options)
+    app = TesterApp(sys.argv)
     ts = TestSequence()
     args = ts.get_command_line_parser(app)
 
     if args.isSet("list"):
         """
-        If the 'list' option is set, print the list of available tests and exit.
+        Handle the 'list' command-line option.
+
+        Prints the list of available tests and exits the application.
         """
         ts.print_test_list()
         sys.exit(0)
 
     if args.isSet("run"):
         """
-        If the 'run' option is set, prompt for a valid serial number (up to three attempts),
-        then start the test sequence with the provided serial number, model, and test.
+        Handle the 'run' command-line option.
+
+        Prompts the user for a valid serial number (up to three attempts) and starts the test sequence
+        with the provided serial number, model, and test. Exits if the serial number is invalid.
         """
         logging.info("Running test sequence...")
         _serial_number = args.value("serial")
@@ -69,15 +66,21 @@ def main():
             _serial_number, model_name=args.value("model"), test=args.value("test")
         )
         logging.info("Test sequence completed.")
-        return  # Early return to avoid unnecessary checks
+        return
 
     if args.isSet("help"):
         """
-        If the 'help' option is set, display help information and exit.
+        Handle the 'help' command-line option.
+
+        Displays help information and exits the application.
         """
         args.showHelp()
         sys.exit(0)
 
-
 if __name__ == "__main__":
+    """
+    Main execution block.
+
+    Calls the main() function to start the CLI tester application.
+    """
     main()

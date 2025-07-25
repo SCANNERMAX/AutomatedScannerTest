@@ -11,8 +11,9 @@ from tester.gui.tester_ui import Ui_TesterWindow
 
 class TesterApp(QtWidgets.QApplication):
     """
-    A custom QApplication subclass for the AutomatedScannerTest tester GUI.
-    Initializes the application with custom settings and logging.
+    Custom QApplication for AutomatedScannerTest GUI.
+
+    Sets up application metadata and logging for the AutomatedScannerTest application.
     """
 
     def __init__(self, argv, *args, **kwargs):
@@ -38,28 +39,29 @@ class TesterApp(QtWidgets.QApplication):
 class TesterWindow(QtWidgets.QMainWindow):
     """
     Main Qt application window for the Automated Scanner Test GUI.
-    Manages UI, user actions, and coordinates with the TestSequence model.
+
+    Manages the main window, UI setup, user actions, and coordinates with the TestSequence model.
     """
 
     @property
     def LastDirectory(self):
         """
-        Returns the last directory path used for file operations.
+        Get the last directory path used for file operations.
 
         Returns:
             str: The last directory path used.
         """
-        return self.model.get_setting("LastDirectory")
+        return self.model._get_setting("LastDirectory")
 
     @LastDirectory.setter
     def LastDirectory(self, value: str):
         """
-        Sets the last directory used for file operations.
+        Set the last directory used for file operations.
 
         Args:
             value (str): The directory path to set.
         """
-        self.model.set_settings("LastDirectory", value)
+        self.model._set_setting("LastDirectory", value)
 
     def __init__(self, *args, **kwargs):
         """
@@ -100,7 +102,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         self.model.testerNameChanged.connect(self.ui.labelTesterName.setText)
         self.model.testStarted.connect(self.ui.tableSequence.selectRow)
 
-        # Add a logging handler to update the status bar with info messages
+        # Status bar logging handler
         class StatusBarHandler(logging.Handler):
             """
             Logging handler that updates the status bar with info messages.
@@ -114,7 +116,6 @@ class TesterWindow(QtWidgets.QMainWindow):
                 """
                 super().__init__()
                 self.status_bar = status_bar
-
             def emit(self, record):
                 """
                 Emit a log record to the status bar if the level is INFO or lower.
@@ -193,7 +194,6 @@ class TesterWindow(QtWidgets.QMainWindow):
         )
         if not ok or not serial_number or serial_number.strip().lower() == "q":
             return
-
         serial_number = serial_number.strip()
         if not re.fullmatch(r"[A-Z]{2}[0-9]{6}", serial_number):
             QtWidgets.QMessageBox.warning(
@@ -202,7 +202,6 @@ class TesterWindow(QtWidgets.QMainWindow):
             )
             self._logger.error("Invalid serial number format.")
             return
-
         self.ui.actionStart.setEnabled(False)
         self.ui.actionStop.setEnabled(True)
         self.ui.actionReport.setEnabled(False)

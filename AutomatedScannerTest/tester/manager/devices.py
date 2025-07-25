@@ -12,54 +12,38 @@ from tester.devices import Device
 
 class DeviceManager:
     """
-    DeviceManager is responsible for managing and initializing all device instances used for automated scanner testing.
+    Manages and initializes all device instances used for automated scanner testing.
 
-    It dynamically discovers all subclasses of the `Device` class within the `tester.devices` module, instantiates them with the provided settings, and attaches them as attributes to itself. The class also provides setup and teardown routines for preparing devices before and after tests, with logging at each stage.
+    Dynamically discovers all subclasses of the `Device` class within the `tester.devices` module,
+    instantiates them with the provided settings, and attaches them as attributes to itself.
+    Provides setup and teardown routines for preparing devices before and after tests.
+
+    Args:
+        settings (QtCore.QSettings): The settings object to be passed to each device instance.
 
     Attributes:
-        ComputerName (str): Returns the network name of the current computer (host).
-        UserName (str): Returns the current user's full name if available, otherwise the login username.
-
-    Methods:
-        __init__(settings: QtCore.QSettings):
-            Initializes the DeviceManager, discovers and instantiates all Device subclasses, and sets up logging.
-        setup():
-            Prepares the device manager and devices before running tests, including resetting the MSO5000 device.
-        test_setup():
-            Prepares the device manager and devices before each individual test, including resetting the MSO5000 device.
-        test_teardown():
-            Cleans up after each individual test.
-        teardown():
-            Cleans up and resets devices after tests, including resetting the MSO5000 device.
+        ComputerName (str): The network name of the current computer (host).
+        UserName (str): The current user's full name if available, otherwise the login username.
     """
 
     def __init__(self, settings: QtCore.QSettings):
         """
-        Initializes the DeviceManager by setting up logging, storing the provided settings, and dynamically discovering and instantiating all subclasses of `Device` found in the `tester.devices` module.
+        Initialize the DeviceManager.
 
-        Each discovered device is instantiated with the provided settings and set as an attribute of the DeviceManager instance.
+        Discovers and instantiates all Device subclasses in tester.devices, calling their
+        find_instrument() method and attaching them as attributes.
 
         Args:
             settings (QtCore.QSettings): The settings object to be passed to each device instance.
-
-        Raises:
-            Logs a warning if any device module cannot be imported or instantiated.
         """
         self.__logger = tester._get_class_logger(self.__class__)
         self.__settings = settings
 
-        # Find all Device subclasses in tester.devices
+        # Efficiently discover and instantiate all Device subclasses in tester.devices
         _device_module = importlib.import_module(Device.__module__)
         _device_folder = os.path.dirname(_device_module.__file__)
-
-        py_files = [
-            f for f in os.listdir(_device_folder)
-            if f.endswith(".py") and not f.startswith("__")
-        ]
-
-        # Cache Device for issubclass checks
+        py_files = (f for f in os.listdir(_device_folder) if f.endswith(".py") and not f.startswith("__"))
         device_class = Device
-
         for _filename in py_files:
             _module_name = f"tester.devices.{_filename[:-3]}"
             try:
@@ -67,10 +51,8 @@ class DeviceManager:
             except Exception as e:
                 self.__logger.warning(f"Could not import {_module_name}: {e}")
                 continue
-
-            # Use inspect.getmembers only once per module
+            # Use a generator expression for class filtering
             for _name, _obj in inspect.getmembers(_module, inspect.isclass):
-                # Use direct module check to avoid duplicate imports
                 if _obj.__module__ == _module.__name__ and issubclass(_obj, device_class) and _obj is not device_class:
                     try:
                         _device = _obj(self.__settings)
@@ -82,7 +64,7 @@ class DeviceManager:
     @property
     def ComputerName(self) -> str:
         """
-        Returns the network name of the current computer (host) as a string.
+        Returns the network name of the current computer (host).
 
         Returns:
             str: The hostname of the current computer.
@@ -94,8 +76,7 @@ class DeviceManager:
         """
         Retrieves the current user's full name if available, otherwise returns the login username.
 
-        Attempts to obtain the user's display name using the Windows API `GetUserNameExW` with the NameDisplay format.
-        If this fails, falls back to the username returned by `os.getlogin()` or `getpass.getuser()`.
+        Tries Windows API GetUserNameExW, falls back to os.getlogin() or getpass.getuser().
 
         Returns:
             str: The user's display name or login username.
@@ -121,7 +102,7 @@ class DeviceManager:
         """
         Initializes the device manager before running tests.
 
-        This method logs the setup process and resets the MSO5000 device if it exists.
+        Resets MSO5000 if present.
         """
         self.__logger.info("Setting up the device manager...")
         mso = getattr(self, "MSO5000", None)
@@ -133,23 +114,24 @@ class DeviceManager:
         """
         Sets up the device manager before each test.
 
-        This method logs the setup process, resets the MSO5000 device if it exists, and clears its registers and state if supported.
+        Resets and clears MSO5000 if present.
         """
         self.__logger.info("Setting up the device manager for testing...")
         mso = getattr(self, "MSO5000", None)
         if mso:
             mso.reset()
-            if hasattr(mso, "clear_registers"):
-                mso.clear_registers()
-            if hasattr(mso, "clear"):
-                mso.clear()
+            # Use getattr with default to avoid repeated hasattr checks
+            clear_registers = getattr(mso, "clear_registers", None)
+            if callable(clear_registers):
+                clear_registers()
+            clear = getattr(mso, "clear", None)
+            if callable(clear):
+                clear()
 
     @tester._member_logger
     def test_teardown(self):
         """
         Cleans up the device manager after each test.
-
-        This method logs the teardown process for test-specific settings.
         """
         self.__logger.info("Tearing down the device manager settings for testing...")
 
@@ -158,7 +140,7 @@ class DeviceManager:
         """
         Performs cleanup operations after running tests.
 
-        This method logs the teardown process and resets the MSO5000 device if it exists.
+        Resets MSO5000 if present.
         """
         self.__logger.info("Tearing down the device manager...")
         mso = getattr(self, "MSO5000", None)

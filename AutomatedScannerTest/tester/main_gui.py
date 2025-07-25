@@ -15,7 +15,7 @@ def main():
     app = TesterApp(sys.argv)
     window = TesterWindow()
     window.show()
-    return app.exec()
+    return app.exec_()
 
 if __name__ == "__main__":
     """

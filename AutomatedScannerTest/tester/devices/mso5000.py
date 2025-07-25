@@ -10,34 +10,46 @@ from tester.devices import Device
 
 
 class MSO5000(Device):
+    """
+    MSO5000 device abstraction for RIGOL MSO5000 series oscilloscopes.
+
+    Provides methods for instrument discovery, parameter configuration, waveform acquisition,
+    and function generator control using SCPI commands via PyVISA.
+
+    Attributes:
+        __cache (dict): Class-level cache for parameter values.
+        Name (str): Device name, set to "MSO5000".
+        __instrument: PyVISA instrument instance after successful connection.
+    """
+
     __cache = {}
 
     def __init__(self, settings: QSettings):
         """
-        Initializes a new instance of the MSO5000 device class.
+        Initialize a new MSO5000 device instance.
 
         Args:
-            settings (QSettings): The application settings used for device configuration.
+            settings (QSettings): Application settings for device configuration.
 
         Side Effects:
-            Calls the base Device class initializer with the device name "MSO5000" and the provided settings.
-            Initializes the internal instrument reference to None.
+            Sets the device name and initializes the instrument reference.
         """
-        super().__init__("MSO5000", settings)
+        super().__init__(settings)
+        self.Name = "MSO5000"
         self.__instrument = None
 
     def __getattr__(self, name):
         """
-        Retrieves an attribute from the internal instrument or cache.
+        Retrieve an attribute from the internal instrument or cache.
 
         Args:
-            name (str): The name of the attribute to retrieve.
+            name (str): The attribute name.
 
         Returns:
-            Any: The value of the requested attribute from the instrument or cache.
+            Any: The value from the instrument or cache.
 
         Raises:
-            AttributeError: If the attribute is not found in either the instrument or cache.
+            AttributeError: If the attribute is not found.
         """
         inst = self.__instrument
         if inst is not None:
@@ -52,21 +64,16 @@ class MSO5000(Device):
 
     def __query(self, message: str) -> str:
         """
-        Sends a query command to the instrument and retrieves the response.
+        Send a SCPI query to the instrument and return the response.
 
         Args:
-            message (str): The SCPI command string to send to the instrument.
+            message (str): The SCPI command string.
 
         Returns:
-            str: The response string from the instrument.
+            str: The response string.
 
         Raises:
-            AssertionError: If the message is empty or if no response is received after 5 attempts.
-            pyvisa.errors.VisaIOError: If a VISA IO error occurs during communication.
-
-        Side Effects:
-            Logs the request and any retries to the device logger.
-            Waits 0.1 seconds between retries if a VISA IO error occurs.
+            AssertionError: If the message is empty or no response after retries.
         """
         _message = message.strip()
         assert _message, "Message cannot be empty."
@@ -83,17 +90,13 @@ class MSO5000(Device):
 
     def __write(self, message: str):
         """
-        Sends a command to the instrument.
+        Send a SCPI command to the instrument.
 
         Args:
-            message (str): The SCPI command string to send to the instrument.
+            message (str): The SCPI command string.
 
         Raises:
             AssertionError: If the message is empty.
-
-        Side Effects:
-            Logs the command being sent and any retries to the device logger.
-            Retries up to 5 times if a pyvisa VisaIOError occurs, waiting 0.1 seconds between attempts.
         """
         _message = message.strip()
         assert _message, "Message cannot be empty."
@@ -108,49 +111,33 @@ class MSO5000(Device):
 
     def __get_names(self, channel: str, parameter: str):
         """
-        Generates the SCPI parameter string and corresponding cache attribute name for a given channel and parameter.
+        Generate the SCPI parameter string and cache key for a given channel and parameter.
 
         Args:
-            channel (str): The channel identifier (e.g., "CHANnel1", "ACQuire", etc.). May optionally start with ':'.
-            parameter (str): The parameter name to be appended to the channel (e.g., "SCALe", "TYPE", etc.).
+            channel (str): The channel identifier.
+            parameter (str): The parameter name.
 
         Returns:
-            tuple:
-                _attribute (str): The cache key for the parameter, formatted as a lowercase string with colons replaced by underscores.
-                _parameter (str): The SCPI command string for the parameter, formatted with a leading colon if not present.
-
-        Example:
-            >>> self.__get_names("CHANnel1", "SCALe")
-            ('_channel1_scale', ':CHANnel1:SCALe')
+            tuple: (_attribute, _parameter) where _attribute is the cache key and _parameter is the SCPI string.
         """
-        # Avoid repeated string operations and use f-string efficiently
         if channel.startswith(':'):
             _parameter = f"{channel}:{parameter}"
         else:
             _parameter = f":{channel}:{parameter}"
-        # Use str.translate for faster character replacement and avoid .lower() if not needed
         _attribute = _parameter.replace(":", "_").lower()
         return _attribute, _parameter
 
     def _get_parameter(self, channel: str, parameter: str, default=None):
         """
-        Retrieves a parameter value from the device, using caching to avoid redundant queries.
+        Retrieve a parameter value from the device, using cache if available.
 
         Args:
-            channel (str): The channel identifier (e.g., "CHANnel1", "ACQuire").
-            parameter (str): The parameter name to query (e.g., "SCALe", "TYPE").
-            default (Any, optional): The default value and type to cast the result to if provided.
+            channel (str): The channel identifier.
+            parameter (str): The parameter name.
+            default (Any, optional): Default value/type for conversion.
 
         Returns:
-            Any: The value of the requested parameter, type-cast to the type of 'default' if specified.
-
-        Raises:
-            AssertionError: If 'channel' or 'parameter' is empty.
-            Exception: If type conversion fails and 'default' is provided.
-
-        Side Effects:
-            Caches the result for future queries.
-            Sends a query to the instrument if the value is not cached.
+            Any: The parameter value, type-cast if default is provided.
         """
         assert channel, "Channel cannot be empty."
         assert parameter, "Parameter cannot be empty."
@@ -171,23 +158,12 @@ class MSO5000(Device):
 
     def _set_parameter(self, channel: str, parameter: str, value):
         """
-        Sets a device parameter for the specified channel and caches the value.
+        Set a device parameter for the specified channel and cache the value.
 
         Args:
-            channel (str): The channel identifier (e.g., "CHANnel1", "ACQuire").
-            parameter (str): The parameter name to set (e.g., "SCALe", "TYPE").
-            value (Any): The value to set for the parameter.
-
-        Returns:
-            None
-
-        Raises:
-            AssertionError: If 'channel' or 'parameter' is empty.
-
-        Side Effects:
-            Sends a command to the instrument to set the parameter.
-            Updates the internal cache with the new value.
-            Skips sending the command if the cached value matches the new value.
+            channel (str): The channel identifier.
+            parameter (str): The parameter name.
+            value (Any): The value to set.
         """
         assert channel, "Channel cannot be empty."
         assert parameter, "Parameter cannot be empty."
@@ -199,12 +175,7 @@ class MSO5000(Device):
 
     class Source(StrEnum):
         """
-        Enumeration representing possible signal sources for the MSO5000 device.
-
-        Attributes:
-            D0-D15: Digital channels 0 through 15.
-            Channel1-Channel4: Analog channels 1 through 4 ("CHAN1" to "CHAN4").
-            Math1-Math4: Math function channels ("MATH1" to "MATH4").
+        Enumeration of possible signal sources for the MSO5000 device.
         """
         D0 = "D0"
         D1 = "D1"
@@ -232,6 +203,7 @@ class MSO5000(Device):
         Math4 = "MATH4"
 
     class MemoryDepth(StrEnum):
+        """Enumeration of memory depth settings."""
         Auto = "AUTO"
         _1K = "1K"
         _10K = "10K"
@@ -244,12 +216,14 @@ class MSO5000(Device):
         _200M = "200M"
 
     class AcquireType(StrEnum):
+        """Enumeration of acquisition types."""
         Normal = "NORM"
         Averages = "AVER"
         Peak = "PEAK"
         HighResolution = "HRES"
 
     class BandwidthLimit(StrEnum):
+        """Enumeration of bandwidth limit settings."""
         Off = "OFF"
         Auto = "AUTO"
         _20M = "20M"
@@ -257,11 +231,13 @@ class MSO5000(Device):
         _200M = "200M"
 
     class Coupling(StrEnum):
+        """Enumeration of coupling types."""
         AC = "AC"
         DC = "DC"
         Ground = "GND"
 
     class Units(StrEnum):
+        """Enumeration of measurement units."""
         Voltage = "VOLT"
         Watt = "WATT"
         Ampere = "AMP"
@@ -269,25 +245,12 @@ class MSO5000(Device):
 
     def find_instrument(self):
         """
-        Finds and connects to a MSO5000 oscilloscope instrument using PyVISA.
-
-        This method scans all available VISA resources, attempts to open each one,
-        and queries its identification string. If a device is identified as a RIGOL MSO5000
-        oscilloscope, it sets the internal instrument reference and updates device settings
-        with manufacturer and model information.
+        Discover and connect to a RIGOL MSO5000 oscilloscope using PyVISA.
 
         Side Effects:
-            - Sets self.__instrument to the connected instrument.
-            - Updates device settings with manufacturer and model information.
-            - Logs device discovery and connection status.
-
+            Sets self.__instrument and updates device settings.
         Raises:
             AssertionError: If no MSO5000 oscilloscope is found.
-            Exception: If there is an error opening a resource or parsing the IDN string.
-
-        Example:
-            >>> device = MSO5000(settings)
-            >>> device.find_instrument()
         """
         _resource_manager = pyvisa.ResourceManager()
         found = False
@@ -296,7 +259,6 @@ class MSO5000(Device):
                 self.logger.info(f"Found device: {_resource_name}")
                 _instrument = _resource_manager.open_resource(_resource_name)
                 idn = _instrument.query("*IDN?").strip()
-                # Example IDN: "RIGOL TECHNOLOGIES,MSO5074,DS5A123456789,00.01.01"
                 if "RIGOL" in idn and "MSO5" in idn:
                     self.logger.info(f"Found MSO5000 oscilloscope: {_resource_name}")
                     self.__instrument = _instrument
@@ -305,7 +267,6 @@ class MSO5000(Device):
             except Exception as e:
                 self.logger.debug(f"Error opening resource {_resource_name}: {e}")
         assert found, "No oscilloscope found."
-        # Parse IDN string for model and serial info
         try:
             idn = self.__instrument.query("*IDN?").strip()
             parts = idn.split(",")
@@ -326,6 +287,20 @@ class MSO5000(Device):
     # The device command system
     @tester._member_logger
     def autoscale(self):
+        """
+        Automatically adjusts the oscilloscope's vertical, horizontal, and trigger settings
+        to optimally display the input signals on all active channels.
+
+        This method sends the "AUToscale" SCPI command to the instrument, causing it to analyze
+        the current input signals and configure itself for the best possible display.
+
+        Side Effects:
+            - The oscilloscope's display and measurement settings may change.
+            - All channels may be enabled and their ranges adjusted automatically.
+
+        Example:
+            >>> device.autoscale()
+        """
         self.__write("AUToscale")
 
     @tester._member_logger
@@ -1697,7 +1672,7 @@ class MSO5000(Device):
     @tester._member_logger
     def set_trigger_edge_level(self, level: float):
         """
-        Sets the trigger edge level for the device.
+        Sets the trigger edge level for the oscilloscope.
 
         Args:
             level (float): The voltage level to set for the trigger edge, in volts.
@@ -1824,7 +1799,7 @@ class MSO5000(Device):
             level (float): The desired trigger pulse level in volts. Must be between -15 and 15.
 
         Raises:
-            AssertionError: If the specified level is not within the range -15 to 15 volts.
+            AssertionError: If the specified level is not within the range -15 to 15.
 
         """
         assert (
@@ -2099,14 +2074,12 @@ class MSO5000(Device):
         """
         Sets the trigger timeout level for the device.
 
-        The trigger timeout level determines the voltage threshold (in volts) for the trigger timeout event.
-        The allowed range for the level is between -15V and 15V, inclusive.
-
         Args:
-            level (float): The voltage level to set for the trigger timeout.
+            level (float): The desired trigger timeout level in volts. Must be between -15 and 15.
 
         Raises:
-            AssertionError: If the provided level is not within the range -15V to 15V.
+            AssertionError: If the specified level is not within the range -15 to 15.
+
         """
         assert (
             level >= -15 and level <= 15

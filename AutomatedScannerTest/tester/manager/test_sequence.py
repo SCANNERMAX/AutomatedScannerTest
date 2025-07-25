@@ -15,12 +15,33 @@ from tester.tests import _test_list, Test, CancelToken
 
 class TestSequence(QtCore.QAbstractTableModel):
     """
-    TestSequence manages the execution, logging, and reporting of a sequence of hardware or software tests.
+    Manages the execution, logging, and reporting of a sequence of hardware or software tests.
 
-    This class provides a Qt model for test management, including test execution, result logging, 
-    report generation, and parameter management. It integrates with device management and supports 
+    Provides a Qt model for test management, including test execution, result logging,
+    report generation, and parameter management. Integrates with device management and supports
     both GUI and command-line workflows.
     """
+
+    computerNameChanged = QtCore.Signal(str)
+    """Signal emitted when the computer name changes."""
+    durationChanged = QtCore.Signal(str)
+    """Signal emitted when the test duration changes."""
+    endTimeChanged = QtCore.Signal(str)
+    """Signal emitted when the end time changes."""
+    modelNameChanged = QtCore.Signal(str)
+    """Signal emitted when the model name changes."""
+    serialNumberChanged = QtCore.Signal(str)
+    """Signal emitted when the serial number changes."""
+    startTimeChanged = QtCore.Signal(str)
+    """Signal emitted when the start time changes."""
+    statusChanged = QtCore.Signal(str)
+    """Signal emitted when the test status changes."""
+    testerNameChanged = QtCore.Signal(str)
+    """Signal emitted when the tester name changes."""
+    parameterChanged = QtCore.Signal(str, object)
+    """Signal emitted when any parameter changes."""
+    testStarted = QtCore.Signal(int)
+    """Signal emitted when a test is started (by index)."""
 
     def __init__(self):
         """
@@ -53,12 +74,10 @@ class TestSequence(QtCore.QAbstractTableModel):
         """
         Initialize the list of tests using the test list factory.
         """
-        # Use local variable for performance, avoid attribute lookups in loop
-        add_test = self.addTest
         settings = self.__settings
         cancel = self.__cancel
         for _test in _test_list():
-            add_test(_test(settings, cancel))
+            self.addTest(_test(settings, cancel))
 
     @tester._member_logger
     def _start_logging(self, log_path: Path = None):
@@ -69,18 +88,14 @@ class TestSequence(QtCore.QAbstractTableModel):
             log_path (Path): Directory where log files will be stored.
         """
         log_file = log_path / datetime.today().strftime("log_%Y%m%d_%H%M%S.log")
-        _log_file_handler = logging.handlers.RotatingFileHandler(
-            log_file, maxBytes=(1048576 * 5), backupCount=7
+        handler = logging.handlers.RotatingFileHandler(
+            log_file, maxBytes=5 * 1048576, backupCount=7
         )
-        _formatter = logging.Formatter(
+        handler.setFormatter(logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        _log_file_handler.setFormatter(_formatter)
-        logging.root.addHandler(_log_file_handler)
+        ))
+        logging.root.addHandler(handler)
         self.__logger.info(f"Logging started at {log_file}")
-
-    computerNameChanged = QtCore.Signal(str)
-    """Signal emitted when the computer name changes."""
 
     def get_computer_name(self) -> str:
         """
@@ -102,10 +117,6 @@ class TestSequence(QtCore.QAbstractTableModel):
         self.computerNameChanged.emit(value)
 
     ComputerName = QtCore.Property(str, get_computer_name, set_computer_name)
-    """Qt property for the computer name."""
-
-    durationChanged = QtCore.Signal(str)
-    """Signal emitted when the test duration changes."""
 
     def get_duration(self) -> float:
         """
@@ -127,10 +138,6 @@ class TestSequence(QtCore.QAbstractTableModel):
         self.durationChanged.emit(f"{value} sec")
 
     Duration = QtCore.Property(float, get_duration, set_duration)
-    """Qt property for the test duration."""
-
-    endTimeChanged = QtCore.Signal(str)
-    """Signal emitted when the end time changes."""
 
     def get_end_time(self) -> datetime:
         """
@@ -155,10 +162,6 @@ class TestSequence(QtCore.QAbstractTableModel):
             self.endTimeChanged.emit("")
 
     EndTime = QtCore.Property(datetime, get_end_time, set_end_time)
-    """Qt property for the end time."""
-
-    modelNameChanged = QtCore.Signal(str)
-    """Signal emitted when the model name changes."""
 
     def get_model_name(self) -> str:
         """
@@ -180,10 +183,6 @@ class TestSequence(QtCore.QAbstractTableModel):
         self.modelNameChanged.emit(value)
 
     ModelName = QtCore.Property(str, get_model_name, set_model_name)
-    """Qt property for the model name."""
-
-    serialNumberChanged = QtCore.Signal(str)
-    """Signal emitted when the serial number changes."""
 
     def get_serial_number(self) -> str:
         """
@@ -205,10 +204,6 @@ class TestSequence(QtCore.QAbstractTableModel):
         self.serialNumberChanged.emit(value)
 
     SerialNumber = QtCore.Property(str, get_serial_number, set_serial_number)
-    """Qt property for the serial number."""
-
-    startTimeChanged = QtCore.Signal(str)
-    """Signal emitted when the start time changes."""
 
     def get_start_time(self) -> datetime:
         """
@@ -233,10 +228,6 @@ class TestSequence(QtCore.QAbstractTableModel):
             self.startTimeChanged.emit("")
 
     StartTime = QtCore.Property(datetime, get_start_time, set_start_time)
-    """Qt property for the start time."""
-
-    statusChanged = QtCore.Signal(str)
-    """Signal emitted when the test status changes."""
 
     def get_status(self) -> str:
         """
@@ -257,11 +248,7 @@ class TestSequence(QtCore.QAbstractTableModel):
         self._set_parameter("Status", value)
         self.statusChanged.emit(value)
 
-    Status = QtCore.Property(object, get_status, set_status)
-    """Qt property for the test status."""
-
-    testerNameChanged = QtCore.Signal(str)
-    """Signal emitted when the tester name changes."""
+    Status = QtCore.Property(str, get_status, set_status)
 
     def get_tester_name(self) -> str:
         """
@@ -283,7 +270,6 @@ class TestSequence(QtCore.QAbstractTableModel):
         self.testerNameChanged.emit(value)
 
     TesterName = QtCore.Property(str, get_tester_name, set_tester_name)
-    """Qt property for the tester name."""
 
     @property
     def DataDirectory(self) -> Path:
@@ -313,16 +299,12 @@ class TestSequence(QtCore.QAbstractTableModel):
         new_value = value.resolve()
         if new_value == _old.resolve():
             return
-        self.__logger.info(
-            f"Moving data directory from {_old} to {value}"
-        )
+        self.__logger.info(f"Moving data directory from {_old} to {value}")
         logging.shutdown()
-        # Remove only RotatingFileHandlers
-        handlers = [h for h in logging.root.handlers if isinstance(h, logging.handlers.RotatingFileHandler)]
-        for _handler in handlers:
-            _handler.close()
-            logging.root.removeHandler(_handler)
-        # Use rglob for recursive file move, more efficient than walk
+        for handler in list(logging.root.handlers):
+            if isinstance(handler, logging.handlers.RotatingFileHandler):
+                handler.close()
+                logging.root.removeHandler(handler)
         for _old_file in _old.rglob('*'):
             if _old_file.is_file():
                 _new_file = new_value / _old_file.relative_to(_old)
@@ -360,21 +342,16 @@ class TestSequence(QtCore.QAbstractTableModel):
         Returns:
             Path: The run data directory.
         """
-        # Cache values to avoid repeated property lookups
         data_dir = self.DataDirectory
         serial = self.SerialNumber
         start_time = self.StartTime
         if not serial or not start_time:
-            # Fallback to a default directory if not set
             _dir = data_dir / "Unknown" / "Unknown"
         else:
             _dir = data_dir / serial / start_time.strftime("%Y%m%d_%H%M%S")
         if not _dir.exists():
             _dir.mkdir(parents=True, exist_ok=True)
         return _dir
-
-    parameterChanged = QtCore.Signal(str, object)
-    """Signal emitted when any parameter changes."""
 
     def _get_parameter(self, key: str, default=None):
         """
@@ -508,14 +485,6 @@ class TestSequence(QtCore.QAbstractTableModel):
         row = len(self.__tests)
         self.beginInsertRows(QtCore.QModelIndex(), row, row)
         self.__tests.append(test)
-        # Use partial to avoid late binding in lambda
-        # from functools import partial
-        # test.nameChanged.connect(
-        #     partial(self._emit_data_changed, row, 0)
-        # )
-        # test.statusChanged.connect(
-        #     partial(self._emit_data_changed, row, 1)
-        # )
         self.endInsertRows()
         self.layoutChanged.emit()
 
@@ -649,7 +618,7 @@ class TestSequence(QtCore.QAbstractTableModel):
             self.Status,
         )
 
-        if test is None or test == "":
+        if not test:
             for _test in self.__tests:
                 _test.on_generate_report(_report)
         else:
@@ -702,9 +671,6 @@ class TestSequence(QtCore.QAbstractTableModel):
 
         with open(_path, "w") as _file:
             json.dump(_data, _file, indent=4, default=_json_serial)
-
-    testStarted = QtCore.Signal(int)
-    """Signal emitted when a test is started (by index)."""
 
     @tester._member_logger
     def on_start_test(self, serial_number: str, model_name: str = "", test: str = None):
