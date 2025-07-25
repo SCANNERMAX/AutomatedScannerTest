@@ -98,14 +98,6 @@ class Test(QtCore.QObject):
         statusChanged(str): Emitted when the status changes.
     """
 
-    parameterChanged = QtCore.Signal(str, object)
-    durationChanged = QtCore.Signal(str)
-    endTimeChanged = QtCore.Signal(str)
-    nameChanged = QtCore.Signal(str)
-    serialNumberChanged = QtCore.Signal(str)
-    startTimeChanged = QtCore.Signal(str)
-    statusChanged = QtCore.Signal(str)
-
     def __init__(self, name: str, settings: QtCore.QSettings, cancel: CancelToken):
         """
         Initializes the Test instance with the given name, settings, and cancel token.
