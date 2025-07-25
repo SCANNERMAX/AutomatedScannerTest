@@ -11,59 +11,45 @@ __application__ = "Automated Scanner Test"
 
 def _get_class_logger(class_):
     """
-    Get a logger instance specific to the given class.
+    Returns a logger instance specific to the given class.
 
-    The logger is named using the package name, module, and class name, which allows for
-    hierarchical and granular logging control.
+    The logger is retrieved using the class's module and name, creating a hierarchical logger structure.
+    This allows for more granular logging control and easier identification of log messages from different classes.
 
     Args:
         class_ (type): The class for which to obtain a logger.
 
     Returns:
-        logging.Logger: Logger instance scoped to the specified class.
+        logging.Logger: A logger instance scoped to the specified class.
     """
     return logging.getLogger(f"{_package_name}.{class_.__module__}.{class_.__name__}")
 
 
 def _member_logger(func):
     """
-    Decorator for class member functions to log entry, arguments, return value, and exceptions.
-
-    This decorator logs the function name, arguments, and keyword arguments before execution,
-    the return value after successful execution, and exception details if an error occurs.
-
+    Decorator that logs the entry, arguments, return value, and exceptions of a class member function.
     Args:
         func (callable): The function to be wrapped and logged.
-
     Returns:
         callable: The wrapped function with logging enabled.
+    Logs:
+        - Function name, arguments, and keyword arguments before execution.
+        - Return value after successful execution.
+        - Exception details if an error occurs during execution.
     """
+
     @wraps(func)
-    def wrapper(self, *args, **kwargs):
-        """
-        Wrapper function that performs the logging around the decorated function.
-
-        Args:
-            self: The instance of the class.
-            *args: Positional arguments for the decorated function.
-            **kwargs: Keyword arguments for the decorated function.
-
-        Returns:
-            Any: The return value of the decorated function.
-
-        Raises:
-            Exception: Re-raises any exception thrown by the decorated function after logging.
-        """
-        logger = _get_class_logger(type(self))
+    def wrapper(*args, **kwargs):
+        logger = _get_class_logger(args[0].__class__)
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
-                "Calling function: %s with arguments: %r and keyword arguments: %r",
+                "Calling function: %s with arguments: %s and keyword arguments: %s",
                 func.__name__,
-                args,
+                args[1:] if len(args) > 1 else "",
                 kwargs,
             )
         try:
-            _result = func(self, *args, **kwargs)
+            _result = func(*args, **kwargs)
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug("Function: %s returned: %r", func.__name__, _result)
             return _result

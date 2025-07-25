@@ -10,12 +10,38 @@ import tester.tests
 
 class BearingTest(tester.tests.Test):
     """
-    Evaluates scanner rotational mechanics by sweeping at constant speed and measuring required current.
-    Detects issues such as increased friction or mechanical resistance in bearings.
+    BearingTest is a test class for evaluating the rotational mechanics of a scanner by sweeping it across the field at a constant speed and measuring the current required. The test is designed to detect issues such as increased friction or mechanical resistance in the scanner's bearings.
+
+    Attributes:
+        FrictionData (list): Stores the measured friction data as a list of (position, current) tuples.
+
+    Signals:
+        frictionDataChanged (Signal): Emitted when the friction data is updated.
+
+    Methods:
+        __init__(settings, cancel):
+            Initializes the BearingTest instance with the provided settings and cancel token.
+        get_friction_data():
+            Returns the current friction data.
+        set_friction_data(value):
+            Sets the friction data and emits the frictionDataChanged signal.
+        analyze_results(serial_number):
+            Analyzes the results of the bearing test for the given serial number.
+        load_ui(widget):
+            Loads the test's user interface components into the provided widget, including the friction data plot.
+        on_generate_report(report):
+            Generates a report section for the bearing test, including a friction plot.
+        on_save():
+            Saves the friction data to a CSV file.
+        run(serial_number, devices):
+            Executes the bearing test, collecting position and current data from the connected devices.
+        set_data_directory(root_directory):
+            Sets the directory for saving test data and figures.
+        setup(serial_number, devices):
+            Configures the devices and prepares the test environment for the bearing test.
     """
 
     frictionDataChanged = QtCore.Signal(list)
-    """Signal emitted when the friction data is updated."""
 
     def __init__(self, settings: QtCore.QSettings, cancel: tester.tests.CancelToken):
         """
@@ -47,7 +73,6 @@ class BearingTest(tester.tests.Test):
         self.frictionDataChanged.emit(value)
 
     FrictionData = QtCore.Property(list, get_friction_data, set_friction_data)
-    """Qt Property for accessing and setting the friction data."""
 
     @tester._member_logger
     def analyze_results(self, serial_number: str):
@@ -72,6 +97,7 @@ class BearingTest(tester.tests.Test):
         """
         super().load_ui(widget)
 
+        # Friction Plot #####################################################
         chart = QtCharts.QChart()
         chart.setObjectName("chartFriction")
         line_series = QtCharts.QLineSeries()
@@ -101,7 +127,7 @@ class BearingTest(tester.tests.Test):
 
         self.frictionDataChanged.connect(line_series.replace)
 
-        # Store references
+        # Store references for later use if needed
         self.chartFriction = chart
         self.lineSeriesFriction = line_series
         self.axisX = axis_x
@@ -142,6 +168,7 @@ class BearingTest(tester.tests.Test):
         try:
             with self.dataFilePath.open("w") as _handle:
                 _handle.write("Time (ns),Position (deg),Torque Current (mA)\n")
+                # Use join for faster string concatenation
                 _handle.writelines(
                     f"{_time},{_data[0]},{_data[1]}\n"
                     for _time, _data in enumerate(self.FrictionData)
@@ -160,14 +187,15 @@ class BearingTest(tester.tests.Test):
             devices (DeviceManager): The device manager containing connected devices.
         """
         super().run(serial_number, devices)
-        mso = devices.MSO5000
-        mso.function_generator_state(1, True)
-        mso.function_generator_state(2, True)
-        mso.phase_align(2)
-        mso.clear()
-        mso.single()
+        MSO = devices.MSO5000
+        MSO.function_generator_state(1, True)
+        MSO.function_generator_state(2, True)
+        MSO.phase_align(2)
+        MSO.clear()
+        MSO.single()
         time.sleep(10)
-        get_waveform = mso.get_waveform
+        # Use local variables and list comprehensions for efficiency
+        get_waveform = MSO.get_waveform
         _positions_raw = get_waveform(
             source=MSO5000.Source.Channel2,
             mode=MSO5000.WaveformMode.Raw,
@@ -180,14 +208,15 @@ class BearingTest(tester.tests.Test):
             format_=MSO5000.WaveformFormat.Ascii,
             stop=10000,
         )
+        # Use generator expression for zip and scaling, then convert to list once
         self.FrictionData = list(
             zip(
                 (4.5 * x for x in _positions_raw),
                 (100 * x for x in _currents_raw),
             )
         )
-        mso.function_generator_state(1, False)
-        mso.function_generator_state(2, False)
+        MSO.function_generator_state(1, False)
+        MSO.function_generator_state(2, False)
 
     @tester._member_logger
     def set_data_directory(self, root_directory):
@@ -211,34 +240,34 @@ class BearingTest(tester.tests.Test):
             devices (DeviceManager): The device manager containing connected devices.
         """
         super().setup(serial_number, devices)
-        mso = devices.MSO5000
-        mso.acquire_settings(
+        MSO = devices.MSO5000
+        MSO.acquire_settings(
             averages=16,
             memory_depth=MSO5000.MemoryDepth._10K,
             type_=MSO5000.AcquireType.Averages,
         )
-        self.SampleRate = mso.get_sample_rate()
-        mso.channel_settings(1, scale=2, display=True)
-        mso.channel_settings(
+        self.SampleRate = MSO.get_sample_rate()
+        MSO.channel_settings(1, scale=2, display=True)
+        MSO.channel_settings(
             2, scale=2, display=True, bandwidth_limit=MSO5000.BandwidthLimit._20M
         )
-        mso.channel_settings(
+        MSO.channel_settings(
             3,
             scale=2,
             display=True,
             bandwidth_limit=MSO5000.BandwidthLimit._20M,
         )
-        mso.timebase_settings(
+        MSO.timebase_settings(
             offset=2, scale=0.2, href_mode=MSO5000.HrefMode.Trigger
         )
-        mso.trigger_edge(nreject=True)
-        mso.function_generator_ramp(
+        MSO.trigger_edge(nreject=True)
+        MSO.function_generator_ramp(
             1,
             frequency=0.5,
             phase=270,
             amplitude=5,
             output_impedance=MSO5000.SourceOutputImpedance.Fifty,
         )
-        mso.function_generator_square(
+        MSO.function_generator_square(
             2, frequency=0.5, phase=270, amplitude=5
         )

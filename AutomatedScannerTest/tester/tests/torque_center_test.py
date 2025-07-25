@@ -9,19 +9,27 @@ import tester.tests
 
 class TorqueCenterTest(tester.tests.Test):
     """
-    Performs a torque center analysis on a scanner device by applying a sinusoidal signal with varying offsets
-    and measuring the resulting RMS current. Determines the torque center as the offset with minimum RMS current.
+    TorqueCenterTest performs a torque center analysis on a scanner device by applying a sinusoidal signal with varying offsets and measuring the resulting RMS current. The test is designed to determine the torque center, which is expected to correspond to a zero crossing in the measured current.
+
+    Attributes:
+        TorqueData (list): Stores the measured torque data as a list of (offset, RMS current) tuples.
+        TorqueCenter (float): The calculated torque center value.
+        chartTorqueCenter: Reference to the QtCharts.QChart object for plotting.
+        lineSeriesTorqueCenter: Reference to the QtCharts.QLineSeries object for plotting.
+        axisX: Reference to the X axis of the chart.
+        axisY: Reference to the Y axis of the chart.
+        chartViewTorqueCenter: Reference to the QtCharts.QChartView object.
+        widgetTorqueCenter: Reference to the widget displaying the torque center value.
+        layoutTorqueCenter: Reference to the layout for the torque center widget.
+        labelTorqueCenterName: Reference to the label for the torque center.
+        textBoxTorqueCenter: Reference to the text box displaying the torque center value.
+        figurePath: Path to the saved plot image.
+        dataFilePath: Path to the saved CSV data file.
     """
-
-    torqueDataChanged = QtCore.Signal(list)
-    """Signal emitted when the torque data changes."""
-
-    torqueCenterChanged = QtCore.Signal(float)
-    """Signal emitted when the torque center value changes."""
 
     def __init__(self, settings: QtCore.QSettings, cancel: tester.tests.CancelToken):
         """
-        Initialize the TorqueCenterTest.
+        Initialize the Torque Center Test model.
 
         Args:
             settings (QtCore.QSettings): The application settings object.
@@ -29,31 +37,49 @@ class TorqueCenterTest(tester.tests.Test):
         """
         super().__init__("Torque Center Test", settings, cancel)
 
+    torqueDataChanged = QtCore.Signal(list)
+    """
+    Signal emitted when the torque data changes.
+
+    Args:
+        list: The new torque data.
+    """
+
     def get_torque_data(self) -> list:
         """
-        Get the torque data.
+        Retrieves the torque data from the underlying data source.
 
         Returns:
-            list: The torque data as a list of (offset, RMS current) tuples.
+            list: A list containing the torque data as (offset, RMS current) tuples.
         """
         return self._get_parameter("TorqueData", [])
 
     def set_torque_data(self, value: list):
         """
-        Set the torque data and emit the torqueDataChanged signal.
+        Sets the torque data value.
 
         Args:
-            value (list): The new torque data.
+            value (list): The value to set for the torque data.
         """
         self._set_parameter("TorqueData", value)
         self.torqueDataChanged.emit(value)
 
     TorqueData = QtCore.Property(list, get_torque_data, set_torque_data)
-    """Qt Property for accessing and setting the torque data."""
+    """
+    Qt Property for accessing and setting the torque data.
+    """
+
+    torqueCenterChanged = QtCore.Signal(float)
+    """
+    Signal emitted when the torque center value changes.
+
+    Args:
+        float: The new torque center value.
+    """
 
     def get_torque_center(self) -> float:
         """
-        Get the torque center value.
+        Retrieves the torque center value from the underlying data source.
 
         Returns:
             float: The torque center value.
@@ -62,24 +88,26 @@ class TorqueCenterTest(tester.tests.Test):
 
     def set_torque_center(self, value: float):
         """
-        Set the torque center value and emit the torqueCenterChanged signal.
+        Sets the torque center value.
 
         Args:
-            value (float): The new torque center value.
+            value (float): The value to set for the torque center.
         """
         self._set_parameter("TorqueCenter", value)
         self.torqueCenterChanged.emit(value)
 
     TorqueCenter = QtCore.Property(float, get_torque_center, set_torque_center)
-    """Qt Property for accessing and setting the torque center value."""
+    """
+    Qt Property for accessing and setting the torque center value.
+    """
 
     @tester._member_logger
     def analyze_results(self, serial_number: str):
         """
-        Analyze the test results for a given serial number.
+        Analyzes the test results for a given serial number.
 
-        Determines the torque center by finding the offset with the minimum RMS current.
-        Sets the test status to "Pass" if the absolute value of the torque center is less than 1, otherwise "Fail".
+        This method determines the torque center by finding the offset with the minimum RMS current.
+        If the absolute value of the torque center is less than 1, the test passes; otherwise, it fails.
 
         Args:
             serial_number (str): The serial number of the device under test.
@@ -88,25 +116,32 @@ class TorqueCenterTest(tester.tests.Test):
             bool: True if the test passes, False otherwise.
         """
         super().analyze_results(serial_number)
-        data = self.TorqueData
-        if data:
-            self.TorqueCenter = min(data, key=lambda x: x[1])[0]
+        if self.TorqueData:
+            _minimum = min(self.TorqueData, key=lambda x: x[1])
+            self.TorqueCenter = _minimum[0]
         else:
             self.TorqueCenter = 0.0
-        self.Status = "Pass" if abs(self.TorqueCenter) < 1 else "Fail"
-        return self.Status == "Pass"
+        if abs(self.TorqueCenter) < 1:
+            self.Status = "Pass"
+            return True
+        else:
+            self.Status = "Fail"
+            return False
 
     @tester._member_logger
     def load_ui(self, widget: QtWidgets.QWidget):
         """
-        Initialize and configure the UI components for displaying the torque center plot and value.
+        Initializes and configures the UI components for displaying the torque center plot and value.
 
         Args:
             widget (QtWidgets.QWidget): The parent widget to which the UI components will be added.
+
+        Returns:
+            None
         """
         super().load_ui(widget)
 
-        # Torque Center Plot
+        # Torque Center Plot #####################################################
         chart = QtCharts.QChart()
         chart.setObjectName("chartTorqueCenter")
         line_series = QtCharts.QLineSeries()
@@ -136,18 +171,20 @@ class TorqueCenterTest(tester.tests.Test):
         chart_view.setWindowTitle("Torque Center Plot")
         chart_view.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
 
+        # Use getattr for layoutTestData to avoid repeated hasattr checks
         layout_test_data = getattr(self, "layoutTestData", None)
         if layout_test_data is not None:
             layout_test_data.addWidget(chart_view)
         else:
-            layout = widget.layout() or QtWidgets.QVBoxLayout(widget)
-            if widget.layout() is None:
+            layout = widget.layout()
+            if layout is None:
+                layout = QtWidgets.QVBoxLayout(widget)
                 widget.setLayout(layout)
             layout.addWidget(chart_view)
 
         self.torqueDataChanged.connect(line_series.replace)
 
-        # Store references
+        # Store references for later use if needed
         self.chartTorqueCenter = chart
         self.lineSeriesTorqueCenter = line_series
         self.axisX = axis_x
@@ -161,10 +198,10 @@ class TorqueCenterTest(tester.tests.Test):
         label_torque_center_name = QtWidgets.QLabel("Torque Center: ", widget_torque_center)
         label_torque_center_name.setObjectName("labelTorqueCenterName")
         layout_torque_center.addWidget(label_torque_center_name)
-        text_box_torque_center = QtWidgets.QLineEdit(f"{self.TorqueCenter:.2f}", widget_torque_center)
+        text_box_torque_center = QtWidgets.QLineEdit("{:.2f}".format(self.TorqueCenter), widget_torque_center)
         text_box_torque_center.setObjectName("textBoxTorqueCenter")
         text_box_torque_center.setEnabled(False)
-        self.torqueCenterChanged.connect(lambda value: text_box_torque_center.setText(f"{value:.2f}"))
+        self.torqueCenterChanged.connect(lambda value: text_box_torque_center.setText("{:.2f}".format(value)))
         layout_torque_center.addWidget(text_box_torque_center)
 
         if layout_test_data is not None:
@@ -172,6 +209,7 @@ class TorqueCenterTest(tester.tests.Test):
         else:
             widget.layout().addWidget(widget_torque_center)
 
+        # Store references
         self.widgetTorqueCenter = widget_torque_center
         self.layoutTorqueCenter = layout_torque_center
         self.labelTorqueCenterName = label_torque_center_name
@@ -180,12 +218,16 @@ class TorqueCenterTest(tester.tests.Test):
     @tester._member_logger
     def on_generate_report(self, report):
         """
-        Generate a report section specific to the torque center test.
+        Handles the generation of a report section specific to the torque center test.
 
-        Adds a plot of the torque data and writes the torque center value to the report.
+        This method writes a header line for the "Torque Center Plot" and adds a plot of the torque data to the report.
+        It calls the parent class's on_generate_report method to ensure any base functionality is preserved.
 
         Args:
             report: An object responsible for report generation, expected to have writeLine and plotXYData methods.
+
+        Returns:
+            None
         """
         super().on_generate_report(report)
         report.plotXYData(
@@ -198,25 +240,26 @@ class TorqueCenterTest(tester.tests.Test):
             ymax=500,
             yTickCount=8,
         )
-        report.writeLine(f"Torque Center: {self.TorqueCenter:.2f} deg")
+        report.writeLine("Torque Center: {:.2f} deg".format(self.TorqueCenter))
 
     @tester._member_logger
     def on_save(self):
         """
-        Save torque data to a CSV file if the data directory attribute exists.
+        Saves torque data to a CSV file if the data directory attribute exists.
 
-        Writes a header row followed by time-indexed position and torque current data
-        from the TorqueData attribute to the file specified by dataFilePath.
+        The method writes a header row followed by time-indexed position and torque current data
+        from the `TorqueData` attribute to the file specified by `dataFilePath`. Each row
+        contains the time (as an index in nanoseconds), position in degrees, and torque current in mA.
+        After saving, it calls the superclass's `on_save` method and returns its result.
 
         Returns:
-            The result of the superclass's on_save method.
+            The result of the superclass's `on_save` method.
         """
         try:
             with self.dataFilePath.open("w") as _handle:
                 _handle.write("Time (ns),Position (deg),Torque Current (mA)\n")
-                _handle.writelines(
-                    f"{_time},{_data[0]},{_data[1]}\n" for _time, _data in enumerate(self.TorqueData)
-                )
+                lines = [f"{_time},{_data[0]},{_data[1]}\n" for _time, _data in enumerate(self.TorqueData)]
+                _handle.writelines(lines)
         except Exception:
             pass
         return super().on_save()
@@ -224,21 +267,29 @@ class TorqueCenterTest(tester.tests.Test):
     @tester._member_logger
     def run(self, serial_number, devices):
         """
-        Run the torque center test by iteratively adjusting the source offset and collecting RMS measurements.
+        Runs the torque center test by iteratively adjusting the source offset and collecting RMS measurements.
 
         Args:
             serial_number (str): The serial number of the device under test.
             devices (object): An object providing access to connected devices, including the MSO5000.
+
+        Process:
+            - Enables the function generator on channel 1 of the MSO5000.
+            - Runs the MSO5000.
+            - Iterates through 51 offset values, setting the source offset on channel 1 for each iteration.
+            - For each offset, measures the RMS value and stores the offset-RMS pair.
+            - Stores the collected data in self.TorqueData.
+            - Disables the function generator on channel 1 after the test.
         """
         super().run(serial_number, devices)
         mso = devices.MSO5000
         mso.function_generator_state(1, True)
         mso.run()
         _data = []
-        offsets = [i / 20 for i in range(-50, 51)]
+        offsets = [i / 10 for i in range(-25, 26)]
         for _offset in offsets:
             mso.set_source_offset(1, _offset)
-            time.sleep(0.04)
+            time.sleep(0.2)
             try:
                 _rms = mso.get_measure_item(
                     MSO5000.Measurement.VoltageRms, MSO5000.Source.Channel2
@@ -252,13 +303,16 @@ class TorqueCenterTest(tester.tests.Test):
     @tester._member_logger
     def setup(self, serial_number, devices):
         """
-        Set up the test environment for the torque center test using the provided serial number and devices.
+        Sets up the test environment for the torque center test using the provided serial number and devices.
 
-        Configures the MSO5000 oscilloscope and its function generator with specific settings.
+        This method configures the MSO5000 oscilloscope and its function generator with specific settings.
 
         Args:
             serial_number (str): The serial number of the device under test.
             devices: An object containing device interfaces, including MSO5000.
+
+        Returns:
+            None
         """
         super().setup(serial_number, devices)
         mso = devices.MSO5000
@@ -267,7 +321,7 @@ class TorqueCenterTest(tester.tests.Test):
         )
         mso.function_generator_sinusoid(
             1,
-            frequency=10,
+            frequency=5,
             amplitude=0.5,
             output_impedance=MSO5000.SourceOutputImpedance.Fifty,
         )
@@ -288,10 +342,13 @@ class TorqueCenterTest(tester.tests.Test):
     @tester._member_logger
     def set_data_directory(self, root_directory):
         """
-        Set the root directory for data storage and update internal paths for figure and data files.
+        Sets the root directory for data storage and updates internal paths for figure and data files.
 
         Args:
             root_directory (str or Path): The root directory where data should be stored.
+
+        Side Effects:
+            Updates self.dataDirectory, self.figurePath, and self.dataFilePath with new paths based on the provided root directory.
         """
         super().set_data_directory(root_directory)
         self.figurePath = self.dataDirectory / "torque_plot.png"
@@ -300,9 +357,12 @@ class TorqueCenterTest(tester.tests.Test):
     @tester._member_logger
     def teardown(self, devices):
         """
-        Tear down the test environment and perform any necessary cleanup.
+        Tears down the test environment and performs any necessary cleanup.
 
         Args:
             devices: An object containing device interfaces.
+
+        Returns:
+            None
         """
         super().teardown(devices)
