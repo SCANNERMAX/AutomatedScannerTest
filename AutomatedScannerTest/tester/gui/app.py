@@ -4,6 +4,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 import sys
+import os
 
 import tester
 
@@ -16,6 +17,8 @@ class QtContextFilter(logging.Filter):
     'function', and 'category', which are used by the custom formatter to provide
     enhanced log traceability.
     """
+    __slots__ = ()
+
     def filter(self, record):
         """
         Add context attributes to the log record if they are missing.
@@ -40,6 +43,8 @@ class QtFormatter(logging.Formatter):
     This formatter extends the base log message with file, line, function, and
     category information, if available.
     """
+    __slots__ = ()
+
     def format(self, record):
         """
         Format the log record with additional Qt context information.
@@ -71,14 +76,15 @@ class TesterApp(QtWidgets.QApplication):
         Returns:
             Path: The data directory path.
         """
-        if not hasattr(self, "_data_directory"):
-            _data_path = f"C:/Test Data/{tester.__application__}"
-            if self.settings.contains("DataDirectory"):
-                _data_path = self.settings.value("DataDirectory", _data_path, type=str)
-            _data_directory = Path(_data_path).resolve()
-            if not _data_directory.exists():
-                _data_directory.mkdir(parents=True, exist_ok=True)
-            self._data_directory = _data_directory
+        if hasattr(self, "_data_directory"):
+            return self._data_directory
+
+        _data_path = os.path.join(os.path.dirname(__file__), "Test Data", tester.__application__)
+        if self.settings.contains("DataDirectory"):
+            _data_path = self.settings.value("DataDirectory", _data_path, type=str)
+        _data_directory = Path(_data_path).resolve()
+        _data_directory.mkdir(parents=True, exist_ok=True)
+        self._data_directory = _data_directory
         return self._data_directory
 
     def __init__(self, argv, *args, **kwargs):
@@ -92,6 +98,8 @@ class TesterApp(QtWidgets.QApplication):
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
         """
+        if QtWidgets.QApplication.instance() is not None:
+            raise RuntimeError("Only one QApplication instance is allowed.")
         super().__init__(argv, *args, **kwargs)
         self.settings = QtCore.QSettings(
             QtCore.QSettings.Format.IniFormat,
@@ -114,6 +122,7 @@ class TesterApp(QtWidgets.QApplication):
             logging.root.addHandler(_stream_handler)
             logging.root.setLevel(logging.INFO)
 
+        if not any(isinstance(h, RotatingFileHandler) for h in logging.root.handlers):
             _file_path = self.DataDirectory / datetime.now().strftime("log_%Y%m%d_%H%M%S.log")
             _file_handler = RotatingFileHandler(
                 _file_path, maxBytes=5_000_000, backupCount=3, encoding="utf-8"
@@ -145,7 +154,7 @@ class TesterApp(QtWidgets.QApplication):
             (["t", "test"], "The test to run.", "test", None),
             (["l", "list"], "List the available tests.", None, None),
             (["r", "run"], "Run the tests.", None, None),
-            (["g", "gui"], "Enable or disable the GUI (true/false).", "gui", "false"),
+            (["g", "nogui"], "Disable the GUI.", "gui", "false"),
         ]
         for names, desc, value_name, default in options:
             if value_name is not None:
@@ -169,7 +178,12 @@ class TesterApp(QtWidgets.QApplication):
         self.options.addVersionOption()
         self.options.process(self)
 
-    def qt_message_handler(self, mode, context, message):
+    def qt_message_handler(
+        self,
+        mode: QtCore.QtMsgType,
+        context: QtCore.QMessageLogContext,
+        message: str
+    ) -> None:
         """
         Route Qt messages to the Python logging system with context.
 
@@ -194,3 +208,5 @@ class TesterApp(QtWidgets.QApplication):
         log_func = log_map.get(mode)
         if log_func:
             log_func(message, extra=extra)
+        else:
+            self.qt_logger.warning(f"Unknown Qt message type: {mode} - {message}", extra=extra)

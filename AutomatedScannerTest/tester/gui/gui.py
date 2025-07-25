@@ -52,63 +52,64 @@ class TesterWindow(QtWidgets.QMainWindow):
         # Setup model
         app = QtWidgets.QApplication.instance()
         model = TestSequenceModel(app.settings)
-
-        # Setup UI
-        self.ui = Ui_TesterWindow()
-        self.ui.setupUi(self)
-        self.ui.tableSequence.setModel(model)
-        self.ui.tableSequence.setColumnWidth(0, 175)
-        self.ui.tableSequence.setColumnWidth(1, 75)
-        self.ui.tableSequence.verticalHeader().setVisible(False)
-
-        # Connect UI signals
-        self.ui.actionAbout.triggered.connect(self.onAbout)
-        self.ui.actionExit.triggered.connect(self.onExit)
-        self.ui.actionOpen.triggered.connect(self.onOpen)
-        self.ui.actionReport.triggered.connect(self.onReport)
-        self.ui.actionSave.triggered.connect(self.onSave)
-        self.ui.actionStart.triggered.connect(self.onStartTest)
-        self.ui.actionStop.triggered.connect(self.onStopTest)
-        self.ui.tableSequence.selectionModel().selectionChanged.connect(
-            self.on_tableSequence_selectionChanged
-        )
-
         # Set up background worker for model updates
         self.worker = TestWorker(model)
-        # Use a mapping to reduce repetitive code for label connections
-        label_signal_map = {
-            self.worker.computerNameChanged: self.ui.labelComputerName.setText,
-            self.worker.durationChanged: self.ui.labelDuration.setText,
-            self.worker.endTimeChanged: self.ui.labelEndTime.setText,
-            self.worker.modelNameChanged: self.ui.labelModelName.setText,
-            self.worker.serialNumberChanged: self.ui.labelSerialNumber.setText,
-            self.worker.startTimeChanged: self.ui.labelStartTime.setText,
-            self.worker.statusChanged: self.ui.labelStatus.setText,
-            self.worker.testerNameChanged: self.ui.labelTesterName.setText,
-            self.worker.startedTest: self.onTestStarted,
-            self.worker.finishedTest: self.onTestFinished,
-            self.worker.finishedTesting: self.onTestingComplete,
-            self.worker.finishedGeneratingReport: self.onFinishedGeneratingReport,
-            self.worker.finishedLoadingData: self.onFinishedLoadingData,
-            self.worker.finishedSavingData: self.onFinishedSavingData,
-        }
-        for signal, slot in label_signal_map.items():
-            signal.connect(slot, QtCore.Qt.QueuedConnection)
 
-        self.signalGenerateReport.connect(self.worker.onGenerateReport)
-        self.signalLoadData.connect(self.worker.onLoadData)
-        self.signalSaveData.connect(self.worker.onSaveData)
-        self.signalStartTest.connect(self.worker.onStartTest)
-        self.thread = QtCore.QThread()
-        self.worker.moveToThread(self.thread)
-        self.thread.started.connect(self.worker.threadStarted)
-        self.thread.start()
+        if app.options.isSet("nogui"):
+            # Setup UI
+            self.ui = Ui_TesterWindow()
+            self.ui.setupUi(self)
+            self.ui.tableSequence.setModel(model)
+            self.ui.tableSequence.setColumnWidth(0, 175)
+            self.ui.tableSequence.setColumnWidth(1, 75)
+            self.ui.tableSequence.verticalHeader().setVisible(False)
 
-        # Timer to update current time label every second
-        self._current_time_timer = QtCore.QTimer(self)
-        self._current_time_timer.timeout.connect(self._update_current_time)
-        self._current_time_timer.start(1000)
-        self._update_current_time()
+            # Connect UI signals
+            self.ui.actionAbout.triggered.connect(self.onAbout)
+            self.ui.actionExit.triggered.connect(self.onExit)
+            self.ui.actionOpen.triggered.connect(self.onOpen)
+            self.ui.actionReport.triggered.connect(self.onReport)
+            self.ui.actionSave.triggered.connect(self.onSave)
+            self.ui.actionStart.triggered.connect(self.onStartTest)
+            self.ui.actionStop.triggered.connect(self.onStopTest)
+            self.ui.tableSequence.selectionModel().selectionChanged.connect(
+                self.on_tableSequence_selectionChanged
+            )
+
+            # Use a mapping to reduce repetitive code for label connections
+            label_signal_map = {
+                self.worker.computerNameChanged: self.ui.labelComputerName.setText,
+                self.worker.durationChanged: self.ui.labelDuration.setText,
+                self.worker.endTimeChanged: self.ui.labelEndTime.setText,
+                self.worker.modelNameChanged: self.ui.labelModelName.setText,
+                self.worker.serialNumberChanged: self.ui.labelSerialNumber.setText,
+                self.worker.startTimeChanged: self.ui.labelStartTime.setText,
+                self.worker.statusChanged: self.ui.labelStatus.setText,
+                self.worker.testerNameChanged: self.ui.labelTesterName.setText,
+                self.worker.startedTest: self.onTestStarted,
+                self.worker.finishedTest: self.onTestFinished,
+                self.worker.finishedTesting: self.onTestingComplete,
+                self.worker.finishedGeneratingReport: self.onFinishedGeneratingReport,
+                self.worker.finishedLoadingData: self.onFinishedLoadingData,
+                self.worker.finishedSavingData: self.onFinishedSavingData,
+            }
+            for signal, slot in label_signal_map.items():
+                signal.connect(slot, QtCore.Qt.QueuedConnection)
+
+            self.signalGenerateReport.connect(self.worker.onGenerateReport)
+            self.signalLoadData.connect(self.worker.onLoadData)
+            self.signalSaveData.connect(self.worker.onSaveData)
+            self.signalStartTest.connect(self.worker.onStartTest)
+            self.thread = QtCore.QThread()
+            self.worker.moveToThread(self.thread)
+            self.thread.started.connect(self.worker.threadStarted)
+            self.thread.start()
+
+            # Timer to update current time label every second
+            self._current_time_timer = QtCore.QTimer(self)
+            self._current_time_timer.timeout.connect(self._update_current_time)
+            self._current_time_timer.start(1000)
+            self._update_current_time()
 
     def _update_current_time(self):
         """

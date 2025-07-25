@@ -1,26 +1,33 @@
 # -*- coding: utf-8 -*-
-import sys
-
 from tester.gui.app import TesterApp
 from tester.gui.gui import TesterWindow
+from tester.manager.test_sequence import TestSequenceModel
 
-def main():
+import sys
+
+def main() -> int:
     """
     Main entry point for the GUI tester application.
 
-    Initializes the TesterApp with command-line arguments and creates the main TesterWindow.
-    Starts the application event loop and exits with the returned exit code.
+    This function initializes the TesterApp with command-line arguments,
+    creates the main TesterWindow, starts the application event loop,
+    and returns the exit code from the application.
 
     Returns:
-        int: The exit code from the application.
+        int: The exit code from the application event loop.
     """
     app = TesterApp(sys.argv)
-    window = TesterWindow()
-    window.start_application()
-    sys.exit(app.exec())
+    if app.options.isSet("nogui"):
+        ts = TestSequenceModel(app.settings)
+        return ts.run_nogui()
+    else:
+        window = TesterWindow()
+        window.show()
+        return app.exec()
 
 if __name__ == "__main__":
     """
-    If this module is run as the main program, execute the main function.
+    If this module is run as the main program, execute the main function
+    and exit the process with the returned exit code.
     """
-    main()
+    sys.exit(main())
