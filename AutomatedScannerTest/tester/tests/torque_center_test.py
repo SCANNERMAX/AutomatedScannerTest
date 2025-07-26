@@ -235,7 +235,7 @@ class TorqueCenterTest(tester.tests.Test):
         mso.function_generator_state(1, True)
         mso.run()
         _data = []
-        offsets = [i / 20 for i in range(-50, 51)]
+        offsets = [i / 10 for i in range(-25, 26)]
         for _offset in offsets:
             mso.set_source_offset(1, _offset)
             time.sleep(0.04)

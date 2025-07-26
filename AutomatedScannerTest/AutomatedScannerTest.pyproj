@@ -4,15 +4,14 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>ac905e11-9872-4d8a-bd1d-9802bca77056</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>tester\main_cli.py</StartupFile>
+    <StartupFile>main_cli.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
     <Name>AutomatedScannerTest</Name>
     <RootNamespace>AutomatedScannerTest</RootNamespace>
-    <InterpreterId>
-    </InterpreterId>
+    <InterpreterId>MSBuild|env|$(MSBuildProjectFullPath)</InterpreterId>
     <TestFramework>Pytest</TestFramework>
     <SuppressPackageInstallationPrompt>True</SuppressPackageInstallationPrompt>
     <SuppressConfigureTestFrameworkPrompt>true</SuppressConfigureTestFrameworkPrompt>
@@ -32,13 +31,13 @@
     <Compile Include="tester\gui\gui.py" />
     <Compile Include="tester\asset\tester_rc.py" />
     <Compile Include="tester\gui\tester_ui.py" />
-    <Compile Include="tester\main_cli.py" />
+    <Compile Include="main_cli.py" />
     <Compile Include="tester\manager\devices.py" />
     <Compile Include="tester\manager\report.py" />
     <Compile Include="tester\tests\bearing_test.py" />
     <Compile Include="tester\devices\mso5000.py" />
     <Compile Include="tester\devices\__init__.py" />
-    <Compile Include="tester\main_gui.py" />
+    <Compile Include="main_gui.py" />
     <Compile Include="tester\tests\__init__.py" />
     <Compile Include="tester\manager\test_sequence.py" />
     <Compile Include="tester\tests\torque_center_test.py" />
@@ -60,6 +59,17 @@
     <Content Include="requirements.txt" />
     <Compile Include="tester\gui\tester.ui" />
     <Content Include="tester\asset\tester.qrc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Interpreter Include="env\">
+      <Id>env</Id>
+      <Version>3.13</Version>
+      <Description>env (Python 3.13 (64-bit))</Description>
+      <InterpreterPath>Scripts\python.exe</InterpreterPath>
+      <WindowsInterpreterPath>Scripts\pythonw.exe</WindowsInterpreterPath>
+      <PathEnvironmentVariable>PYTHONPATH</PathEnvironmentVariable>
+      <Architecture>X64</Architecture>
+    </Interpreter>
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in
