@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-from PySide6 import QtCore, QtWidgets, QtGui
+from PySide6 import QtCore, QtGui, QtWidgets
 import logging
 from pathlib import Path
 import re
 
+from AutomatedScannerTest.tester.app import TesterApp
 import tester
 from tester.manager.test_sequence import TestSequenceModel, TestWorker
 from tester.gui.tester_ui import Ui_TesterWindow
@@ -12,7 +13,7 @@ from tester.gui.tester_ui import Ui_TesterWindow
 _SERIAL_RE = re.compile(r"^[A-Z]{2}[0-9]{6}$")
 
 
-class TesterWindow(QtWidgets.QMainWindow):
+class TesterWindow(QtCore.QMainWindow):
     """
     Main Qt application window for the Automated Scanner Test GUI.
     Manages UI, user actions, and coordinates with the TestSequence model.
@@ -23,26 +24,6 @@ class TesterWindow(QtWidgets.QMainWindow):
     signalSaveData = QtCore.Signal(str)
     signalStartTest = QtCore.Signal(str, str, str)
 
-    @property
-    def LastDirectory(self) -> str:
-        """
-        Returns the last directory path used for file operations.
-
-        Returns:
-            str: The last directory path used.
-        """
-        return self.model._get_setting("LastDirectory")
-
-    @LastDirectory.setter
-    def LastDirectory(self, value: str):
-        """
-        Sets the last directory used for file operations.
-
-        Args:
-            value (str): The directory path to set.
-        """
-        self.model._set_setting("LastDirectory", value)
-
     def __init__(self, *args, **kwargs):
         """
         Initialize the TesterWindow, set up the UI, connect signals, and configure logging.
@@ -50,18 +31,24 @@ class TesterWindow(QtWidgets.QMainWindow):
         super().__init__(*args, **kwargs)
 
         # Setup model
-        app = QtWidgets.QApplication.instance()
-        model = TestSequenceModel(app.settings)
-        # Set up background worker for model updates
+        app = TesterApp.instance()
+        if isinstance(app, TesterApp):
+            self.__logger = app.get_logger(self.__class__.__name__)
+            self.__settings = app.get_settings()
+            self.__settings.settingsModified.connect(self.onSettingsModified)
+            self.onSettingsModified()
+        else:
+            raise TypeError("TesterApp instance is not of type TesterApp.")
+        model = TestSequenceModel()
         self.worker = TestWorker(model)
 
-        if app.options.isSet("nogui"):
+        if app.options.isSet("gui"):
             # Setup UI
             self.ui = Ui_TesterWindow()
             self.ui.setupUi(self)
             self.ui.tableSequence.setModel(model)
-            self.ui.tableSequence.setColumnWidth(0, 175)
-            self.ui.tableSequence.setColumnWidth(1, 75)
+            self.ui.tableSequence.setColumnWidth(0, self.firstColumnWidth)
+            self.ui.tableSequence.setColumnWidth(1, self.secondColumnWidth)
             self.ui.tableSequence.verticalHeader().setVisible(False)
 
             # Connect UI signals
@@ -107,27 +94,71 @@ class TesterWindow(QtWidgets.QMainWindow):
 
             # Timer to update current time label every second
             self._current_time_timer = QtCore.QTimer(self)
-            self._current_time_timer.timeout.connect(self._update_current_time)
+            self._current_time_timer.timeout.connect(self.updateCurrentTime)
             self._current_time_timer.start(1000)
-            self._update_current_time()
+            self.updateCurrentTime()
 
-    def _update_current_time(self):
+            model.setupUi(self.ui.widgetTest)
+            model.statusChanged.connect(self.updateStatus)
+
+    def updateCurrentTime(self):
         """
         Update the labelCurrentTime with the current time.
         """
         self.ui.labelCurrentTime.setText(
-            QtCore.QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss")
+            QtCore.QDateTime.currentDateTime().toString(self.dateTimeFormat)
         )
+
+    def getLastDirectory(self) -> Path:
+        """
+        Get the last directory used for file operations.
+        Returns:
+            str: The last directory path.
+        """
+        self.__logger.debug("Retrieving last directory from settings.")
+        return self.__settings.value("LastDirectory", str(Path.home()))
+
+    def setLastDirectory(self, path: Path):
+        """
+        Set the last directory used for file operations.
+        Args:
+            path (Path): The new last directory path.
+        """
+        self.__logger.debug(f"Setting last directory to: {path}")
+        self.__settings.setValue("LastDirectory", str(path))
+        self.__settings.sync()
+
+    LastDirectory = QtCore.Property(Path, getLastDirectory, setLastDirectory, doc="Last directory used for file operations.")
+
+    @QtCore.Slot()
+    def onSettingsModified(self):
+        """
+        Slot called when settings are modified.
+        """
+        self.__logger.debug("Settings modified, updating UI properties.")
+        self.__settings.beginGroup(self.__class__.__name__)
+        self.firstColumnWidth = self.__settings.value("FirstColumnWidth", 175, int)
+        self.secondColumnWidth = self.__settings.value("SecondColumnWidth", 75, int)
+        self.dateTimeFormat = self.__settings.value("DateTimeFormat", "yyyy-MM-dd HH:mm:ss", str)
+        self.__settings.setValue("FirstColumnWidth", self.firstColumnWidth)
+        self.__settings.setValue("SecondColumnWidth", self.secondColumnWidth)
+        self.__settings.setValue("DateTimeFormat", self.dateTimeFormat)
+        self.__settings.endGroup()
+        self.__settings.sync()
 
     @QtCore.Slot()
     def onAbout(self):
         """
         Show the About dialog with application information.
         """
+        self.__logger.debug("About menu clicked, displaying about dialog.")
+        _title = QtCore.QCoreApplication.translate("TesterWindow", "About")
+        _version = QtCore.QCoreApplication.translate("TesterWindow", "Version")
+        _company = QtCore.QCoreApplication.translate("TesterWindow", "Developed by")
         QtWidgets.QMessageBox.about(
             self,
-            "About",
-            f"{tester.__application__}\nVersion {tester.__version__}\nDeveloped by {tester.__company__}",
+            _title,
+            f"{tester.__application__}\n{_version} {tester.__version__}\n{_company} {tester.__company__}",
         )
 
     @QtCore.Slot()
@@ -135,23 +166,27 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         Handle the Exit action: stop the test and quit the application.
         """
+        self.updateStatus("Exit menu clicked, stopping test and quitting application.")
         self.onStopTest()
-        QtWidgets.QApplication.quit()
+        QtCore.QCoreApplication.quit()
 
     @QtCore.Slot()
     def onOpen(self):
         """
         Handle the Open action: open a file dialog to select a test data file and load it.
         """
-        QtCore.qInfo("Open menu clicked")
+        self.__logger.debug("Open menu clicked, opening file dialog for test data.")
+        _caption = QtCore.QCoreApplication.translate("TesterWindow", "Open test data file")
+        _filter = QtCore.QCoreApplication.translate("TesterWindow", "Test Data files")
         file_path, ok = QtWidgets.QFileDialog.getOpenFileName(
             self,
-            "Open test data file",
+            _caption,
             str(self.LastDirectory or ""),
-            "Test Data files (*.past)",
+            f"{_filter} (*.past)",
         )
         if ok and file_path:
             self.LastDirectory = str(Path(file_path).parent)
+            self.updateStatus(f"Loading test data from file {file_path}.")
             self.signalLoadData.emit(file_path)
 
     @QtCore.Slot()
@@ -159,15 +194,18 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         Handle the Report action: open a file dialog to select a location and generate a test report.
         """
-        QtCore.qInfo("Generate Report menu clicked.")
+        self.__logger.debug("Report menu clicked, opening file dialog for report generation.")
+        _title = QtCore.QCoreApplication.translate("TesterWindow", "Save test report file")
+        _filter = QtCore.QCoreApplication.translate("TesterWindow", "Test Report files")
         file_path, ok = QtWidgets.QFileDialog.getSaveFileName(
             self,
-            "Save test report file",
+            _title,
             str(self.LastDirectory or ""),
-            "Test Report files (*.pdf)",
+            f"{_filter} (*.pdf)",
         )
         if ok and file_path:
             self.LastDirectory = str(Path(file_path).parent)
+            self.updateStatus(f"Generating report to file {file_path}.")
             self.signalGenerateReport.emit(file_path)
 
     @QtCore.Slot()
@@ -175,15 +213,18 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         Handle the Save action: open a file dialog to select a location and save the test data.
         """
-        QtCore.qInfo("Save menu clicked.")
+        self.__logger.debug("Save menu clicked, opening file dialog for saving test data.")
+        _title = QtCore.QCoreApplication.translate("TesterWindow", "Save test data file")
+        _filter = QtCore.QCoreApplication.translate("TesterWindow", "Test Data files")
         file_path, ok = QtWidgets.QFileDialog.getSaveFileName(
             self,
-            "Save test data file",
+            _title,
             str(self.LastDirectory or ""),
-            "Test Data files (*.past)",
+            f"{_filter} (*.past)",
         )
         if ok and file_path:
             self.LastDirectory = str(Path(file_path).parent)
+            self.updateStatus(f"Saving test data to file {file_path}.")
             self.signalSaveData.emit(file_path)
 
     @QtCore.Slot()
@@ -191,32 +232,27 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         Handle the Start Test action: prompt for a serial number, validate it, and start the test.
         """
-        QtCore.qInfo("Start test menu clicked.")
-        _serial_number, _ok = QtWidgets.QInputDialog.getText(
-            self, "Input", "Enter galvo serial number (q to quit):"
-        )
+        self.__logger.debug("Start test menu clicked, prompting for serial number and model name.")
+        _title = QtCore.QCoreApplication.translate("TesterWindow", "Input Serial Number")
+        _message = QtCore.QCoreApplication.translate("TesterWindow", "Enter galvo serial number (q to quit):")
+        _serial_number, _ok = QtWidgets.QInputDialog.getText(self, _title, _message)
         if not _ok or not _serial_number or _serial_number.strip().lower() == "q":
             return
-
         _serial_number = _serial_number.strip()
         if not _SERIAL_RE.fullmatch(_serial_number):
-            QtWidgets.QMessageBox.warning(
-                self,
-                "Invalid Serial",
-                "Serial number must be two uppercase letters followed by six digits.",
-            )
-            self._logger.error("Invalid serial number format.")
-            return
+            _title = QtCore.QCoreApplication.translate("TesterWindow", "Invalid Serial Number")
+            _message = QtCore.QCoreApplication.translate("TesterWindow", "Serial number must be two uppercase letters followed by six digits.")
+            QtWidgets.QMessageBox.warning(self, _title, _message)
+            self.__logger.warning("Invalid serial number format.")
 
-        _model_name, _ok = QtWidgets.QInputDialog.getText(
-            self, "Input", "Enter model name (e.g., 'Galvo-1234'):"
-        )
+        _title = QtCore.QCoreApplication.translate("TesterWindow", "Input Model Name")
+        _message = QtCore.QCoreApplication.translate("TesterWindow", "Enter model name:")
+        _model_name, _ok = QtWidgets.QInputDialog.getText(self, _title, _message)
         if not _ok or not _model_name:
-            QtWidgets.QMessageBox.warning(
-                self, "Invalid Model Name", "Model name cannot be empty."
-            )
-            self._logger.error("Model name cannot be empty.")
-            return
+            _title = QtCore.QCoreApplication.translate("TesterWindow", "Invalid Model Name")
+            _message = QtCore.QCoreApplication.translate("TesterWindow", "Model name cannot be empty.")
+            QtWidgets.QMessageBox.warning(self, _title, _message)
+            self._logger.warning("Model name cannot be empty.")
 
         self.ui.actionStart.setEnabled(False)
         self.ui.actionStop.setEnabled(True)
@@ -228,7 +264,8 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         Handle the Stop Test action: stop the current test and update UI actions.
         """
-        QtCore.qInfo("Stop test menu clicked.")
+        self.__logger.debug("Stop test menu clicked, stopping the current test.")
+        self.updateStatus("Stopping current test.")
         if hasattr(self.model, "on_stop_test"):
             self.model.on_stop_test()
         self.ui.actionStart.setEnabled(True)
@@ -247,13 +284,14 @@ class TesterWindow(QtWidgets.QMainWindow):
         indexes = selected.indexes()
         if indexes:
             row = indexes[0].row()
-            QtCore.qDebug(f"Table row selected: {row}.")
-            self.model.loadUi(row, self.ui.widgetTest)
+            self.__logger.debug(f"Table row selected: {row}.")
+            self.ui.widgetTest.setCurrentIndex(row)
         else:
-            QtCore.qDebug("No table row selected.")
+            self.__logger.debug("No table row selected.")
+            self.ui.widgetTest.setCurrentIndex(-1)
 
-    @QtCore.Slot(int)
-    def onTestStarted(self, index: int):
+    @QtCore.Slot(int, str)
+    def onTestStarted(self, index: int, name: str):
         """
         Slot called when a test is started.
 
@@ -261,12 +299,10 @@ class TesterWindow(QtWidgets.QMainWindow):
             index (int): The index of the started test.
         """
         self.ui.tableSequence.selectRow(index)
-        msg = f"Test {index + 1} started."
-        self.ui.statusBar.showMessage(msg, 3000)
-        QtCore.qInfo(msg)
+        self.updateStatus(f"Test {index + 1} {name} started.")
 
-    @QtCore.Slot(int, bool)
-    def onTestFinished(self, index: int, result: bool):
+    @QtCore.Slot(int, str, bool)
+    def onTestFinished(self, index: int, name: str, result: bool):
         """
         Slot called when a test is finished.
 
@@ -274,11 +310,11 @@ class TesterWindow(QtWidgets.QMainWindow):
             index (int): The index of the finished test.
             result (bool): The result of the test (True for pass, False for fail).
         """
-        msg = f"Test {index + 1} {'PASSED' if result else 'FAILED'}."
-        self.ui.statusBar.showMessage(msg, 5000)
-        QtCore.qInfo(msg)
+        _status = "PASSED" if result else "FAILED"
+        _message = f"Test {index + 1} {name} {_status}."
+        self.updateStatus(_message)
 
-    @QtCore.Slot()
+    @QtCore.Slot(bool)
     def onTestingComplete(self, result: bool):
         """
         Slot called when all tests are complete.
@@ -286,12 +322,11 @@ class TesterWindow(QtWidgets.QMainWindow):
         Args:
             result (bool): The overall result of the test sequence.
         """
-        QtCore.qInfo("All tests complete.")
+        _status = "Pass" if result else "Fail"
+        self.updateStatus(f"All tests complete with status {_status}.")
         self.ui.actionStart.setEnabled(True)
         self.ui.actionStop.setEnabled(False)
         self.ui.actionReport.setEnabled(True)
-        self.ui.statusBar.showMessage(msg, 5000)
-        QtCore.qInfo(msg)
 
     @QtCore.Slot(str)
     def onFinishedGeneratingReport(self, file_path: str):
@@ -300,9 +335,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         Args:
             file_path (str): The path to the generated report file.
         """
-        msg = f"Report generated: {file_path}"
-        self.ui.statusBar.showMessage(msg, 5000)
-        QtCore.qInfo(msg)
+        self.updateStatus(f"Report generated: {file_path}.")
 
     @QtCore.Slot(str)
     def onFinishedLoadingData(self, file_path: str):
@@ -311,9 +344,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         Args:
             file_path (str): The path to the loaded data file.
         """
-        msg = f"Data loaded from: {file_path}"
-        self.ui.statusBar.showMessage(msg, 5000)
-        QtCore.qInfo(msg)
+        self.updateStatus(f"Data loaded from: {file_path}.")
 
     @QtCore.Slot(str)
     def onFinishedSavingData(self, file_path: str):
@@ -322,9 +353,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         Args:
             file_path (str): The path to the saved data file.
         """
-        msg = f"Data saved to: {file_path}"
-        self.ui.statusBar.showMessage(msg, 5000)
-        QtCore.qInfo(msg)
+        self.updateStatus(f"Data saved to: {file_path}.")
 
     def show(self):
         """
@@ -335,25 +364,6 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         self.setWindowTitle(tester.__application__)
         self.setWindowIcon(QtGui.QIcon(":/icons/icon.png"))
-
-        class StatusBarHandler(logging.Handler):
-            """
-            Logging handler that updates the status bar with info messages.
-            """
-
-            def __init__(self, status_bar):
-                super().__init__()
-                self.status_bar = status_bar
-
-            def emit(self, record):
-                if record.levelno <= logging.INFO:
-                    msg = self.format(record)
-                    self.status_bar.showMessage(f"Status: {msg}")
-
-        _status_bar_handler = StatusBarHandler(self.ui.statusBar)
-        _status_bar_handler.setLevel(logging.INFO)
-        logging.getLogger().addHandler(_status_bar_handler)
-
         return super().show()
 
     def showEvent(self, event):
@@ -364,6 +374,17 @@ class TesterWindow(QtWidgets.QMainWindow):
             event (QShowEvent): The show event.
         """
         super().showEvent(event)
-        app = QtWidgets.QApplication.instance()
+        app = TesterApp.instance()
         if hasattr(app, "options") and app.options.isSet("run"):
             self.onStartTest()
+
+    @QtCore.Slot(str)
+    def updateStatus(self, message: str):
+        """
+        Update the status bar with a message.
+        Args:
+            message (str): The message to display in the status bar.
+        """
+        self.__logger.info(message)
+        _message = QtCore.QCoreApplication.translate("TesterWindow", message)
+        self.ui.statusBar.showMessage(_message, 5000)

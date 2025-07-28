@@ -1,77 +1,54 @@
 # -*- coding: utf-8 -*-
-from PySide6.QtCore import QObject, QSettings
+from PySide6 import QtCore
 
-import tester
+from AutomatedScannerTest.tester.app import TesterApp
 
 
-class Device(QObject):
+class Device(QtCore.QObject):
     """
     Device base class for hardware abstraction.
-
-    This class provides a foundation for device objects, managing device-specific settings
-    and a structure for instrument discovery. It is intended to be subclassed by concrete
-    device implementations.
-
-    Attributes:
-        logger: Logger instance for the device.
-        _settings: QSettings instance for application/device settings.
-        Name: Name of the device.
     """
 
-    def __init__(self, name: str, settings: QSettings):
-        """
-        Initialize the Device instance.
-
-        Args:
-            name (str): The name of the device.
-            settings (QSettings): The settings object for storing device configuration.
-        """
+    def __init__(self, name: str):
         super().__init__()
-        self.logger = tester._get_class_logger(type(self))
-        self._settings = settings
+        app = TesterApp.instance()
+        if not isinstance(app, TesterApp):
+            raise TypeError("TesterApp instance is required for Device initialization.")
+        self.logger = app.get_logger(self.__class__.__name__)
+        self.__settings = app.get_settings()
+        self.__settings.settingsModified.connect(self.onSettingsModified)
+        self.onSettingsModified()
         self.Name = name
-        # Only call find_instrument if subclass has overridden it
-        if self.__class__.find_instrument is not Device.find_instrument:
-            self.find_instrument()
+        # Only call findInstrument if subclass has overridden it
+        if self.__class__.findInstrument is not Device.findInstrument:
+            self.findInstrument()
 
-    def _get_setting(self, key: str, default=None):
-        """
-        Retrieve a setting value for the device from the application's settings storage.
+    Name = QtCore.Property(
+        str,
+        fget=lambda self: self.getSetting("Name", ""),
+        fset=lambda self, value: self.setSetting("Name", value),
+        doc="Name of the device, used for identification.",
+    )
 
-        Args:
-            key (str): The key of the setting to retrieve.
-            default: The default value to return if the key does not exist.
+    def findInstrument(self):
+        if self.logger:
+            self.logger.warning("findInstrument() not implemented for this device.")
 
-        Returns:
-            The value of the setting, or the default if not found.
-        """
+    def getSetting(self, key: str, default=None):
         group_path = f"Devices/{self.Name}"
-        self._settings.beginGroup(group_path)
-        try:
-            return self._settings.value(key, default)
-        finally:
-            self._settings.endGroup()
+        self.__settings.beginGroup(group_path)
+        value = self.__settings.value(key, default)
+        self.__settings.endGroup()
+        self.__settings.sync()
+        return value
 
-    def _set_setting(self, key: str, value):
-        """
-        Set a configuration setting for the device.
+    def onSettingsModified(self):
+        if self.logger:
+            self.logger.debug("Settings modified for device: %s", self.Name)
 
-        Args:
-            key (str): The key of the setting to set.
-            value: The value to set for the specified key.
-        """
+    def setSetting(self, key: str, value):
         group_path = f"Devices/{self.Name}"
-        self._settings.beginGroup(group_path)
-        try:
-            self._settings.setValue(key, value)
-        finally:
-            self._settings.endGroup()
-
-    def find_instrument(self):
-        """
-        Discover and initialize the instrument associated with this device.
-
-        This method should be overridden by subclasses to implement device-specific
-        instrument discovery logic. The base implementation logs a warning.
-        """
-        self.logger.warning("find_instrument() not implemented for this device.")
+        self.__settings.beginGroup(group_path)
+        self.__settings.setValue(key, value)
+        self.__settings.endGroup()
+        self.__settings.sync()

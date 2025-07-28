@@ -3,26 +3,9 @@
 import logging
 from functools import wraps
 
-_package_name = "PangolinLaserSystems.AutomatedScannerTest"
 __version__ = "1.1.0"
 __company__ = "Pangolin Laser Systems"
 __application__ = "Automated Scanner Test"
-
-
-def _get_class_logger(class_):
-    """
-    Returns a logger instance specific to the given class.
-
-    The logger is retrieved using the class's module and name, creating a hierarchical logger structure.
-    This allows for more granular logging control and easier identification of log messages from different classes.
-
-    Args:
-        class_ (type): The class for which to obtain a logger.
-
-    Returns:
-        logging.Logger: A logger instance scoped to the specified class.
-    """
-    return logging.getLogger(f"{_package_name}.{class_.__module__}.{class_.__name__}")
 
 
 def _member_logger(func):
@@ -40,7 +23,7 @@ def _member_logger(func):
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        logger = _get_class_logger(args[0].__class__)
+        logger = logging.getLogger(func.__module__)
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
                 "Calling function: %s with arguments: %s and keyword arguments: %s",

@@ -12,7 +12,7 @@ from tester.devices import Device
 class MSO5000(Device):
     __cache = {}
 
-    def __init__(self, settings: QSettings):
+    def __init__(self):
         """
         Initializes a new instance of the MSO5000 device class.
 
@@ -23,7 +23,7 @@ class MSO5000(Device):
             Calls the base Device class initializer with the device name "MSO5000" and the provided settings.
             Initializes the internal instrument reference to None.
         """
-        super().__init__("MSO5000", settings)
+        super().__init__("MSO5000")
         self.__instrument = None
 
     def __getattr__(self, name):
@@ -267,7 +267,7 @@ class MSO5000(Device):
         Ampere = "AMP"
         Unknown = "UNKN"
 
-    def find_instrument(self):
+    def findInstrument(self):
         """
         Finds and connects to a MSO5000 oscilloscope instrument using PyVISA.
 
@@ -318,7 +318,7 @@ class MSO5000(Device):
                     "manufacturer_id": parts[0],
                 }
                 for k, v in settings.items():
-                    self._set_setting(k, v)
+                    self.setSetting(k, v)
         except Exception as e:
             self.logger.debug(f"Error parsing IDN: {e}")
         self.logger.info(f"Connected to {getattr(self, 'model_name', 'Unknown')} oscilloscope.")

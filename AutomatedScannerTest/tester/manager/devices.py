@@ -1,4 +1,4 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from PySide6 import QtCore
 import ctypes
 import importlib
@@ -6,11 +6,12 @@ import inspect
 import os
 import socket
 
+from AutomatedScannerTest.tester.app import TesterApp
 import tester
 from tester.devices import Device
 
 
-class DeviceManager:
+class DeviceManager(QtCore.QObject):
     """
     DeviceManager is responsible for managing and initializing all device instances used for automated scanner testing.
 
@@ -33,7 +34,7 @@ class DeviceManager:
             Cleans up and resets devices after tests, including resetting the MSO5000 device.
     """
 
-    def __init__(self, settings: QtCore.QSettings):
+    def __init__(self):
         """
         Initializes the DeviceManager by setting up logging, storing the provided settings, and dynamically discovering and instantiating all subclasses of `Device` found in the `tester.devices` module.
 
@@ -45,15 +46,22 @@ class DeviceManager:
         Raises:
             Logs a warning if any device module cannot be imported or instantiated.
         """
-        self.__logger = tester._get_class_logger(self.__class__)
-        self.__settings = settings
+        app = TesterApp.instance()
+        if isinstance(app, TesterApp):
+            self.__logger = app.get_logger(self.__class__.__name__)
+            self.__settings = app.get_settings()
+        else:
+            raise TypeError(
+                "TesterApp instance is not available or is not of type TesterApp."
+            )
 
         # Find all Device subclasses in tester.devices
         _device_module = importlib.import_module(Device.__module__)
         _device_folder = os.path.dirname(_device_module.__file__)
 
         py_files = [
-            f for f in os.listdir(_device_folder)
+            f
+            for f in os.listdir(_device_folder)
             if f.endswith(".py") and not f.startswith("__")
         ]
 
@@ -71,10 +79,14 @@ class DeviceManager:
             # Use inspect.getmembers only once per module
             for _name, _obj in inspect.getmembers(_module, inspect.isclass):
                 # Use direct module check to avoid duplicate imports
-                if _obj.__module__ == _module.__name__ and issubclass(_obj, device_class) and _obj is not device_class:
+                if (
+                    _obj.__module__ == _module.__name__
+                    and issubclass(_obj, device_class)
+                    and _obj is not device_class
+                ):
                     try:
                         _device = _obj(self.__settings)
-                        _device.find_instrument()
+                        _device.findInstrument()
                         setattr(self, _name, _device)
                     except Exception as e:
                         self.__logger.warning(f"Could not instantiate {_name}: {e}")
@@ -123,7 +135,7 @@ class DeviceManager:
 
         This method logs the setup process and resets the MSO5000 device if it exists.
         """
-        self.__logger.info("Setting up the device manager...")
+        self.__logger.debug("Setting up the device manager.")
         mso = getattr(self, "MSO5000", None)
         if mso:
             mso.reset()
@@ -135,7 +147,7 @@ class DeviceManager:
 
         This method logs the setup process, resets the MSO5000 device if it exists, and clears its registers and state if supported.
         """
-        self.__logger.info("Setting up the device manager for testing...")
+        self.__logger.debug("Setting up the device manager for testing.")
         mso = getattr(self, "MSO5000", None)
         if mso:
             mso.reset()
@@ -151,7 +163,7 @@ class DeviceManager:
 
         This method logs the teardown process for test-specific settings.
         """
-        self.__logger.info("Tearing down the device manager settings for testing...")
+        self.__logger.debug("Tearing down the device manager settings for testing.")
 
     @tester._member_logger
     def teardown(self):
@@ -160,7 +172,7 @@ class DeviceManager:
 
         This method logs the teardown process and resets the MSO5000 device if it exists.
         """
-        self.__logger.info("Tearing down the device manager...")
+        self.__logger.debug("Tearing down the device manager.")
         mso = getattr(self, "MSO5000", None)
         if mso:
             mso.reset()

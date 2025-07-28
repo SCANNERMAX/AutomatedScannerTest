@@ -1,55 +1,43 @@
 #-*- coding: utf-8 -*-
 from PySide6 import QtCharts, QtCore, QtGui, QtWidgets
-import math
+import logging
 
 import tester
+from tester.app import TesterApp
 import tester.asset.tester_rc
 
 
 class TestReport:
     """
-    TestReport generates a PDF report for test results, including formatted pages, headers, footers, and graphical data.
-
-    This class uses Qt's PDF and painting APIs to create professional test reports with customizable fonts, page decorations, and embedded images or plots. It supports multi-page reports with automatic page numbering, company branding, and test metadata. The report can include a title page, test sections, blank pages for formatting, and XY data plots.
+    Generates a PDF report for test results, including formatted pages, headers, footers, and graphical data.
 
     Attributes:
-        pageSize (QtGui.QPageSize.PageSizeId): The size of the PDF pages (default: Letter).
-        resolution (int): The resolution of the PDF pages in DPI (default: 300).
-        rect (QtCore.QRect): The current drawing rectangle for content.
-        pageNumber (int): The current page number in the report.
-        fontMetrics (QtGui.QFontMetrics): The metrics of the current font for layout calculations.
+        writer (QtGui.QPdfWriter): PDF writer for output.
+        painter (QtGui.QPainter): Painter for drawing on the PDF.
+        pageSize (QtGui.QPageSize.PageSizeId): The size of the PDF pages.
+        resolution (int): The resolution of the PDF pages in DPI.
+        buffer (int): Buffer space in pixels.
+        margin (int): Margin space in pixels.
+        header_height (int): Header height in pixels.
+        footer_height (int): Footer height in pixels.
+        fontMetrics (QtGui.QFontMetrics): Metrics of the current font.
+        rect (QtCore.QRect): Current drawing rectangle for content.
+        pageNumber (int): Current page number in the report.
 
     Methods:
-        __init__(path: str):
-            Initializes the TestReport object, sets up the PDF writer and painter, and prepares the report for content generation.
-        finish():
-            Finalizes the PDF report, ensuring an even number of pages and closing the painter.
-        setFont(family: str = "Helvetica", pointSize: int = 10, bold: bool = False, italic: bool = False, underline: bool = False, strikeOut: bool = False):
-            Sets the font properties for the painter.
-        writeLine(text: str = "", pointSize: int = 10, bold: bool = False, italic: bool = False, underline: bool = False, strikeOut: bool = False, halign: QtCore.Qt.AlignmentFlag = QtCore.Qt.AlignmentFlag.AlignLeft):
-            Writes a line of text to the PDF with specified formatting and alignment.
-        newPage():
-            Starts a new page, draws headers, footers, and page decorations, and updates the drawing rectangle.
-        titlePage(serial_number: str, model_name: str, date: str, start_time: str, end_time: str, duration: str, tester_name: str, computer_name: str, status: str):
-            Creates a formatted title page with test and device metadata.
-        blankPage():
-            Inserts a new blank page with a centered message indicating intentional blankness.
-        startTest(name: str, serial_number: str, start_time: str, end_time: str, duration: str, status: str):
-            Starts a new test section, adding test metadata and formatting the page.
-        plotXYData(data: list, title: str, xlabel: str, ylabel: str, path: str):
-            Plots XY data, saves the plot as a PNG, and inserts it into the PDF report.
-
-    Usage:
-        report = TestReport("output.pdf")
-        report.titlePage(...)
-        report.startTest(...)
-        report.writeLine(...)
-        report.plotXYData(...)
-        report.finish()
+        __init__(path: str): Initializes the TestReport object, sets up the PDF writer and painter.
+        onSettingsModified(): Updates report settings from QSettings.
+        _convertInches(inches: float) -> int: Converts inches to pixels.
+        _insertBlankSpace(inches: float): Inserts blank vertical space in the drawing rectangle.
+        finish(): Finalizes the PDF report, ensuring an even number of pages and closing the painter.
+        setFont(...): Sets the font properties for the painter.
+        writeLine(...): Writes a line of text to the PDF with formatting and alignment.
+        newPage(): Starts a new page, draws headers, footers, and page decorations.
+        titlePage(...): Creates a formatted title page with test and device metadata.
+        blankPage(): Inserts a new blank page with a centered message.
+        startTest(...): Starts a new test section, adding test metadata and formatting the page.
+        plotXYData(...): Plots XY data, saves the plot as a PNG, and inserts it into the PDF report.
     """
-
-    pageSize = QtGui.QPageSize.PageSizeId.Letter
-    resolution = 300
 
     def __init__(self, path: str):
         """
@@ -58,17 +46,58 @@ class TestReport:
         Args:
             path (str): The file path for the output PDF report.
         """
+        app = TesterApp.instance()
+        if isinstance(app, TesterApp):
+            self.__logger = app.get_logger(self.__class__.__name__)
+            self.__settings = app.get_settings()
+            self.__settings.settingsModified.connect(self.onSettingsModified)
+            self.onSettingsModified()
+        else:
+            self.__logger = logging.getLogger(self.__class__.__name__)
+            self.__settings = QtCore.QSettings()
+        if app is None:
+            raise RuntimeError("QCoreApplication instance is not initialized.")
         self.writer = QtGui.QPdfWriter(path)
         self.writer.setPageSize(self.pageSize)
         self.writer.setResolution(self.resolution)
         self.painter = QtGui.QPainter(self.writer)
-        self.buffer = self._convertInches(0.05)
-        self.margin = self._convertInches(0.5)
-        self.header_height = self._convertInches(1)
-        self.footer_height = self._convertInches(1 / 3)
+        self.painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+
+    def onSettingsModified(self) -> None:
+        """
+        Update report settings from QSettings.
+        """
+        s = self.__settings
+        s.beginGroup(self.__class__.__name__)
+        _size = s.value("PageSize", "Letter", str)
+        _pageWidth = s.value("PageWidth", 8.5, float)
+        _pageHeight = s.value("PageHeight", 11, float)
+        self.resolution = s.value("Resolution", 300, int)
+        _buffer = s.value("Buffer", 0.05, float)
+        _margin = s.value("Margin", 0.5, float)
+        _header = s.value("HeaderHeight", 1, float)
+        _footer = s.value("FooterHeight", 0.33, float)
+        if _size == "Custom":
+            self.pageSize = QtGui.QPageSize(_pageWidth, _pageHeight, QtGui.QPageSize.Unit.Inch)
+        else:
+            self.pageSize = QtGui.QPageSize.id(_size)
+        self.buffer = self.convertInches(_buffer)
+        self.margin = self.convertInches(_margin)
+        self.header_height = self.convertInches(_header)
+        self.footer_height = self.convertInches(_footer)
+        s.setValue("PageSize", self.pageSize.name())
+        s.setValue("PageWidth", self.pageSize.width(QtGui.QPageSize.Unit.Inch))
+        s.setValue("PageHeight", self.pageSize.height(QtGui.QPageSize.Unit.Inch))
+        s.setValue("Resolution", self.resolution)
+        s.setValue("Buffer", _buffer)
+        s.setValue("Margin", _margin)
+        s.setValue("HeaderHeight", _header)
+        s.setValue("FooterHeight", _footer)
+        s.endGroup()
+        s.sync()
 
     @tester._member_logger
-    def _convertInches(self, inches: float) -> int:
+    def convertInches(self, inches: float) -> int:
         """
         Convert inches to pixels based on the report's resolution.
 
@@ -81,14 +110,14 @@ class TestReport:
         return int(inches * self.resolution)
 
     @tester._member_logger
-    def _insertBlankSpace(self, inches: float) -> None:
+    def insertBlankSpace(self, inches: float) -> None:
         """
         Insert blank vertical space in the current drawing rectangle.
 
         Args:
             inches (float): The height of the blank space in inches.
         """
-        self.rect.adjust(0, self._convertInches(inches), 0, 0)
+        self.rect.adjust(0, self.convertInches(inches), 0, 0)
 
     @tester._member_logger
     def finish(self) -> None:
@@ -122,7 +151,6 @@ class TestReport:
             underline (bool): Whether the font is underlined.
             strikeOut (bool): Whether the font is struck out.
         """
-        # Cache font objects to avoid redundant creation
         if not hasattr(self, "_font_cache"):
             self._font_cache = {}
         key = (family, pointSize, bold, italic, underline, strikeOut)
@@ -191,77 +219,44 @@ class TestReport:
             self.writer.newPage()
 
         self.rect = self.painter.window()
-        self.rect.adjust(
-            self.margin, self.margin, -self.margin, -self.margin
-        )
-        _header = QtCore.QRect(
-            self.rect.left(), self.rect.top(), self.rect.width(), self.header_height
-        )
-        _footer = QtCore.QRect(
-            self.rect.left(),
-            self.rect.bottom() - self.footer_height,
-            self.rect.width(),
-            self.footer_height,
-        )
-        self.rect.adjust(
-            0, self.header_height + self.buffer, 0, -self.footer_height - self.buffer
-        )
+        self.rect.adjust(self.margin, self.margin, -self.margin, -self.margin)
+        _header = QtCore.QRect(self.rect.left(), self.rect.top(), self.rect.width(), self.header_height)
+        _footer = QtCore.QRect(self.rect.left(), self.rect.bottom() - self.footer_height, self.rect.width(), self.footer_height)
+        self.rect.adjust(0, self.header_height + self.buffer, 0, -self.footer_height - self.buffer)
 
-        # Draw a box around the header
         self.painter.setPen(QtGui.QPen(QtCore.Qt.black, 5))
         self.painter.drawRect(_header)
         _header.adjust(self.buffer, self.buffer, -self.buffer, -self.buffer)
 
-        # Draw logo only if resource exists
         _logo_path = ":/rsc/logo.png"
         _logo_image = QtGui.QImage(_logo_path)
         if not _logo_image.isNull():
-            _scaled_logo = _logo_image.scaledToHeight(
-                int(_header.height() / 2),
-                QtCore.Qt.SmoothTransformation,
-            )
+            _scaled_logo = _logo_image.scaledToHeight(int(_header.height() / 2), QtCore.Qt.SmoothTransformation)
             _logo_top = _header.top() + (_header.height() - _scaled_logo.height()) / 2
             self.painter.drawImage(_header.left(), int(_logo_top), _scaled_logo)
 
-        # Application title
         _app_title = getattr(tester, "__application__", "Application")
         self.setFont(pointSize=16, bold=True)
         self.painter.drawText(
             _header,
             _app_title,
-            QtGui.QTextOption(
-                QtCore.Qt.AlignmentFlag.AlignCenter
-                | QtCore.Qt.AlignmentFlag.AlignBottom
-            ),
+            QtGui.QTextOption(QtCore.Qt.AlignmentFlag.AlignCenter | QtCore.Qt.AlignmentFlag.AlignBottom),
         )
 
-        # Footer
         self.setFont(pointSize=9)
         self.painter.drawText(
             _footer,
             f"Page {self.pageNumber}",
-            QtGui.QTextOption(
-                QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignBottom
-            ),
+            QtGui.QTextOption(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignBottom),
         )
         self.painter.drawText(
             _footer,
             getattr(tester, "__company__", "Company"),
-            QtGui.QTextOption(
-                QtCore.Qt.AlignmentFlag.AlignCenter
-                | QtCore.Qt.AlignmentFlag.AlignBottom
-            ),
+            QtGui.QTextOption(QtCore.Qt.AlignmentFlag.AlignCenter | QtCore.Qt.AlignmentFlag.AlignBottom),
         )
 
         self.painter.setPen(QtGui.QPen(QtCore.Qt.black, 2.0))
-        self.painter.drawLine(
-            QtCore.QLine(
-                _footer.left(),
-                _footer.top(),
-                _footer.right(),
-                _footer.top(),
-            )
-        )
+        self.painter.drawLine(QtCore.QLine(_footer.left(), _footer.top(), _footer.right(), _footer.top()))
 
     @tester._member_logger
     def titlePage(
@@ -291,20 +286,11 @@ class TestReport:
             status (str): Test status.
         """
         self.newPage()
-        self._insertBlankSpace(1)
-        self.writeLine(
-            "Test Report",
-            pointSize=24,
-            bold=True,
-            halign=QtCore.Qt.AlignmentFlag.AlignHCenter,
-        )
+        self.insertBlankSpace(1)
+        self.writeLine("Test Report", pointSize=24, bold=True, halign=QtCore.Qt.AlignmentFlag.AlignHCenter)
         self.writeLine()
-        self.writeLine(
-            "This report contains the results of the tests performed.",
-            pointSize=12,
-            halign=QtCore.Qt.AlignmentFlag.AlignHCenter,
-        )
-        self._insertBlankSpace(0.75)
+        self.writeLine("This report contains the results of the tests performed.", pointSize=12, halign=QtCore.Qt.AlignmentFlag.AlignHCenter)
+        self.insertBlankSpace(0.75)
         for label, value in [
             ("Serial Number", serial_number),
             ("Model Name", model_name),
@@ -326,9 +312,7 @@ class TestReport:
         self.newPage()
         self.setFont()
         _text_opt = QtGui.QTextOption(QtCore.Qt.AlignCenter)
-        self.painter.drawText(
-            self.rect, "This page intentionally left blank", _text_opt
-        )
+        self.painter.drawText(self.rect, "This page intentionally left blank", _text_opt)
 
     @tester._member_logger
     def startTest(
@@ -354,9 +338,7 @@ class TestReport:
         if getattr(self, "pageNumber", 1) % 2 == 1:
             self.blankPage()
         self.newPage()
-        self.writeLine(
-            name, pointSize=14, bold=True, halign=QtCore.Qt.AlignmentFlag.AlignHCenter
-        )
+        self.writeLine(name, pointSize=14, bold=True, halign=QtCore.Qt.AlignmentFlag.AlignHCenter)
         self.writeLine()
         for label, value in [
             ("Serial Number", serial_number),
@@ -409,12 +391,10 @@ class TestReport:
         if _height > self.rect.height():
             self.newPage()
 
-        # Prepare the series efficiently
         _series = QtCharts.QLineSeries()
         _series.append([QtCore.QPointF(float(x), float(y)) for x, y in data])
         _series.setPen(QtGui.QPen(QtCore.Qt.blue, 4))
 
-        # Create chart and configure
         _chart = QtCharts.QChart()
         _chart.addSeries(_series)
         _chart.setTitle(title)
@@ -425,7 +405,6 @@ class TestReport:
         _chart.setBackgroundVisible(False)
         _chart.setBackgroundRoundness(0)
 
-        # Set font only once
         self.setFont()
         _font = self.painter.font()
         for axis in (_chart.axisX(), _chart.axisY()):
@@ -433,12 +412,8 @@ class TestReport:
             axis.setLabelsFont(_font)
         _chart.setFont(_font)
         _chart.setTitleFont(_font)
-        _chart.axisX().setGridLinePen(
-            QtGui.QPen(QtCore.Qt.lightGray, 3, QtCore.Qt.PenStyle.DotLine)
-        )
-        _chart.axisY().setGridLinePen(
-            QtGui.QPen(QtCore.Qt.lightGray, 3, QtCore.Qt.PenStyle.DotLine)
-        )
+        _chart.axisX().setGridLinePen(QtGui.QPen(QtCore.Qt.lightGray, 3, QtCore.Qt.PenStyle.DotLine))
+        _chart.axisY().setGridLinePen(QtGui.QPen(QtCore.Qt.lightGray, 3, QtCore.Qt.PenStyle.DotLine))
         _chart.axisX().setLinePen(QtGui.QPen(QtCore.Qt.black, 5))
         _chart.axisY().setLinePen(QtGui.QPen(QtCore.Qt.black, 5))
 
@@ -449,7 +424,6 @@ class TestReport:
 
         _chart.resize(_width, _height)
 
-        # Use QGraphicsScene only once for rendering
         _scene = QtWidgets.QGraphicsScene()
         _scene.addItem(_chart)
         _scene.setSceneRect(0, 0, _width, _height)
@@ -463,4 +437,4 @@ class TestReport:
 
         _target_rect = QtCore.QRectF(self.rect.left(), self.rect.top(), _width, _height)
         self.painter.drawImage(_target_rect, _image)
-        self.rect.adjust(0, _height + self._convertInches(0.05), 0, 0)
+        self.rect.adjust(0, _height + self.buffer, 0, 0)
