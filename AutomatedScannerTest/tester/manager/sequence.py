@@ -4,7 +4,6 @@ from datetime import datetime
 from pathlib import Path
 import logging
 
-from AutomatedScannerTest.tester import app
 from tester import _member_logger
 from tester.app import TesterApp, __application__
 from tester.manager.devices import DeviceManager

@@ -3,10 +3,9 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from pathlib import Path
 import re
 
-from AutomatedScannerTest.tester.app import TesterApp
-import tester
-from tester.manager.test_sequence import TestSequenceModel, TestWorker
 from tester.gui.tester_ui import Ui_TesterWindow
+from tester.manager.sequence import TestSequenceModel
+from tester.manager.worker import TestWorker
 
 # Pre-compile the serial number regex for efficiency
 _SERIAL_RE = re.compile(r"^[A-Z]{2}[0-9]{6}$")
@@ -30,8 +29,8 @@ class TesterWindow(QtCore.QMainWindow):
         super().__init__(*args, **kwargs)
 
         # Setup model
-        app = TesterApp.instance()
-        if isinstance(app, TesterApp):
+        app = QtCore.QCoreApplication.instance()
+        if app and hasattr(app, "get_logger") and hasattr(app, "get_settings"):
             self.__logger = app.get_logger(self.__class__.__name__)
             self.__settings = app.get_settings()
             self.__settings.settingsModified.connect(self.onSettingsModified)
