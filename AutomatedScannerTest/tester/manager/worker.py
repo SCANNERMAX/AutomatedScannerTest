@@ -1,7 +1,7 @@
+# -*- coding: utf-8 -*-
 from PySide6 import QtCore
 from datetime import datetime
 import json
-import logging
 from pathlib import Path
 
 from tester.app import TesterApp
@@ -43,9 +43,7 @@ class TestWorker(QtCore.QObject):
             self.__logger = app.get_logger(self.__class__.__name__)
             self.__settings = app.get_settings()
         else:
-            raise TypeError(
-                "TesterApp instance is not available or is not of type TesterApp."
-            )
+            raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
         self.sequence = sequence
 
     def getComputerName(self) -> str:

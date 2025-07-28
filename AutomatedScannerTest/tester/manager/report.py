@@ -53,10 +53,7 @@ class TestReport:
             self.__settings.settingsModified.connect(self.onSettingsModified)
             self.onSettingsModified()
         else:
-            self.__logger = logging.getLogger(self.__class__.__name__)
-            self.__settings = QtCore.QSettings()
-        if app is None:
-            raise RuntimeError("QCoreApplication instance is not initialized.")
+            raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
         self.writer = QtGui.QPdfWriter(path)
         self.writer.setPageSize(self.pageSize)
         self.writer.setResolution(self.resolution)

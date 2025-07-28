@@ -12,12 +12,13 @@ class Device(QtCore.QObject):
     def __init__(self, name: str):
         super().__init__()
         app = TesterApp.instance()
-        if not isinstance(app, TesterApp):
-            raise TypeError("TesterApp instance is required for Device initialization.")
-        self.logger = app.get_logger(self.__class__.__name__)
-        self.__settings = app.get_settings()
-        self.__settings.settingsModified.connect(self.onSettingsModified)
-        self.onSettingsModified()
+        if isinstance(app, TesterApp):
+            self.logger = app.get_logger(self.__class__.__name__)
+            self.__settings = app.get_settings()
+            self.__settings.settingsModified.connect(self.onSettingsModified)
+            self.onSettingsModified()
+        else:
+            raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
         self.Name = name
         # Only call findInstrument if subclass has overridden it
         if self.__class__.findInstrument is not Device.findInstrument:

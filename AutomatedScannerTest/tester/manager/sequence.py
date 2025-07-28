@@ -34,15 +34,13 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         """
         super().__init__()
         app_instance = TesterApp.instance()
-        if not app_instance:
-            raise RuntimeError("TestSequenceModel requires a running QCoreApplication instance.")
         if isinstance(app_instance, TesterApp):
             self.__logger = app_instance.get_logger(self.__class__.__name__)
             self.__settings = app_instance.get_settings()
-            self.__settings.settingsModified.connect(self.readSettings)
+            self.__settings.settingsModified.connect(self.onSettingsModified)
+            self.onSettingsModified()
         else:
-            self.__logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
-            self.__settings = QtCore.QSettings()
+            raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
         self.__timezone = tz.tzlocal() if tz else None
         self.__cancel = CancelToken()
         self.__parameters = {}
@@ -50,7 +48,6 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         self.__tests = []
         self._data_directory = Path("C:/TestData") / __application__
         self.__headers = ("Test", "Status")
-        self.readSettings()
 
     # Properties for the sequence parameters
     ComputerName = QtCore.Property(
@@ -210,7 +207,7 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         return datetime.now(self.__timezone) if self.__timezone else datetime.now()
 
     @QtCore.Slot()
-    def readSettings(self):
+    def onSettingsModified(self):
         """
         Read settings from the QSettings object and update parameters accordingly.
         This method is called when the settings are modified.

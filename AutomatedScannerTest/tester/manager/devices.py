@@ -51,9 +51,7 @@ class DeviceManager(QtCore.QObject):
             self.__logger = app.get_logger(self.__class__.__name__)
             self.__settings = app.get_settings()
         else:
-            raise TypeError(
-                "TesterApp instance is not available or is not of type TesterApp."
-            )
+            raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
 
         # Find all Device subclasses in tester.devices
         _device_module = importlib.import_module(Device.__module__)

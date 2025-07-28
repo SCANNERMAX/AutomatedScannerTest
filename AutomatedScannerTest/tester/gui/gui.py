@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from PySide6 import QtCore, QtGui, QtWidgets
-import logging
 from pathlib import Path
 import re
 
@@ -38,7 +37,7 @@ class TesterWindow(QtCore.QMainWindow):
             self.__settings.settingsModified.connect(self.onSettingsModified)
             self.onSettingsModified()
         else:
-            raise TypeError("TesterApp instance is not of type TesterApp.")
+            raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
         model = TestSequenceModel()
         self.worker = TestWorker(model)
 

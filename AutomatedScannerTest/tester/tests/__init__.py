@@ -8,6 +8,7 @@ import logging
 import os
 from pathlib import Path
 
+from AutomatedScannerTest.tester.app import TesterApp
 import tester
 from tester.manager.devices import DeviceManager
 from tester.manager.report import TestReport
@@ -123,7 +124,12 @@ class Test(QtCore.QObject):
             The cancellation token for test interruption.
         """
         super().__init__()
-        self._logger = tester._get_class_logger(self.__class__)
+        app = TesterApp.instance()
+        if isinstance(app, TesterApp):
+            self.logger = app.get_logger(self.__class__.__name__)
+            self.__settings = app.get_settings()
+            self.__settings.settingsModified.connect(self.onSettingsModified)
+            self.onSettingsModified()
         self.__timezone = tz.tzlocal()
         self.__settings = settings
         self.__parameters = {}
@@ -131,6 +137,13 @@ class Test(QtCore.QObject):
         self._cancel = cancel
         self.Name = name
         self.reset()
+
+    def onSettingsModified(self):
+        """
+        Handles settings modifications by updating the timezone if necessary.
+        This method is called when the settings are modified.
+        """
+        self.logger.debug(f"Settings modified, updating {self.Name}.")
 
     def get_duration(self) -> float:
         """
@@ -383,7 +396,7 @@ class Test(QtCore.QObject):
         bool
             True if analysis is successful.
         """
-        self._logger.info(f"Analyzing {self.Name} results for {serial_number}...")
+        self.logger.info(f"Analyzing {self.Name} results for {serial_number}...")
         self.EndTime = self._get_time()
         self.Duration = (self.EndTime - self.StartTime).total_seconds()
         self.Status = "Pass"
@@ -399,7 +412,7 @@ class Test(QtCore.QObject):
         widget : QtWidgets.QWidget
             The parent widget for the test UI.
         """
-        self._logger.info(f"Loading UI for test {self.Name}...")
+        self.logger.info(f"Loading UI for test {self.Name}...")
         self.widgetTestMain = widget
 
         layoutTestMain = QtWidgets.QHBoxLayout(widget)
@@ -462,7 +475,7 @@ class Test(QtCore.QObject):
         report : TestReport
             The report object to which the test results are added.
         """
-        self._logger.info(f"Adding test report for {self.Name}...")
+        self.logger.info(f"Adding test report for {self.Name}...")
         report.startTest(
             self.Name,
             self.SerialNumber,
@@ -482,7 +495,7 @@ class Test(QtCore.QObject):
         data : dict
             The parameter dictionary to load.
         """
-        self._logger.info(f"Adding parameters for {self.Name} with dict: {data}")
+        self.logger.info(f"Adding parameters for {self.Name} with dict: {data}")
         for _key, _value in data.items():
             self._set_parameter(_key, _value)
 
@@ -496,7 +509,7 @@ class Test(QtCore.QObject):
         dict
             The current parameters.
         """
-        self._logger.info(f"Saving parameters for {self.Name}...")
+        self.logger.info(f"Saving parameters for {self.Name}...")
         return dict(self.__parameters)
 
     @tester._member_logger
@@ -516,7 +529,7 @@ class Test(QtCore.QObject):
         bool
             True if the test and analysis succeed.
         """
-        self._logger.info(
+        self.logger.info(
             f"Starting {self.Name} for {serial_number} on station {devices.ComputerName}..."
         )
         self.setup(serial_number, devices)
@@ -529,7 +542,7 @@ class Test(QtCore.QObject):
         """
         Releases and deletes all widgets associated with the test UI.
         """
-        self._logger.info(f"Releasing UI for {self.Name}...")
+        self.logger.info(f"Releasing UI for {self.Name}...")
         if self.widgetTestMain:
             for widget in self.widgetTestMain.findChildren(QtWidgets.QWidget):
                 widget.deleteLater()
@@ -558,7 +571,7 @@ class Test(QtCore.QObject):
         devices : DeviceManager
             The device manager for hardware interaction.
         """
-        self._logger.info(
+        self.logger.info(
             f"Running {self.Name} for {serial_number} on station {devices.ComputerName}..."
         )
 
@@ -574,7 +587,7 @@ class Test(QtCore.QObject):
         """
         self.dataDirectory = root_directory / self.Name
         self.dataDirectory.mkdir(parents=True, exist_ok=True)
-        self._logger.info(f"Data directory for {self.Name} set to {self.dataDirectory}")
+        self.logger.info(f"Data directory for {self.Name} set to {self.dataDirectory}")
 
     @tester._member_logger
     def setup(self, serial_number: str, devices: DeviceManager):
@@ -588,7 +601,7 @@ class Test(QtCore.QObject):
         devices : DeviceManager
             The device manager for hardware interaction.
         """
-        self._logger.info(f"Setup {self.Name} for {serial_number}...")
+        self.logger.info(f"Setup {self.Name} for {serial_number}...")
         self.SerialNumber = serial_number
         self.StartTime = self._get_time()
         devices.test_setup()
@@ -603,5 +616,5 @@ class Test(QtCore.QObject):
         devices : DeviceManager
             The device manager for hardware interaction.
         """
-        self._logger.info(f"Tearing down setup for {self.Name}...")
+        self.logger.info(f"Tearing down setup for {self.Name}...")
         devices.test_teardown()
