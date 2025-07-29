@@ -15,6 +15,7 @@ class TesterSettings(QtCore.QSettings):
     """
     Subclass of QSettings with a custom signal for when settings are modified.
     """
+
     settingsModified = QtCore.Signal()
 
 
@@ -112,10 +113,11 @@ class TesterApp(QtWidgets.QApplication):
             __application__,
             self,
         )
+        self._log_file_handler = None
+        self._log_file_path = None
         _path = Path(__file__).parent / "Test Data" / __application__
         self._data_directory = _path.resolve()
         self.__settings.settingsModified.connect(self.onSettingsModified)
-        self.onSettingsModified()
 
         # Setup logging only once
         self.__logger = logging.getLogger(__package__)
@@ -128,6 +130,7 @@ class TesterApp(QtWidgets.QApplication):
             )
             logging.root.addHandler(_stream_handler)
             logging.root.setLevel(logging.INFO)
+        self.onSettingsModified()
 
         # Set application properties
         self.setApplicationDisplayName(f"{__application__} v{__version__}")
@@ -146,7 +149,12 @@ class TesterApp(QtWidgets.QApplication):
 
         # Batch add options for maintainability
         options = [
-            (["d", "directory"], "Set the data directory.", "directory", str(self.DataDirectory)),
+            (
+                ["d", "directory"],
+                "Set the data directory.",
+                "directory",
+                str(self.DataDirectory),
+            ),
             (["gui"], "Disable the GUI.", None, None),
             (["l", "list"], "List the available tests.", None, None),
             (["r", "run"], "Run the tests.", None, None),
@@ -176,16 +184,25 @@ class TesterApp(QtWidgets.QApplication):
         """
         old_data_directory = getattr(self, "_data_directory", None)
         if self.__settings.contains("DataDirectory"):
-            new_data_directory = Path(self.__settings.value("DataDirectory", type=str)).resolve()
+            new_data_directory = Path(
+                self.__settings.value("DataDirectory", type=str)
+            ).resolve()
             new_data_directory.mkdir(parents=True, exist_ok=True)
-            QtCore.qDebug(f"Data directory set to: {new_data_directory}")
+            self.__logger.debug(f"Data directory set to: {new_data_directory}")
         else:
             new_data_directory = old_data_directory
-            QtCore.qDebug("No DataDirectory setting found, using default.")
+            self.__logger.debug("No DataDirectory setting found, using default.")
 
         # Move log file if DataDirectory changed
-        if new_data_directory and old_data_directory and new_data_directory != old_data_directory:
-            if self._log_file_handler and self._log_file_path:
+        if (
+            new_data_directory
+            and old_data_directory
+            and new_data_directory != old_data_directory
+        ):
+            if (
+                self._log_file_handler
+                and self._log_file_path
+            ):
                 new_log_file_path = new_data_directory / self._log_file_path.name
                 self._log_file_handler.close()
                 try:
@@ -201,11 +218,15 @@ class TesterApp(QtWidgets.QApplication):
 
         # Ensure a RotatingFileHandler exists and is up to date
         if not self._log_file_handler:
-            _file_path = self.DataDirectory / datetime.now().strftime("log_%Y%m%d_%H%M%S.log")
+            _file_path = self.DataDirectory / datetime.now().strftime(
+                "log_%Y%m%d_%H%M%S.log"
+            )
             _file_handler = RotatingFileHandler(
                 _file_path, maxBytes=5_000_000, backupCount=3, encoding="utf-8"
             )
-            _file_handler.setFormatter(QtFormatter("%(asctime)s - %(levelname)s - %(message)s"))
+            _file_handler.setFormatter(
+                QtFormatter("%(asctime)s - %(levelname)s - %(message)s")
+            )
             _file_handler.addFilter(QtContextFilter())
             logging.root.addHandler(_file_handler)
             self._log_file_handler = _file_handler
@@ -251,7 +272,7 @@ class TesterApp(QtWidgets.QApplication):
         Returns:
             logging.Logger: The logger instance.
         """
-        return self.__logger.getLogger(name)
+        return self.__logger.getChild(name)
 
     def get_settings(self) -> TesterSettings:
         """

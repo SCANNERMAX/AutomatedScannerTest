@@ -60,7 +60,7 @@ class BearingTest(tester.tests.Test):
         Returns:
             list: The list of (position, current) tuples representing friction data.
         """
-        return self._get_parameter("FrictionData", [])
+        return self.getParameter("FrictionData", [])
 
     def set_friction_data(self, value: list):
         """
@@ -69,13 +69,13 @@ class BearingTest(tester.tests.Test):
         Args:
             value (list): The new friction data as a list of (position, current) tuples.
         """
-        self._set_parameter("FrictionData", value)
+        self.setParameter("FrictionData", value)
         self.frictionDataChanged.emit(value)
 
     FrictionData = QtCore.Property(list, get_friction_data, set_friction_data)
 
     @tester._member_logger
-    def analyze_results(self, serial_number: str):
+    def analyzeResults(self, serial_number: str):
         """
         Analyze the results of the bearing test for the given serial number.
 
@@ -85,17 +85,17 @@ class BearingTest(tester.tests.Test):
         Returns:
             Any: The result of the analysis from the base class.
         """
-        return super().analyze_results(serial_number)
+        return super().analyzeResults(serial_number)
 
     @tester._member_logger
-    def load_ui(self, widget: QtWidgets.QWidget):
+    def setupUi(self, widget: QtWidgets.QWidget):
         """
         Load the test's user interface components into the provided widget, including the friction data plot.
 
         Args:
             widget (QtWidgets.QWidget): The parent widget to load UI components into.
         """
-        super().load_ui(widget)
+        super().setupUi(widget)
 
         # Friction Plot #####################################################
         chart = QtCharts.QChart()
@@ -135,14 +135,14 @@ class BearingTest(tester.tests.Test):
         self.chartViewFriction = chart_view
 
     @tester._member_logger
-    def on_generate_report(self, report):
+    def onGenerateReport(self, report):
         """
         Generate a report section for the bearing test, including a friction plot.
 
         Args:
             report: The report object to which the plot will be added.
         """
-        super().on_generate_report(report)
+        super().onGenerateReport(report)
         report.plotXYData(
             self.FrictionData,
             "Friction Plot",
@@ -158,7 +158,7 @@ class BearingTest(tester.tests.Test):
         )
 
     @tester._member_logger
-    def on_save(self):
+    def onSave(self):
         """
         Save the friction data to a CSV file.
 
@@ -175,7 +175,7 @@ class BearingTest(tester.tests.Test):
                 )
         except Exception:
             pass
-        return super().on_save()
+        return super().onSave()
 
     @tester._member_logger
     def run(self, serial_number: str, devices: DeviceManager):
@@ -219,14 +219,14 @@ class BearingTest(tester.tests.Test):
         MSO.function_generator_state(2, False)
 
     @tester._member_logger
-    def set_data_directory(self, root_directory):
+    def setDataDirectory(self, root_directory):
         """
         Set the directory for saving test data and figures.
 
         Args:
             root_directory: The root directory where data and figures will be saved.
         """
-        super().set_data_directory(root_directory)
+        super().setDataDirectory(root_directory)
         self.figurePath = self.dataDirectory / "friction_plot.png"
         self.dataFilePath = self.dataDirectory / "friction_plot_data.csv"
 

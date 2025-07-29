@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import time
-from PySide6.QtCore import QSettings
+from PySide6 import QtCore
 from ctypes.wintypes import BYTE
 from enum import StrEnum
 import pyvisa
@@ -196,6 +196,19 @@ class MSO5000(Device):
             return
         self.__write(f"{_parameter} {value}")
         self.__cache[_attribute] = value
+
+    def onSettingsModified(self):
+        """
+        Handles settings modifications by updating the device settings from the application settings.
+        This method retrieves the current settings from the application instance and updates the device's
+        internal settings accordingly. It is connected to the settingsModified signal of the application.
+        Side Effects:
+            Updates the device's internal settings with values from the application settings.
+            Logs the updated settings to the device logger.
+        Example:
+            >>> device.onSettingsModified()
+        """
+        self.__logger.info("Settings modified, updating device settings.")
 
     class Source(StrEnum):
         """

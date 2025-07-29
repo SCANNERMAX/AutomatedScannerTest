@@ -1,9 +1,7 @@
 #-*- coding: utf-8 -*-
 from PySide6 import QtCharts, QtCore, QtGui, QtWidgets
-import logging
 
 import tester
-from tester.app import TesterApp
 import tester.asset.tester_rc
 
 
@@ -46,8 +44,8 @@ class TestReport:
         Args:
             path (str): The file path for the output PDF report.
         """
-        app = TesterApp.instance()
-        if isinstance(app, TesterApp):
+        app = QtCore.QCoreApplication.instance()
+        if app.__class__.__name__ == "TesterApp":
             self.__logger = app.get_logger(self.__class__.__name__)
             self.__settings = app.get_settings()
             self.__settings.settingsModified.connect(self.onSettingsModified)

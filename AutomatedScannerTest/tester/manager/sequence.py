@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
-from PySide6 import QtCore
+from PySide6 import QtCore, QtWidgets
 from datetime import datetime
 from pathlib import Path
-import logging
 
 from tester import _member_logger
-from tester.app import TesterApp, __application__
+from tester.app import __application__
 from tester.manager.devices import DeviceManager
-from tester.tests import CancelToken, _test_list
+from tester.tests import CancelToken
 
 try:
     from dateutil import tz
@@ -32,8 +31,9 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
             RuntimeError: If there is no running QCoreApplication instance.
         """
         super().__init__()
-        app_instance = TesterApp.instance()
-        if isinstance(app_instance, TesterApp):
+        self._data_directory = Path("C:/TestData") / __application__
+        app_instance = QtCore.QCoreApplication.instance()
+        if app_instance.__class__.__name__ == "TesterApp":
             self.__logger = app_instance.get_logger(self.__class__.__name__)
             self.__settings = app_instance.get_settings()
             self.__settings.settingsModified.connect(self.onSettingsModified)
@@ -43,9 +43,8 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         self.__timezone = tz.tzlocal() if tz else None
         self.__cancel = CancelToken()
         self.__parameters = {}
-        self.__devices = DeviceManager(self.__settings)
+        self.__devices = DeviceManager()
         self.__tests = []
-        self._data_directory = Path("C:/TestData") / __application__
         self.__headers = ("Test", "Status")
 
     # Properties for the sequence parameters
@@ -311,4 +310,18 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         Set up the devices required for the test sequence.
         """
         self.__devices.setup()
+
+    @_member_logger
+    def setupUi(self, parent=None):
+        """
+        Set up the user interface for the test sequence model.
+        Args:
+            parent (QWidget): The parent widget for the UI.
+        """
+        self.__logger.debug("Setting up UI")
+        if isinstance(parent, QtWidgets.QStackedWidget):
+            parent.clear()
+            for _test in self.__tests:
+                parent.addWidget(QtWidgets.QWidget())
+                _test.setupUi(parent.currentWidget())
 

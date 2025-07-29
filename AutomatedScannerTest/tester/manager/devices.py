@@ -6,7 +6,6 @@ import inspect
 import os
 import socket
 
-from AutomatedScannerTest.tester.app import TesterApp
 import tester
 from tester.devices import Device
 
@@ -46,8 +45,8 @@ class DeviceManager(QtCore.QObject):
         Raises:
             Logs a warning if any device module cannot be imported or instantiated.
         """
-        app = TesterApp.instance()
-        if isinstance(app, TesterApp):
+        app = QtCore.QCoreApplication.instance()
+        if app.__class__.__name__ == "TesterApp":
             self.__logger = app.get_logger(self.__class__.__name__)
             self.__settings = app.get_settings()
         else:
@@ -83,7 +82,7 @@ class DeviceManager(QtCore.QObject):
                     and _obj is not device_class
                 ):
                     try:
-                        _device = _obj(self.__settings)
+                        _device = _obj()
                         _device.findInstrument()
                         setattr(self, _name, _device)
                     except Exception as e:

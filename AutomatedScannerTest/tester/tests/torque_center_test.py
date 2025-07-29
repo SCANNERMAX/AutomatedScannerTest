@@ -52,7 +52,7 @@ class TorqueCenterTest(tester.tests.Test):
         Returns:
             list: A list containing the torque data as (offset, RMS current) tuples.
         """
-        return self._get_parameter("TorqueData", [])
+        return self.getParameter("TorqueData", [])
 
     def set_torque_data(self, value: list):
         """
@@ -61,7 +61,7 @@ class TorqueCenterTest(tester.tests.Test):
         Args:
             value (list): The value to set for the torque data.
         """
-        self._set_parameter("TorqueData", value)
+        self.setParameter("TorqueData", value)
         self.torqueDataChanged.emit(value)
 
     TorqueData = QtCore.Property(list, get_torque_data, set_torque_data)
@@ -84,7 +84,7 @@ class TorqueCenterTest(tester.tests.Test):
         Returns:
             float: The torque center value.
         """
-        return self._get_parameter("TorqueCenter", 0.0)
+        return self.getParameter("TorqueCenter", 0.0)
 
     def set_torque_center(self, value: float):
         """
@@ -93,7 +93,7 @@ class TorqueCenterTest(tester.tests.Test):
         Args:
             value (float): The value to set for the torque center.
         """
-        self._set_parameter("TorqueCenter", value)
+        self.setParameter("TorqueCenter", value)
         self.torqueCenterChanged.emit(value)
 
     TorqueCenter = QtCore.Property(float, get_torque_center, set_torque_center)
@@ -102,7 +102,7 @@ class TorqueCenterTest(tester.tests.Test):
     """
 
     @tester._member_logger
-    def analyze_results(self, serial_number: str):
+    def analyzeResults(self, serial_number: str):
         """
         Analyzes the test results for a given serial number.
 
@@ -115,7 +115,7 @@ class TorqueCenterTest(tester.tests.Test):
         Returns:
             bool: True if the test passes, False otherwise.
         """
-        super().analyze_results(serial_number)
+        super().analyzeResults(serial_number)
         if self.TorqueData:
             _minimum = min(self.TorqueData, key=lambda x: x[1])
             self.TorqueCenter = _minimum[0]
@@ -129,7 +129,7 @@ class TorqueCenterTest(tester.tests.Test):
             return False
 
     @tester._member_logger
-    def load_ui(self, widget: QtWidgets.QWidget):
+    def setupUi(self, widget: QtWidgets.QWidget):
         """
         Initializes and configures the UI components for displaying the torque center plot and value.
 
@@ -139,7 +139,7 @@ class TorqueCenterTest(tester.tests.Test):
         Returns:
             None
         """
-        super().load_ui(widget)
+        super().setupUi(widget)
 
         # Torque Center Plot #####################################################
         chart = QtCharts.QChart()
@@ -216,7 +216,7 @@ class TorqueCenterTest(tester.tests.Test):
         self.textBoxTorqueCenter = text_box_torque_center
 
     @tester._member_logger
-    def on_generate_report(self, report):
+    def onGenerateReport(self, report):
         """
         Handles the generation of a report section specific to the torque center test.
 
@@ -229,7 +229,7 @@ class TorqueCenterTest(tester.tests.Test):
         Returns:
             None
         """
-        super().on_generate_report(report)
+        super().onGenerateReport(report)
         report.plotXYData(
             self.TorqueData,
             "Torque Center Plot",
@@ -243,7 +243,7 @@ class TorqueCenterTest(tester.tests.Test):
         report.writeLine("Torque Center: {:.2f} deg".format(self.TorqueCenter))
 
     @tester._member_logger
-    def on_save(self):
+    def onSave(self):
         """
         Saves torque data to a CSV file if the data directory attribute exists.
 
@@ -262,7 +262,7 @@ class TorqueCenterTest(tester.tests.Test):
                 _handle.writelines(lines)
         except Exception:
             pass
-        return super().on_save()
+        return super().onSave()
 
     @tester._member_logger
     def run(self, serial_number, devices):
@@ -340,7 +340,7 @@ class TorqueCenterTest(tester.tests.Test):
         )
 
     @tester._member_logger
-    def set_data_directory(self, root_directory):
+    def setDataDirectory(self, root_directory):
         """
         Sets the root directory for data storage and updates internal paths for figure and data files.
 
@@ -350,7 +350,7 @@ class TorqueCenterTest(tester.tests.Test):
         Side Effects:
             Updates self.dataDirectory, self.figurePath, and self.dataFilePath with new paths based on the provided root directory.
         """
-        super().set_data_directory(root_directory)
+        super().setDataDirectory(root_directory)
         self.figurePath = self.dataDirectory / "torque_plot.png"
         self.dataFilePath = self.dataDirectory / "torque_center_data.csv"
 

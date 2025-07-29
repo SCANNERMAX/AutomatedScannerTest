@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 from PySide6 import QtCore
 
-from AutomatedScannerTest.tester.app import TesterApp
-
-
 class Device(QtCore.QObject):
     """
     Device base class for hardware abstraction.
@@ -11,8 +8,8 @@ class Device(QtCore.QObject):
 
     def __init__(self, name: str):
         super().__init__()
-        app = TesterApp.instance()
-        if isinstance(app, TesterApp):
+        app = QtCore.QCoreApplication.instance()
+        if app.__class__.__name__ == "TesterApp":
             self.logger = app.get_logger(self.__class__.__name__)
             self.__settings = app.get_settings()
             self.__settings.settingsModified.connect(self.onSettingsModified)
@@ -23,13 +20,6 @@ class Device(QtCore.QObject):
         # Only call findInstrument if subclass has overridden it
         if self.__class__.findInstrument is not Device.findInstrument:
             self.findInstrument()
-
-    Name = QtCore.Property(
-        str,
-        fget=lambda self: self.getSetting("Name", ""),
-        fset=lambda self, value: self.setSetting("Name", value),
-        doc="Name of the device, used for identification.",
-    )
 
     def findInstrument(self):
         if self.logger:

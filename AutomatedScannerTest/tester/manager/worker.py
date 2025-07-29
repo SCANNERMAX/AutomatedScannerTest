@@ -4,7 +4,6 @@ from datetime import datetime
 import json
 from pathlib import Path
 
-from tester.app import TesterApp
 from tester.manager.report import TestReport
 from tester.tests import _test_list
 
@@ -38,10 +37,12 @@ class TestWorker(QtCore.QObject):
             sequence: The TestSequenceModel instance to operate on.
         """
         super().__init__()
-        app = TesterApp.instance()
-        if isinstance(app, TesterApp):
+        app = QtCore.QCoreApplication.instance()
+        if app.__class__.__name__ == "TesterApp":
             self.__logger = app.get_logger(self.__class__.__name__)
             self.__settings = app.get_settings()
+            self.__settings.settingsModified.connect(self.onSettingsModified)
+            self.onSettingsModified()
         else:
             raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
         self.sequence = sequence
@@ -218,6 +219,14 @@ class TestWorker(QtCore.QObject):
         for _test in self.sequence.Tests:
             _test.reset()
 
+    @QtCore.Slot()
+    def onSettingsModified(self):
+        """
+        Update the worker settings when the application settings are modified.
+        This includes updating the computer name and tester name.
+        """
+        self.__logger.debug("Settings modified, updating worker settings.")
+
     ComputerName = QtCore.Property(
         str, getComputerName, setComputerName, notify=computerNameChanged
     )
@@ -268,7 +277,7 @@ class TestWorker(QtCore.QObject):
 
         for _test in self.sequence.Tests:
             if getattr(_test, "Status", None) != "Skipped":
-                _test.on_generate_report(_report)
+                _test.onGenerateReport(_report)
 
         _report.finish()
         self.finishedGeneratingReport.emit()
@@ -290,7 +299,7 @@ class TestWorker(QtCore.QObject):
                 for _test_name, _test_data in _tests_data.items():
                     _test_obj = _name_to_test.get(_test_name)
                     if _test_obj:
-                        _test_obj.on_open(_test_data)
+                        _test_obj.onOpen(_test_data)
             for _key, _value in _data.items():
                 self.sequence._set_parameter(_key, _value)
         self.finishedLoadingData.emit()
@@ -304,7 +313,7 @@ class TestWorker(QtCore.QObject):
             path (str, optional): The path to save the data. If None, uses the default path.
         """
         _data = self.sequence.Parameters.copy()
-        _test_data = {t.Name: t.on_save() for t in self.sequence.Tests}
+        _test_data = {t.Name: t.onSave() for t in self.sequence.Tests}
         _data["Tests"] = _test_data
         _path = str(self.sequence.DataFilePath.resolve()) if path is None else path
         self.__logger.debug(f"Saving test data to file {path}.")
@@ -348,8 +357,8 @@ class TestWorker(QtCore.QObject):
             if _test_name and _test.Name != _test_name:
                 _test.Status = "Skipped"
                 continue
-            _test.set_data_directory(_data_directory)
-            result = _test.on_start_test(serial_number, self.sequence.Devices)
+            _test.setDataDirectory(_data_directory)
+            result = _test.onStartTest(serial_number, self.sequence.Devices)
             _statuses.append(result)
             self.finishedTest.emit(_index, _test.Name, result)
         _final_status = all(_statuses) if _statuses else False
