@@ -1,4 +1,13 @@
 # -*- coding: utf-8 -*-
+"""
+Test framework base classes and utilities for AutomatedScannerTest.
+
+This module provides:
+- CancelToken: a simple cancellation token for test interruption.
+- Test: the base class for all tests, with parameter/state management, settings, and UI hooks.
+- _test_list: a utility to discover all test classes in the tester.tests package.
+"""
+
 import inspect
 from PySide6 import QtCore, QtWidgets
 from datetime import datetime
@@ -6,9 +15,7 @@ from dateutil import tz
 import importlib
 import logging
 import os
-from pathlib import Path
 
-import tester
 from tester.manager.devices import DeviceManager
 from tester.manager.report import TestReport
 
@@ -22,7 +29,6 @@ class CancelToken:
     cancelled : bool
         Indicates whether the operation has been cancelled.
     """
-
     __slots__ = ("cancelled",)
 
     def __init__(self):
@@ -57,7 +63,6 @@ def _test_list() -> list:
     _tests = []
     _test_module = importlib.import_module(Test.__module__)
     _test_folder = os.path.dirname(_test_module.__file__)
-
     py_files = [f for f in os.listdir(_test_folder) if f.endswith(".py") and not f.startswith("__")]
     for _filename in py_files:
         _module_name = f"tester.tests.{_filename[:-3]}"
@@ -66,8 +71,6 @@ def _test_list() -> list:
         except Exception as e:
             logging.warning(f"Could not import {_module_name}: {e}")
             continue
-
-        # Use tuple unpacking and list comprehension for better performance
         _tests.extend(
             obj for _, obj in inspect.getmembers(_module, inspect.isclass)
             if issubclass(obj, Test) and obj is not Test
@@ -79,63 +82,96 @@ class Test(QtCore.QObject):
     """
     Base model class for all tests in the AutomatedScannerTest framework.
 
-    This class provides the core interface and state management for test execution,
-    parameter handling, UI integration, and reporting.
+    Provides core interface and state management for test execution, parameter handling,
+    UI integration, and reporting.
 
     Parameters
     ----------
     name : str
         The name of the test.
-    settings : QtCore.QSettings
-        The settings object for persistent storage.
     cancel : CancelToken
         The cancellation token for test interruption.
 
     Attributes
     ----------
-    parameterChanged : QtCore.Signal
-        Signal emitted when a parameter changes.
-    durationChanged : QtCore.Signal
-        Signal emitted when the duration changes.
-    endTimeChanged : QtCore.Signal
-        Signal emitted when the end time changes.
-    nameChanged : QtCore.Signal
-        Signal emitted when the name changes.
-    serialNumberChanged : QtCore.Signal
-        Signal emitted when the serial number changes.
-    startTimeChanged : QtCore.Signal
-        Signal emitted when the start time changes.
-    statusChanged : QtCore.Signal
-        Signal emitted when the status changes.
+    logger : logging.Logger
+        Logger for this test instance.
+    __settings : QSettings
+        Application settings object.
+    __parameters : dict
+        Dictionary of test parameters.
+    widgetTestMain : QWidget
+        Main widget for the test UI.
+    _cancel : CancelToken
+        Cancellation token.
+    Name : str
+        The name of the test.
     """
 
-    def __init__(self, name: str, settings: QtCore.QSettings, cancel: CancelToken):
+    def __init__(self, name: str, cancel: CancelToken):
         """
-        Initializes the Test instance with the given name, settings, and cancel token.
+        Initializes the Test instance with the given name and cancel token.
 
         Parameters
         ----------
         name : str
             The name of the test.
-        settings : QtCore.QSettings
-            The settings object for persistent storage.
         cancel : CancelToken
             The cancellation token for test interruption.
+
+        Raises
+        ------
+        RuntimeError
+            If not initialized within a TesterApp instance.
         """
         super().__init__()
         app = QtCore.QCoreApplication.instance()
-        if app.__class__.__name__ == "TesterApp":
+        if app is not None and app.__class__.__name__ == "TesterApp":
             self.logger = app.get_logger(self.__class__.__name__)
             self.__settings = app.get_settings()
             self.__settings.settingsModified.connect(self.onSettingsModified)
             self.onSettingsModified()
+        else:
+            raise RuntimeError("Test class must be initialized within a TesterApp instance.")
         self.__timezone = tz.tzlocal()
-        self.__settings = settings
         self.__parameters = {}
         self.widgetTestMain = None
         self._cancel = cancel
         self.Name = name
         self.resetParameters()
+
+    def getSetting(self, key: str, default=None):
+        """
+        Gets a persistent setting value for this test, or sets it to default if not present.
+
+        Parameters
+        ----------
+        key : str
+            The setting key.
+        default : any
+            The default value if the key is not present.
+
+        Returns
+        -------
+        any
+            The setting value.
+        """
+        self.logger.debug(f"Getting setting '{key}' for test '{self.Name}' with default '{default}'")
+        return self.__settings.getSetting(f"Tests/{self.Name}", key, default)
+
+    def setSetting(self, key: str, value):
+        """
+        Sets a persistent setting value for this test.
+
+        Parameters
+        ----------
+        key : str
+            The setting key.
+        value : any
+            The value to set.
+        """
+        self.logger.debug(f"Setting '{key}' to '{value}' for test '{self.Name}'")
+        self.__settings.setSetting(f"Tests/{self.Name}", key, value)
 
     def onSettingsModified(self):
         """
@@ -153,7 +189,7 @@ class Test(QtCore.QObject):
         float
             The duration of the test in seconds.
         """
-        return self.getParameter("Duration", 0.0)
+        return self.__parameters.get("Duration", 0.0)
 
     def setDuration(self, value: float):
         """
@@ -164,7 +200,7 @@ class Test(QtCore.QObject):
         value : float
             The duration in seconds.
         """
-        self.setParameter("Duration", value)
+        self.__parameters["Duration"] = value
         self.durationChanged.emit(f"{value} sec")
 
     Duration = QtCore.Property(float, getDuration, setDuration)
@@ -178,7 +214,7 @@ class Test(QtCore.QObject):
         datetime
             The end time of the test.
         """
-        return self.getParameter("EndTime", self.getTime())
+        return self.__parameters.get("EndTime", self.getTime())
 
     def setEndTime(self, value: datetime):
         """
@@ -189,7 +225,7 @@ class Test(QtCore.QObject):
         value : datetime
             The end time.
         """
-        self.setParameter("EndTime", value)
+        self.__parameters["EndTime"] = value
         self.endTimeChanged.emit(value.strftime("%H:%M:%S") if value else "")
 
     EndTime = QtCore.Property(datetime, getEndTime, setEndTime)
@@ -203,7 +239,7 @@ class Test(QtCore.QObject):
         str
             The test name.
         """
-        return self.getParameter("Name", "")
+        return self.__parameters.get("Name", "")
 
     def setName(self, value: str):
         """
@@ -214,7 +250,7 @@ class Test(QtCore.QObject):
         value : str
             The test name.
         """
-        self.setParameter("Name", value)
+        self.__parameters["Name"] = value
         self.nameChanged.emit(value)
 
     Name = QtCore.Property(str, getName, setName)
@@ -228,7 +264,7 @@ class Test(QtCore.QObject):
         str
             The serial number.
         """
-        return self.getParameter("SerialNumber", "")
+        return self.__parameters.get("SerialNumber", "")
 
     def setSerialNumber(self, value: str):
         """
@@ -239,7 +275,7 @@ class Test(QtCore.QObject):
         value : str
             The serial number.
         """
-        self.setParameter("SerialNumber", value)
+        self.__parameters["SerialNumber"] = value
         self.serialNumberChanged.emit(value)
 
     SerialNumber = QtCore.Property(str, getSerialNumber, setSerialNumber)
@@ -253,7 +289,7 @@ class Test(QtCore.QObject):
         datetime
             The start time of the test.
         """
-        return self.getParameter("StartTime", self.getTime())
+        return self.__parameters.get("StartTime", self.getTime())
 
     def setStartTime(self, value: datetime):
         """
@@ -264,7 +300,7 @@ class Test(QtCore.QObject):
         value : datetime
             The start time.
         """
-        self.setParameter("StartTime", value)
+        self.__parameters["StartTime"] = value
         self.startTimeChanged.emit(value.strftime("%H:%M:%S") if value else "")
 
     StartTime = QtCore.Property(datetime, getStartTime, setStartTime)
@@ -278,7 +314,7 @@ class Test(QtCore.QObject):
         str
             The test status.
         """
-        return self.getParameter("Status", None)
+        return self.__parameters.get("Status", None)
 
     def setStatus(self, value: str):
         """
@@ -289,14 +325,14 @@ class Test(QtCore.QObject):
         value : str
             The test status.
         """
-        self.setParameter("Status", value)
+        self.__parameters["Status"] = value
         self.statusChanged.emit(value)
 
     Status = QtCore.Property(str, getStatus, setStatus)
 
     def getParameter(self, key: str, default):
         """
-        Gets a parameter value by key, or sets it to default if not present.
+        Gets a parameter value by key, or returns the default if not present.
 
         Parameters
         ----------
@@ -310,8 +346,7 @@ class Test(QtCore.QObject):
         any
             The parameter value.
         """
-        # Use dict.setdefault for atomic get-or-set
-        return self.__parameters.setdefault(key, default)
+        return self.__parameters.get(key, default)
 
     def setParameter(self, key: str, value):
         """
@@ -327,48 +362,6 @@ class Test(QtCore.QObject):
         self.__parameters[key] = value
         self.parameterChanged.emit(key, value)
 
-    def getSetting(self, key: str, default):
-        """
-        Gets a persistent setting value for this test, or sets it to default if not present.
-
-        Parameters
-        ----------
-        key : str
-            The setting key.
-        default : any
-            The default value if the key is not present.
-
-        Returns
-        -------
-        any
-            The setting value.
-        """
-        self.__settings.beginGroup(self.Name)
-        try:
-            if self.__settings.contains(key):
-                return self.__settings.value(key)
-            self.__settings.setValue(key, default)
-            return default
-        finally:
-            self.__settings.endGroup()
-
-    def setSetting(self, key: str, value):
-        """
-        Sets a persistent setting value for this test.
-
-        Parameters
-        ----------
-        key : str
-            The setting key.
-        value : any
-            The value to set.
-        """
-        self.__settings.beginGroup(self.Name)
-        try:
-            self.__settings.setValue(key, value)
-        finally:
-            self.__settings.endGroup()
-
     def getTime(self) -> datetime:
         """
         Gets the current local time in the configured timezone.
@@ -380,7 +373,7 @@ class Test(QtCore.QObject):
         """
         return datetime.now(self.__timezone)
 
-    @tester._member_logger
+    
     def analyzeResults(self, serial_number: str) -> bool:
         """
         Analyzes the test results and updates the end time, duration, and status.
@@ -401,7 +394,7 @@ class Test(QtCore.QObject):
         self.Status = "Pass"
         return True
 
-    @tester._member_logger
+    
     def setupUi(self, widget: QtWidgets.QWidget):
         """
         Loads the test UI into the provided widget.
@@ -464,7 +457,7 @@ class Test(QtCore.QObject):
         self.layoutTestData = QtWidgets.QVBoxLayout(self.widgetTestData)
         self.layoutTestData.setObjectName("layoutTestData")
 
-    @tester._member_logger
+    
     def onGenerateReport(self, report: TestReport):
         """
         Adds this test's results to the provided report.
@@ -484,7 +477,7 @@ class Test(QtCore.QObject):
             self.Status,
         )
 
-    @tester._member_logger
+    
     def onOpen(self, data: dict):
         """
         Loads parameters from a dictionary into the test.
@@ -495,10 +488,9 @@ class Test(QtCore.QObject):
             The parameter dictionary to load.
         """
         self.logger.info(f"Adding parameters for {self.Name} with dict: {data}")
-        for _key, _value in data.items():
-            self.setParameter(_key, _value)
+        self.__parameters.update(data)
 
-    @tester._member_logger
+    
     def onSave(self):
         """
         Returns a dictionary of the current test parameters.
@@ -511,7 +503,7 @@ class Test(QtCore.QObject):
         self.logger.info(f"Saving parameters for {self.Name}...")
         return dict(self.__parameters)
 
-    @tester._member_logger
+    
     def onStartTest(self, serial_number: str, devices: DeviceManager) -> bool:
         """
         Runs the full test sequence: setup, run, teardown, and analysis.
@@ -536,18 +528,19 @@ class Test(QtCore.QObject):
         self.teardown(devices)
         return self.analyzeResults(serial_number)
 
-    @tester._member_logger
+    
     def resetParameters(self):
         """
         Resets the test state and parameters to their initial values.
         """
+        self.__parameters.clear()
         self.SerialNumber = None
         self.StartTime = None
         self.EndTime = None
         self.Duration = None
         self.Status = None
 
-    @tester._member_logger
+    
     def run(self, serial_number: str, devices: DeviceManager):
         """
         Executes the main test logic. Should be overridden by subclasses.
@@ -563,21 +556,23 @@ class Test(QtCore.QObject):
             f"Running {self.Name} for {serial_number} on station {devices.ComputerName}..."
         )
 
-    @tester._member_logger
-    def setDataDirectory(self, root_directory: Path):
+    
+    def setDataDirectory(self, root_directory: str):
         """
         Sets the data directory for this test, creating it if necessary.
 
         Parameters
         ----------
-        root_directory : Path
+        root_directory : str
             The root directory under which the test's data directory will be created.
         """
-        self.dataDirectory = root_directory / self.Name
-        self.dataDirectory.mkdir(parents=True, exist_ok=True)
+        dir_obj = QtCore.QDir(root_directory)
+        if not dir_obj.exists(self.Name):
+            dir_obj.mkpath(self.Name)
+        self.dataDirectory = dir_obj.filePath(self.Name)
         self.logger.info(f"Data directory for {self.Name} set to {self.dataDirectory}")
 
-    @tester._member_logger
+    
     def setup(self, serial_number: str, devices: DeviceManager):
         """
         Performs setup actions before running the test.
@@ -594,7 +589,7 @@ class Test(QtCore.QObject):
         self.StartTime = self.getTime()
         devices.test_setup()
 
-    @tester._member_logger
+    
     def teardown(self, devices: DeviceManager):
         """
         Performs teardown actions after running the test.

@@ -3,7 +3,6 @@ from PySide6 import QtCore
 import ctypes
 import importlib
 import inspect
-import os
 import socket
 
 import tester
@@ -49,20 +48,19 @@ class DeviceManager(QtCore.QObject):
         if app.__class__.__name__ == "TesterApp":
             self.__logger = app.get_logger(self.__class__.__name__)
             self.__settings = app.get_settings()
+            self.__settings.settingsModified.connect(self.onSettingsModified)
+            self.onSettingsModified()
         else:
             raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
 
-        # Find all Device subclasses in tester.devices
+        # Find all Device subclasses in tester.devices using Qt for file system access
         _device_module = importlib.import_module(Device.__module__)
-        _device_folder = os.path.dirname(_device_module.__file__)
+        _device_folder = QtCore.QFileInfo(_device_module.__file__).absolutePath()
 
-        py_files = [
-            f
-            for f in os.listdir(_device_folder)
-            if f.endswith(".py") and not f.startswith("__")
-        ]
+        dir_obj = QtCore.QDir(_device_folder)
+        py_files = [f for f in dir_obj.entryList(["*.py"], QtCore.QDir.Files)
+                    if not f.startswith("__")]
 
-        # Cache Device for issubclass checks
         device_class = Device
 
         for _filename in py_files:
@@ -73,9 +71,7 @@ class DeviceManager(QtCore.QObject):
                 self.__logger.warning(f"Could not import {_module_name}: {e}")
                 continue
 
-            # Use inspect.getmembers only once per module
             for _name, _obj in inspect.getmembers(_module, inspect.isclass):
-                # Use direct module check to avoid duplicate imports
                 if (
                     _obj.__module__ == _module.__name__
                     and issubclass(_obj, device_class)
@@ -90,30 +86,15 @@ class DeviceManager(QtCore.QObject):
 
     @property
     def ComputerName(self) -> str:
-        """
-        Returns the network name of the current computer (host) as a string.
-
-        Returns:
-            str: The hostname of the current computer.
-        """
         return socket.gethostname()
 
     @property
     def UserName(self) -> str:
-        """
-        Retrieves the current user's full name if available, otherwise returns the login username.
-
-        Attempts to obtain the user's display name using the Windows API `GetUserNameExW` with the NameDisplay format.
-        If this fails, falls back to the username returned by `os.getlogin()` or `getpass.getuser()`.
-
-        Returns:
-            str: The user's display name or login username.
-        """
         try:
-            username = os.getlogin()
-        except Exception:
             import getpass
             username = getpass.getuser()
+        except Exception:
+            username = "unknown"
         buffer = ctypes.create_unicode_buffer(1024)
         size = ctypes.c_ulong(len(buffer))
         try:
@@ -125,25 +106,16 @@ class DeviceManager(QtCore.QObject):
             pass
         return username
 
-    @tester._member_logger
-    def setup(self):
-        """
-        Initializes the device manager before running tests.
+    def onSettingsModified(self):
+        self.__logger.debug("Settings modified, updating device manager.")
 
-        This method logs the setup process and resets the MSO5000 device if it exists.
-        """
+    def setup(self):
         self.__logger.debug("Setting up the device manager.")
         mso = getattr(self, "MSO5000", None)
         if mso:
             mso.reset()
 
-    @tester._member_logger
     def test_setup(self):
-        """
-        Sets up the device manager before each test.
-
-        This method logs the setup process, resets the MSO5000 device if it exists, and clears its registers and state if supported.
-        """
         self.__logger.debug("Setting up the device manager for testing.")
         mso = getattr(self, "MSO5000", None)
         if mso:
@@ -153,22 +125,12 @@ class DeviceManager(QtCore.QObject):
             if hasattr(mso, "clear"):
                 mso.clear()
 
-    @tester._member_logger
+    
     def test_teardown(self):
-        """
-        Cleans up the device manager after each test.
-
-        This method logs the teardown process for test-specific settings.
-        """
         self.__logger.debug("Tearing down the device manager settings for testing.")
 
-    @tester._member_logger
+    
     def teardown(self):
-        """
-        Performs cleanup operations after running tests.
-
-        This method logs the teardown process and resets the MSO5000 device if it exists.
-        """
         self.__logger.debug("Tearing down the device manager.")
         mso = getattr(self, "MSO5000", None)
         if mso:

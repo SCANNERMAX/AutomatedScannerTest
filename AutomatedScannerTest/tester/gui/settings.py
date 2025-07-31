@@ -1,4 +1,4 @@
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtWidgets, QtGui
 
 class SettingsDialog(QtWidgets.QDialog):
     """
@@ -22,9 +22,13 @@ class SettingsDialog(QtWidgets.QDialog):
         main_layout = QtWidgets.QVBoxLayout(self)
         content_layout = QtWidgets.QHBoxLayout()
         self.tree_view = QtWidgets.QTreeView()
+        self.tree_view.header().hide()
         self.stacked_widget = QtWidgets.QStackedWidget()
         content_layout.addWidget(self.tree_view)
         content_layout.addWidget(self.stacked_widget)
+        # Set stretch: left (tree_view) is 1, right (stacked_widget) is 2
+        content_layout.setStretch(0, 1)
+        content_layout.setStretch(1, 2)
         main_layout.addLayout(content_layout)
 
         # Add Save and Cancel buttons
@@ -41,14 +45,23 @@ class SettingsDialog(QtWidgets.QDialog):
         Populate the tree view with settings groups and create corresponding form pages.
         """
         groups = self.settings.childGroups()
-        self.tree_model = QtCore.QStringListModel(groups)
+        # Use QStandardItemModel to support icons
+        self.tree_model = QtGui.QStandardItemModel()
         self.tree_view.setModel(self.tree_model)
+        self.tree_model.setHorizontalHeaderLabels(["Groups"])
 
-        for i in range(self.stacked_widget.count()):
+        # Use a standard folder icon from the style
+        folder_icon = self.style().standardIcon(QtWidgets.QStyle.SP_DirIcon)
+
+        # Clear stacked widget pages
+        for i in reversed(range(self.stacked_widget.count())):
             widget = self.stacked_widget.widget(i)
-            self.stacked_widget.removeWidget(i)
+            self.stacked_widget.removeWidget(widget)
             widget.deleteLater()
+
         for group in groups:
+            item = QtGui.QStandardItem(folder_icon, group)
+            self.tree_model.appendRow(item)
             self.stacked_widget.addWidget(self._create_group_page(group))
 
     def _create_group_page(self, group):

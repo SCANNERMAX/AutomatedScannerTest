@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 from PySide6 import QtCore, QtWidgets
 from datetime import datetime
-from pathlib import Path
 
-from tester import _member_logger
 from tester.app import __application__
 from tester.manager.devices import DeviceManager
-from tester.tests import CancelToken
+from tester.tests import CancelToken, _test_list
 
 try:
     from dateutil import tz
@@ -18,9 +16,9 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
     """
     Manages the execution, logging, and reporting of a sequence of hardware or software tests.
 
-    This class provides a Qt model for test management, including test execution, result logging,
-    report generation, and parameter management. It integrates with device management and supports
-    both GUI and command-line workflows.
+    This model provides a Qt-compatible interface for managing a list of test objects, their execution,
+    result logging, report generation, and parameter management. It integrates with device management
+    and supports both GUI and command-line workflows.
     """
 
     def __init__(self):
@@ -31,9 +29,14 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
             RuntimeError: If there is no running QCoreApplication instance.
         """
         super().__init__()
-        self._data_directory = Path("C:/TestData") / __application__
+        # Use AppLocalDataLocation and ensure app subdir exists
+        base_dir = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.AppLocalDataLocation)
+        app_dir = QtCore.QDir(base_dir)
+        app_dir.mkpath(__application__)
+        self._data_directory = app_dir.filePath(__application__)
+
         app_instance = QtCore.QCoreApplication.instance()
-        if app_instance.__class__.__name__ == "TesterApp":
+        if app_instance is not None and app_instance.__class__.__name__ == "TesterApp":
             self.__logger = app_instance.get_logger(self.__class__.__name__)
             self.__settings = app_instance.get_settings()
             self.__settings.settingsModified.connect(self.onSettingsModified)
@@ -44,7 +47,7 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         self.__cancel = CancelToken()
         self.__parameters = {}
         self.__devices = DeviceManager()
-        self.__tests = []
+        self.__tests = _test_list()
         self.__headers = ("Test", "Status")
 
     # Properties for the sequence parameters
@@ -108,35 +111,35 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         return self.__cancel
 
     @property
-    def DataDirectory(self) -> Path:
+    def DataDirectory(self) -> str:
         """
         Get the base data directory for storing test data.
 
         Returns:
-            Path: The data directory path.
+            str: The data directory path.
         """
         return self._data_directory
 
     @DataDirectory.setter
-    def DataDirectory(self, value: Path):
+    def DataDirectory(self, value):
         """
         Set the base data directory for storing test data.
 
         Args:
-            value (Path): The new data directory path.
+            value (str): The new data directory path.
         """
         self.__logger.debug("Setting DataDirectory: %s", value)
-        self._data_directory = Path(value).resolve()
+        self._data_directory = QtCore.QDir(str(value)).absolutePath()
 
     @property
-    def DataFilePath(self) -> Path:
+    def DataFilePath(self) -> str:
         """
         Get the path to the JSON data file for the current run.
 
         Returns:
-            Path: The data file path.
+            str: The data file path.
         """
-        return self.RunDataDirectory / "data.json"
+        return QtCore.QDir(self.RunDataDirectory).filePath("data.json")
 
     @property
     def Devices(self):
@@ -159,31 +162,29 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         return self.__parameters
 
     @property
-    def PdfReportPath(self) -> Path:
+    def PdfReportPath(self) -> str:
         """
         Get the path to the PDF report file for the current run.
 
         Returns:
-            Path: The PDF report file path.
+            str: The PDF report file path.
         """
-        return self.RunDataDirectory / "report.pdf"
+        return QtCore.QDir(self.RunDataDirectory).filePath("report.pdf")
 
     @property
-    def RunDataDirectory(self) -> Path:
+    def RunDataDirectory(self) -> str:
         """
         Get or create the directory for the current test run, based on serial number and start time.
 
         Returns:
-            Path: The run data directory.
+            str: The run data directory.
         """
         serial = self.SerialNumber
         start_time = self.StartTime
-        if not serial or not start_time:
-            _dir = self.DataDirectory / "Unknown" / "Unknown"
-        else:
-            _dir = self.DataDirectory / serial / start_time.strftime("%Y%m%d_%H%M%S")
-        _dir.mkdir(parents=True, exist_ok=True)
-        return _dir
+        dir_path = QtCore.QDir(self.DataDirectory)
+        subdir = f"{serial}/{start_time.strftime('%Y%m%d_%H%M%S')}" if serial and start_time else "Unknown/Unknown"
+        dir_path.mkpath(subdir)
+        return dir_path.filePath(subdir)
 
     @property
     def Tests(self):
@@ -208,11 +209,13 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
     def onSettingsModified(self):
         """
         Read settings from the QSettings object and update parameters accordingly.
+
         This method is called when the settings are modified.
         """
         self.__logger.debug("Reading settings")
-        _data_directory = self.__settings.value("DataDirectory", str(self._data_directory))
-        self.DataDirectory = Path(_data_directory).resolve()
+        _data_directory = str(self.DataDirectory)
+        _data_directory = self.__settings.getSetting("Tests", "DataDirectory", _data_directory)
+        self.DataDirectory = _data_directory
 
     def rowCount(self, parent=QtCore.QModelIndex()):
         """
@@ -251,14 +254,14 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         """
         if not index.isValid():
             return None
-        _row, _col = index.row(), index.column()
-        if _row >= len(self.__tests) or _col >= len(self.__headers):
+        row, col = index.row(), index.column()
+        if row >= len(self.__tests) or col >= len(self.__headers):
             return None
-        _test = self.__tests[_row]
+        test = self.__tests[row]
         if role == QtCore.Qt.DisplayRole:
-            return _test.Name if _col == 0 else _test.Status
+            return test.Name if col == 0 else test.Status
         if role == QtCore.Qt.UserRole:
-            return _test
+            return test
         return None
 
     def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
@@ -292,7 +295,7 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         self.__tests.extend(tests)
         self.layoutChanged.emit()
 
-    @_member_logger
+    
     def printTestList(self):
         """
         Print the list of available tests and their descriptions to the console.
@@ -304,24 +307,34 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
             if test.__doc__:
                 print("\n".join(f"    {line.strip()}" for line in test.__doc__.strip().splitlines()))
 
-    @_member_logger
+    def resetTests(self):
+        """
+        Reset the test data by clearing the parameters and cancel token.
+        """
+        self.__logger.debug("Resetting test data")
+        for test in self.__tests:
+            test.resetParameters()
+
+    
     def setupDevices(self):
         """
         Set up the devices required for the test sequence.
         """
         self.__devices.setup()
 
-    @_member_logger
+    
     def setupUi(self, parent=None):
         """
         Set up the user interface for the test sequence model.
+
         Args:
             parent (QWidget): The parent widget for the UI.
         """
         self.__logger.debug("Setting up UI")
         if isinstance(parent, QtWidgets.QStackedWidget):
             parent.clear()
-            for _test in self.__tests:
-                parent.addWidget(QtWidgets.QWidget())
-                _test.setupUi(parent.currentWidget())
+            for test in self.__tests:
+                widget = QtWidgets.QWidget()
+                parent.addWidget(widget)
+                test.setupUi(widget)
 

@@ -10,55 +10,34 @@ import tester.tests
 
 class BearingTest(tester.tests.Test):
     """
-    BearingTest is a test class for evaluating the rotational mechanics of a scanner by sweeping it across the field at a constant speed and measuring the current required. The test is designed to detect issues such as increased friction or mechanical resistance in the scanner's bearings.
+    Test for evaluating scanner bearing friction by sweeping and measuring current.
+
+    This test sweeps the scanner across its field at a constant speed and measures
+    the current required, detecting issues such as increased friction or mechanical
+    resistance in the scanner's bearings.
 
     Attributes:
-        FrictionData (list): Stores the measured friction data as a list of (position, current) tuples.
-
-    Signals:
-        frictionDataChanged (Signal): Emitted when the friction data is updated.
-
-    Methods:
-        __init__(settings, cancel):
-            Initializes the BearingTest instance with the provided settings and cancel token.
-        get_friction_data():
-            Returns the current friction data.
-        set_friction_data(value):
-            Sets the friction data and emits the frictionDataChanged signal.
-        analyze_results(serial_number):
-            Analyzes the results of the bearing test for the given serial number.
-        load_ui(widget):
-            Loads the test's user interface components into the provided widget, including the friction data plot.
-        on_generate_report(report):
-            Generates a report section for the bearing test, including a friction plot.
-        on_save():
-            Saves the friction data to a CSV file.
-        run(serial_number, devices):
-            Executes the bearing test, collecting position and current data from the connected devices.
-        set_data_directory(root_directory):
-            Sets the directory for saving test data and figures.
-        setup(serial_number, devices):
-            Configures the devices and prepares the test environment for the bearing test.
+        FrictionData (list): List of (position, current) tuples.
+        frictionDataChanged (Signal): Emitted when friction data is updated.
     """
 
     frictionDataChanged = QtCore.Signal(list)
 
-    def __init__(self, settings: QtCore.QSettings, cancel: tester.tests.CancelToken):
+    def __init__(self, cancel: tester.tests.CancelToken):
         """
         Initialize the BearingTest instance.
 
         Args:
-            settings (QtCore.QSettings): The settings object for the test.
             cancel (tester.tests.CancelToken): The cancel token to allow test interruption.
         """
-        super().__init__("Bearing Test", settings, cancel)
+        super().__init__("Bearing Test", cancel)
 
     def get_friction_data(self) -> list:
         """
         Get the current friction data.
 
         Returns:
-            list: The list of (position, current) tuples representing friction data.
+            list: The list of (position, current) tuples.
         """
         return self.getParameter("FrictionData", [])
 
@@ -74,7 +53,7 @@ class BearingTest(tester.tests.Test):
 
     FrictionData = QtCore.Property(list, get_friction_data, set_friction_data)
 
-    @tester._member_logger
+    
     def analyzeResults(self, serial_number: str):
         """
         Analyze the results of the bearing test for the given serial number.
@@ -87,7 +66,21 @@ class BearingTest(tester.tests.Test):
         """
         return super().analyzeResults(serial_number)
 
-    @tester._member_logger
+    def onSettingsModified(self):
+        """
+        Handle modifications to the test settings.
+        """
+        super().onSettingsModified()
+        self.readDelay = self.getSetting("ReadDelay", 5)
+        self.charttitle = self.getSetting("ChartTitle", "Bearing Friction Plot")
+        self.xtitle = self.getSetting("PositionTitle", "Position (deg)")
+        self.xmin = self.getSetting("PositionMinimum", -30.0)
+        self.xmax = self.getSetting("PositionMaximum", 30.0)
+        self.ytitle = self.getSetting("TorqueCurrentTitle", "Torque Current (mA)")
+        self.ymin = self.getSetting("TorqueCurrentMinimum", -400.0)
+        self.ymax = self.getSetting("TorqueCurrentMaximum", 400.0)
+
+    
     def setupUi(self, widget: QtWidgets.QWidget):
         """
         Load the test's user interface components into the provided widget, including the friction data plot.
@@ -96,8 +89,6 @@ class BearingTest(tester.tests.Test):
             widget (QtWidgets.QWidget): The parent widget to load UI components into.
         """
         super().setupUi(widget)
-
-        # Friction Plot #####################################################
         chart = QtCharts.QChart()
         chart.setObjectName("chartFriction")
         line_series = QtCharts.QLineSeries()
@@ -106,35 +97,34 @@ class BearingTest(tester.tests.Test):
         chart.addSeries(line_series)
 
         axis_x = QtCharts.QValueAxis()
-        axis_x.setTitleText("Position (deg)")
+        axis_x.setTitleText(self.xtitle)
         axis_x.setLabelFormat("%.2f")
-        axis_x.setRange(-10, 10)
+        axis_x.setRange(self.xmin, self.xmax)
         chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
         line_series.attachAxis(axis_x)
 
         axis_y = QtCharts.QValueAxis()
-        axis_y.setTitleText("Current (mA)")
+        axis_y.setTitleText(self.ytitle)
         axis_y.setLabelFormat("%.2f")
-        axis_y.setRange(-250, 250)
+        axis_y.setRange(self.ymin, self.ymax)
         chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
         line_series.attachAxis(axis_y)
 
         chart_view = QtCharts.QChartView(chart, self.widgetTestData)
         chart_view.setObjectName("chartViewFriction")
-        chart_view.setWindowTitle("Friction Plot")
+        chart_view.setWindowTitle(self.charttitle)
         chart_view.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.layoutTestData.addWidget(chart_view)
 
         self.frictionDataChanged.connect(line_series.replace)
 
-        # Store references for later use if needed
         self.chartFriction = chart
         self.lineSeriesFriction = line_series
         self.axisX = axis_x
         self.axisY = axis_y
         self.chartViewFriction = chart_view
 
-    @tester._member_logger
+    
     def onGenerateReport(self, report):
         """
         Generate a report section for the bearing test, including a friction plot.
@@ -145,19 +135,19 @@ class BearingTest(tester.tests.Test):
         super().onGenerateReport(report)
         report.plotXYData(
             self.FrictionData,
-            "Friction Plot",
-            "Position (deg)",
-            "Current (mA)",
-            str(self.figurePath.resolve()),
-            xmin=-30,
-            xmax=30,
+            self.charttitle,
+            self.xtitle,
+            self.ytitle,
+            str(self.figurePath),
+            xmin=self.xmin,
+            xmax=self.xmax,
             xTickCount=7,
-            ymin=-400,
-            ymax=400,
+            ymin=self.ymin,
+            ymax=self.ymax,
             yTickCount=9,
         )
 
-    @tester._member_logger
+    
     def onSave(self):
         """
         Save the friction data to a CSV file.
@@ -166,18 +156,24 @@ class BearingTest(tester.tests.Test):
             Any: The result of the save operation from the base class.
         """
         try:
-            with self.dataFilePath.open("w") as _handle:
-                _handle.write("Time (ns),Position (deg),Torque Current (mA)\n")
-                # Use join for faster string concatenation
-                _handle.writelines(
+            file = QtCore.QFile(self.dataFilePath)
+            if file.open(QtCore.QIODevice.WriteOnly | QtCore.QIODevice.Text):
+                stream = QtCore.QTextStream(file)
+                stream << f"Time (ns),{self.xtitle},{self.ytitle}\n"
+                stream << "".join(
                     f"{_time},{_data[0]},{_data[1]}\n"
                     for _time, _data in enumerate(self.FrictionData)
                 )
-        except Exception:
-            pass
+                file.close()
+        except Exception as e:
+            self.logger.warning(f"Failed to save friction data: {e}")
         return super().onSave()
 
-    @tester._member_logger
+    def resetParameters(self):
+        super().resetParameters()
+        self.FrictionData = []
+
+    
     def run(self, serial_number: str, devices: DeviceManager):
         """
         Execute the bearing test, collecting position and current data from the connected devices.
@@ -193,8 +189,7 @@ class BearingTest(tester.tests.Test):
         MSO.phase_align(2)
         MSO.clear()
         MSO.single()
-        time.sleep(10)
-        # Use local variables and list comprehensions for efficiency
+        time.sleep(self.readDelay)
         get_waveform = MSO.get_waveform
         _positions_raw = get_waveform(
             source=MSO5000.Source.Channel2,
@@ -208,7 +203,6 @@ class BearingTest(tester.tests.Test):
             format_=MSO5000.WaveformFormat.Ascii,
             stop=10000,
         )
-        # Use generator expression for zip and scaling, then convert to list once
         self.FrictionData = list(
             zip(
                 (4.5 * x for x in _positions_raw),
@@ -218,7 +212,7 @@ class BearingTest(tester.tests.Test):
         MSO.function_generator_state(1, False)
         MSO.function_generator_state(2, False)
 
-    @tester._member_logger
+    
     def setDataDirectory(self, root_directory):
         """
         Set the directory for saving test data and figures.
@@ -227,10 +221,13 @@ class BearingTest(tester.tests.Test):
             root_directory: The root directory where data and figures will be saved.
         """
         super().setDataDirectory(root_directory)
-        self.figurePath = self.dataDirectory / "friction_plot.png"
-        self.dataFilePath = self.dataDirectory / "friction_plot_data.csv"
+        dir_obj = QtCore.QDir(self.dataDirectory)
+        if not dir_obj.exists():
+            dir_obj.mkpath(".")
+        self.figurePath = dir_obj.filePath("friction_plot.png")
+        self.dataFilePath = dir_obj.filePath("friction_plot_data.csv")
 
-    @tester._member_logger
+    
     def setup(self, serial_number: str, devices: DeviceManager):
         """
         Configure the devices and prepare the test environment for the bearing test.

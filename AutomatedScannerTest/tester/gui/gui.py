@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from tkinter import NO
 from PySide6 import QtCore, QtGui, QtWidgets
 from pathlib import Path
 import re
@@ -113,24 +114,25 @@ class TesterWindow(QtWidgets.QMainWindow):
             QtCore.QDateTime.currentDateTime().toString(self.dateTimeFormat)
         )
 
-    def getLastDirectory(self) -> Path:
+    def getLastDirectory(self):
         """
-        Get the last directory used for file operations.
-        Returns:
-            str: The last directory path.
-        """
-        self.__logger.debug("Retrieving last directory from settings.")
-        return self.__settings.value("LastDirectory", str(Path.home()))
-
-    def setLastDirectory(self, path: Path):
-        """
-        Set the last directory used for file operations.
+        Get a setting value from the settings.
         Args:
-            path (Path): The new last directory path.
+            key (str): The setting key.
+            default: The default value if the key does not exist.
+        Returns:
+            The setting value or default if not found.
         """
-        self.__logger.debug(f"Setting last directory to: {path}")
-        self.__settings.setValue("LastDirectory", str(path))
-        self.__settings.sync()
+        self.__settings.getSetting("GUI", "LastDirectory")
+
+    def setLastDirectory(self, value):
+        """
+        Set a setting value in the settings.
+        Args:
+            key (str): The setting key.
+            value: The value to set for the key.
+        """
+        self.__settings.setSetting("GUI", "LastDirectory", value)
 
     LastDirectory = QtCore.Property(
         Path,
@@ -160,17 +162,9 @@ class TesterWindow(QtWidgets.QMainWindow):
         Slot called when settings are modified.
         """
         self.__logger.debug("Settings modified, updating UI properties.")
-        self.__settings.beginGroup(self.__class__.__name__)
-        self.firstColumnWidth = self.__settings.value("FirstColumnWidth", 175, int)
-        self.secondColumnWidth = self.__settings.value("SecondColumnWidth", 75, int)
-        self.dateTimeFormat = self.__settings.value(
-            "DateTimeFormat", "yyyy-MM-dd HH:mm:ss", str
-        )
-        self.__settings.setValue("FirstColumnWidth", self.firstColumnWidth)
-        self.__settings.setValue("SecondColumnWidth", self.secondColumnWidth)
-        self.__settings.setValue("DateTimeFormat", self.dateTimeFormat)
-        self.__settings.endGroup()
-        self.__settings.sync()
+        self.firstColumnWidth = self.__settings.getSetting("GUI", "FirstColumnWidth", 175)
+        self.secondColumnWidth = self.__settings.getSetting("GUI", "SecondColumnWidth", 75)
+        self.dateTimeFormat = self.__settings.getSetting("GUI", "DateTimeFormat", "yyyy-MM-dd HH:mm:ss")
 
     @QtCore.Slot()
     def onAbout(self):

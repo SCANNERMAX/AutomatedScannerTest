@@ -2,7 +2,6 @@
 from PySide6 import QtCore
 from datetime import datetime
 import json
-from pathlib import Path
 
 from tester.manager.report import TestReport
 from tester.tests import _test_list
@@ -12,6 +11,11 @@ class TestWorker(QtCore.QObject):
     """
     Worker class to run tests in a separate thread.
     This allows the UI to remain responsive during test execution.
+
+    Attributes:
+        sequence: The TestSequenceModel instance to operate on.
+        __logger: Logger instance for logging messages.
+        __settings: Application settings object.
     """
 
     computerNameChanged = QtCore.Signal(str)
@@ -35,6 +39,8 @@ class TestWorker(QtCore.QObject):
 
         Args:
             sequence: The TestSequenceModel instance to operate on.
+        Raises:
+            RuntimeError: If the application instance is not a TesterApp.
         """
         super().__init__()
         app = QtCore.QCoreApplication.instance()
@@ -216,8 +222,7 @@ class TestWorker(QtCore.QObject):
         self.StartTime = None
         self.Status = "Idle"
         self.sequence.Cancel.reset()
-        for _test in self.sequence.Tests:
-            _test.reset()
+        self.sequence.resetTests()
 
     @QtCore.Slot()
     def onSettingsModified(self):
@@ -254,10 +259,11 @@ class TestWorker(QtCore.QObject):
         Args:
             path (str, optional): The path to save the report. If None, uses the default path.
         """
-        _path = path or str(self.sequence.PdfReportPath.resolve())
-        _parent = Path(_path).parent
-        if not _parent.exists():
-            _parent.mkdir(parents=True, exist_ok=True)
+        _path = QtCore.QDir(path or self.sequence.PdfReportPath).absolutePath()
+        parent_qdir = QtCore.QDir(_path).filePath("..")
+        parent_dir = QtCore.QDir(parent_qdir)
+        if not parent_dir.exists():
+            parent_dir.mkpath(".")
         self.__logger.debug(f"Generating report at {_path}.")
 
         _report = TestReport(_path)
@@ -291,8 +297,10 @@ class TestWorker(QtCore.QObject):
             path (str): The path to the JSON data file.
         """
         self.__logger.debug(f"Loading test data from file {path}.")
-        with open(path, "r") as _file:
-            _data = json.load(_file)
+        file_obj = QtCore.QFile(path)
+        if file_obj.open(QtCore.QIODevice.ReadOnly | QtCore.QIODevice.Text):
+            data = bytes(file_obj.readAll()).decode()
+            _data = json.loads(data)
             _tests_data = _data.pop("Tests", None)
             if _tests_data:
                 _name_to_test = {t.Name: t for t in self.sequence.Tests}
@@ -302,6 +310,7 @@ class TestWorker(QtCore.QObject):
                         _test_obj.onOpen(_test_data)
             for _key, _value in _data.items():
                 self.sequence._set_parameter(_key, _value)
+            file_obj.close()
         self.finishedLoadingData.emit()
 
     @QtCore.Slot(str)
@@ -315,16 +324,20 @@ class TestWorker(QtCore.QObject):
         _data = self.sequence.Parameters.copy()
         _test_data = {t.Name: t.onSave() for t in self.sequence.Tests}
         _data["Tests"] = _test_data
-        _path = str(self.sequence.DataFilePath.resolve()) if path is None else path
-        self.__logger.debug(f"Saving test data to file {path}.")
+        _path = QtCore.QDir(path or self.sequence.DataFilePath).absolutePath()
+        self.__logger.debug(f"Saving test data to file {_path}.")
 
         def _json_serial(obj):
             if isinstance(obj, datetime):
                 return obj.isoformat()
             raise TypeError(f"Type {type(obj)} not serializable")
 
-        with open(_path, "w") as _file:
-            json.dump(_data, _file, indent=4, default=_json_serial)
+        file_obj = QtCore.QFile(_path)
+        if file_obj.open(QtCore.QIODevice.WriteOnly | QtCore.QIODevice.Text):
+            stream = QtCore.QTextStream(file_obj)
+            json_str = json.dumps(_data, indent=4, default=_json_serial)
+            stream << json_str
+            file_obj.close()
         self.finishedSavingData.emit()
 
     @QtCore.Slot(str, str, str)

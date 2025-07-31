@@ -337,34 +337,34 @@ class MSO5000(Device):
         self.logger.info(f"Connected to {getattr(self, 'model_name', 'Unknown')} oscilloscope.")
 
     # The device command system
-    @tester._member_logger
+    
     def autoscale(self):
         self.__write("AUToscale")
 
-    @tester._member_logger
+    
     def clear(self):
         self.__write("CLEar")
 
-    @tester._member_logger
+    
     def run(self):
         self.__write(":RUN")
 
-    @tester._member_logger
+    
     def stop(self):
         self.__write(":STOP")
 
-    @tester._member_logger
+    
     def single(self):
         self.__write(":SINGle")
 
-    @tester._member_logger
+    
     def force_trigger(self):
         self.__write(":TFORce")
 
     # The :ACQ commands are used to set the memory depth of the
     # oscilloscope, the acquisition mode, the average times, as well as query
     # the current sample rate
-    @tester._member_logger
+    
     def set_acquire_averages(self, averages: int):
         """
         Sets the number of averages for the acquisition mode of the MSO5000 oscilloscope.
@@ -382,37 +382,37 @@ class MSO5000(Device):
             raise AssertionError("Averages must be a power of two between 2 and 65536.")
         self._set_parameter("ACQuire", "AVERages", averages)
 
-    @tester._member_logger
+    
     def set_acquire_memory_depth(self, depth: MemoryDepth):
         assert (
             depth in MSO5000.MemoryDepth
         ), "Memory depth must be one of the MemoryDepth enum values."
         self._set_parameter("ACQuire", "MDEPth", depth.value)
 
-    @tester._member_logger
+    
     def set_acquire_type(self, type_: AcquireType):
         assert (
             type_ in MSO5000.AcquireType
         ), "Acquire type must be one of the AcquireType enum values."
         self._set_parameter("ACQuire", "TYPE", type_.value)
 
-    @tester._member_logger
+    
     def get_sample_rate(self) -> float:
         return self._get_parameter("ACQuire", "SRATe", 0.0)
 
-    @tester._member_logger
+    
     def get_digital_sample_rate(self) -> float:
         return self._get_parameter("ACQuire", "LA:SRATe", 0.0)
 
-    @tester._member_logger
+    
     def get_digital_memory_depth(self) -> float:
         return self._get_parameter("ACQuire", "LA:MDEPth", 0.0)
 
-    @tester._member_logger
+    
     def set_acquire_antialiasing(self, state: bool):
         self._set_parameter("ACQuire", "AALias", state)
 
-    @tester._member_logger
+    
     def acquire_settings(
         self,
         averages: int = 2,
@@ -433,7 +433,7 @@ class MSO5000(Device):
     # The :CHANnel<n> commands are used to set or query the bandwidth limit,
     # coupling, vertical scale, vertical offset, and other vertical system
     # parameters of the analog channel.
-    @tester._member_logger
+    
     def set_channel_bandwidth_limit(self, channel: int, limit: BandwidthLimit):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         if self.model_name == "MSO5354":
@@ -451,7 +451,7 @@ class MSO5000(Device):
         ), "Bandwidth limit must be one of the BandwidthLimit enum values."
         self._set_parameter(f"CHANnel{channel}", "BWLimit", limit.value)
 
-    @tester._member_logger
+    
     def set_channel_coupling(self, channel: int, coupling: Coupling):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         assert (
@@ -459,17 +459,17 @@ class MSO5000(Device):
         ), "Coupling must be one of the Coupling enum values."
         self._set_parameter(f"CHANnel{channel}", "COUPling", coupling.value)
 
-    @tester._member_logger
+    
     def set_channel_display(self, channel: int, display: bool):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         self._set_parameter(f"CHANnel{channel}", "DISPlay", display)
 
-    @tester._member_logger
+    
     def set_channel_invert(self, channel: int, invert: bool):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         self._set_parameter(f"CHANnel{channel}", "INVert", invert)
 
-    @tester._member_logger
+    
     def set_channel_offset(self, channel: int, offset: float):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         _minimum = -10
@@ -479,7 +479,7 @@ class MSO5000(Device):
         ), f"Offset must be between {_minimum} and {_maximum}."
         self._set_parameter(f"CHANnel{channel}", "OFFSet", offset)
 
-    @tester._member_logger
+    
     def set_channel_calibration_time(self, channel: int, time: float):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         assert (
@@ -487,7 +487,7 @@ class MSO5000(Device):
         ), "Delay calibration time must be between -100e-9 and 100e-9 seconds."
         self._set_parameter(f"CHANnel{channel}", "TCALibrate", time)
 
-    @tester._member_logger
+    
     def set_channel_scale(self, channel: int, scale: float):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         _minimum = 500e-6
@@ -497,7 +497,7 @@ class MSO5000(Device):
         ), f"Scale must be between {_minimum} and {_maximum}."
         self._set_parameter(f"CHANnel{channel}", "SCALe", scale)
 
-    @tester._member_logger
+    
     def set_channel_probe(self, channel: int, probe: float):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         assert probe in [
@@ -531,18 +531,18 @@ class MSO5000(Device):
         ], "Probe must be one of the valid values."
         self._set_parameter(f"CHANnel{channel}", "PROBe", probe)
 
-    @tester._member_logger
+    
     def set_channel_units(self, channel: int, units: Units):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         assert units in MSO5000.Units, "Units must be one of the Units enum values."
         self._set_parameter(f"CHANnel{channel}", "UNITs", units.value)
 
-    @tester._member_logger
+    
     def set_channel_vernier(self, channel: int, vernier: bool):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         self._set_parameter(f"CHANnel{channel}", "VERNier", vernier)
 
-    @tester._member_logger
+    
     def set_channel_position(self, channel: int, position: float):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         assert (
@@ -550,7 +550,7 @@ class MSO5000(Device):
         ), "Position must be between -100 and 100."
         self._set_parameter(f"CHANnel{channel}", "POSition", position)
 
-    @tester._member_logger
+    
     def channel_settings(
         self,
         channel: int,
@@ -594,48 +594,48 @@ class MSO5000(Device):
     # The IEEE488.2 common commands are used to query the basic information of
     # the instrument or executing basic operations. These commands usually
     # start with "*", and the keywords in a command contain 3 characters.
-    @tester._member_logger
+    
     def clear_registers(self):
         self.__write("*CLS")
 
-    @tester._member_logger
+    
     def get_standard_event_register_enable(self) -> BYTE:
         _response = self.__query("*ESE?")
         return BYTE(int(_response))
 
-    @tester._member_logger
+    
     def set_standard_event_register_enable(self, bits: BYTE):
         self.__write(f"*ESE {bits}")
 
-    @tester._member_logger
+    
     def get_standard_event_register_event(self) -> BYTE:
         _response = self.__query("*ESR?")
         return BYTE(int(_response))
 
-    @tester._member_logger
+    
     def get_identity(self) -> str:
         return self.__query("*IDN?")
 
-    @tester._member_logger
+    
     def get_operation_complete(self) -> bool:
         _response = self.__query("*OPC?")
         return bool(int(_response))
 
-    @tester._member_logger
+    
     def set_operation_complete(self, state: bool):
         self.__write(f"*OPC {int(state)}")
 
-    @tester._member_logger
+    
     def save(self, register: int):
         assert register >= 0 and register <= 49, "Register must be between 0 and 49."
         self.__write(f"*SAVe {register}")
 
-    @tester._member_logger
+    
     def recall(self, register: int):
         assert register >= 0 and register <= 49, "Register must be between 0 and 49."
         self.__write(f"*RCL {register}")
 
-    @tester._member_logger
+    
     def reset(self):
         """
         Resets the MSO5000 oscilloscope to its default state.
@@ -654,26 +654,26 @@ class MSO5000(Device):
         self.__write("*RST")
         self.__cache.clear()
 
-    @tester._member_logger
+    
     def get_status_byte_register_enable(self) -> BYTE:
         _response = self.__query("*SRE?")
         return BYTE(int(_response))
 
-    @tester._member_logger
+    
     def set_status_byte_register_enable(self, bits: BYTE):
         self.__write(f"*SRE {bits}")
 
-    @tester._member_logger
+    
     def get_status_byte_register_event(self) -> BYTE:
         _response = self.__query("*STB?")
         return BYTE(int(_response))
 
-    @tester._member_logger
+    
     def self_test(self) -> str:
         _response = self.__query("*TST?")
         return _response
 
-    @tester._member_logger
+    
     def wait(self):
         self.__write("*WAI")
 
@@ -746,19 +746,19 @@ class MSO5000(Device):
         FRPHase = "FRPHase"
         FFPHase = "FFPHase"
 
-    @tester._member_logger
+    
     def set_measure_source(self, source: Source):
         assert source in MSO5000.Source, "Source must be one of the Source enum values."
         self._set_parameter("MEASure", "SOURce", source.value)
 
-    @tester._member_logger
+    
     def clear_measurement(self, item: MeasureItem):
         assert (
             item in MSO5000.MeasureItem
         ), "Item must be one of the MeasureItem enum values."
         self._set_parameter("MEASure", "CLEar", item.value)
 
-    @tester._member_logger
+    
     def set_measure_threshold_source(self, source: Source):
         _valid = [
             MSO5000.Source.Channel1,
@@ -773,7 +773,7 @@ class MSO5000(Device):
         assert source in _valid, f"Item must be one of {_valid}."
         self._set_parameter("MEASure", "THReshold:SOURce", source.value)
 
-    @tester._member_logger
+    
     def set_measure_threshold_default(self):
         self.__write(":MEASure:THReshold:DEFault")
 
@@ -781,15 +781,15 @@ class MSO5000(Device):
         Normal = "NORMal"
         Precision = "PRECision"
 
-    @tester._member_logger
+    
     def set_measure_mode(self, mode: MeasureMode):
         self._set_parameter("MEASure", "MODE", mode.value)
 
-    @tester._member_logger
+    
     def set_measure_item(self, measurement: Measurement, source: Source):
         self.__write(f":MEASure:ITEM {measurement.value},{source.value}")
 
-    @tester._member_logger
+    
     def get_measure_item(self, measurement: Measurement, source: Source):
         return float(self.__query(f":MEASure:ITEM? {measurement.value},{source.value}"))
 
@@ -824,21 +824,21 @@ class MSO5000(Device):
         Color = "COL"
         Gray = "GRAY"
 
-    @tester._member_logger
+    
     def set_save_csv_length(self, length: SaveCsvLength):
         assert (
             length in MSO5000.SaveCsvLength
         ), "Length must be one of the SaveCsvLength enum values."
         self._set_parameter("SAVE", "CSV:LENGth", length.value)
 
-    @tester._member_logger
+    
     def set_save_csv_channel(self, channel: SaveCsvChannel, state: bool):
         assert (
             channel in MSO5000.SaveCsvChannel
         ), "Channel must be one of the SaveCsvChannel enum values."
         self._set_parameter("SAVE", "CSV:CHANnel", f"{channel.value},{int(state)}")
 
-    @tester._member_logger
+    
     def save_csv(
         self,
         filename: str,
@@ -847,22 +847,22 @@ class MSO5000(Device):
         self.set_save_csv_length(length)
         self._set_parameter("SAVE", "CSV", filename)
 
-    @tester._member_logger
+    
     def save_image_type(self, type_: ImageType):
         assert (
             type_ in MSO5000.ImageType
         ), "Type must be one of the ImageType enum values."
         self._set_parameter("SAVE", "IMAGe:TYPE", type_.value)
 
-    @tester._member_logger
+    
     def save_image_invert(self, invert: bool):
         self.__set_parameter("SAVE", "IMAGe:INVert", invert)
 
-    @tester._member_logger
+    
     def save_image_color(self, color: ImageColor):
         self._set_parameter("SAVE", "COLor", color.value)
 
-    @tester._member_logger
+    
     def save_image(
         self,
         path: str,
@@ -875,19 +875,19 @@ class MSO5000(Device):
         self.save_image_color(color)
         self._set_parameter("SAVE", "IMAGe", path)
 
-    @tester._member_logger
+    
     def save_setup(self, path: str):
         self._set_parameter("SAVE", "SETup", path)
 
-    @tester._member_logger
+    
     def save_waveform(self, path: str):
         self._set_parameter("SAVE", "WAVeform", path)
 
-    @tester._member_logger
+    
     def get_save_status(self) -> bool:
         return self._get_parameter("SAVE", "STATus")
 
-    @tester._member_logger
+    
     def load_setup(self, filename: str):
         self.__write(f":LOAD:SETup {filename}")
 
@@ -937,12 +937,12 @@ class MSO5000(Device):
         Omeg = "OMEG"
         Fifty = "FIFT"
 
-    @tester._member_logger
+    
     def function_generator_state(self, channel: int, state: bool):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         self._set_parameter(f"SOURce{channel}", f"OUTPut{channel}:STATe", state)
 
-    @tester._member_logger
+    
     def set_source_function(self, channel: int, function: SourceFunction):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -950,13 +950,13 @@ class MSO5000(Device):
         ), "Function must be one of the Waveform enum values."
         self._set_parameter(f"SOURce{channel}", "FUNCtion", function.value)
 
-    @tester._member_logger
+    
     def set_source_type(self, channel: int, type_: SourceType):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert type in MSO5000.SourceType, "Type must be one of the Type enum values."
         self._set_parameter(f"SOURce{channel}", "TYPE", type_.value)
 
-    @tester._member_logger
+    
     def set_source_frequency(self, channel: int, frequency: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -964,13 +964,13 @@ class MSO5000(Device):
         ), "Frequency must be between 0.1 and 25000000 Hz."
         self._set_parameter(f"SOURce{channel}", "FREQuency", frequency)
 
-    @tester._member_logger
+    
     def set_source_phase(self, channel: int, phase: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert phase >= 0 and phase <= 360, "Phase must be between 0 and 360 degrees."
         self._set_parameter(f"SOURce{channel}", "PHASe", phase)
 
-    @tester._member_logger
+    
     def set_source_amplitude(self, channel: int, amplitude: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -980,7 +980,7 @@ class MSO5000(Device):
             f"SOURce{channel}", "VOLTage:LEVel:IMMediate:AMPLitude", amplitude
         )
 
-    @tester._member_logger
+    
     def set_source_offset(self, channel: int, offset: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -990,12 +990,12 @@ class MSO5000(Device):
             f"SOURce{channel}", "VOLTage:LEVel:IMMediate:OFFSet", offset
         )
 
-    @tester._member_logger
+    
     def phase_align(self, channel: int):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         self.__write(f"SOURce{channel}:PHASe:INITiate")
 
-    @tester._member_logger
+    
     def set_source_output_impedance(
         self, channel: int, impedance: SourceOutputImpedance
     ):
@@ -1008,7 +1008,7 @@ class MSO5000(Device):
         )
 
     # Function Generator Function: Sinusoid
-    @tester._member_logger
+    
     def function_generator_sinusoid(
         self,
         channel: int,
@@ -1027,7 +1027,7 @@ class MSO5000(Device):
         self.set_source_output_impedance(channel, output_impedance)
 
     # Function Generator Function: Square
-    @tester._member_logger
+    
     def function_generator_square(
         self,
         channel: int,
@@ -1046,7 +1046,7 @@ class MSO5000(Device):
         self.set_source_output_impedance(channel, output_impedance)
 
     # Function Generator Function: RAMP
-    @tester._member_logger
+    
     def set_source_function_ramp_symmetry(self, channel: int, symmetry: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert symmetry >= 1 and symmetry <= 100, "Symmetry must be between 1 and 100%."
@@ -1054,7 +1054,7 @@ class MSO5000(Device):
             f"SOURce{channel}", "FUNCtion:RAMP:SYMMetry", symmetry
         )
 
-    @tester._member_logger
+    
     def function_generator_ramp(
         self,
         channel: int,
@@ -1075,7 +1075,7 @@ class MSO5000(Device):
         self.set_source_output_impedance(channel, output_impedance)
 
     # Function Generator Function: PULSe
-    @tester._member_logger
+    
     def set_source_duty_cycle(self, channel: int, duty_cycle: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1083,7 +1083,7 @@ class MSO5000(Device):
         ), "Duty cycle must be between 10 and 90%."
         self._set_parameter(f"SOURce{channel}", "PULSe:DCYCle", duty_cycle)
 
-    @tester._member_logger
+    
     def function_generator_pulse(
         self,
         channel: int,
@@ -1104,7 +1104,7 @@ class MSO5000(Device):
         self.set_source_output_impedance(channel, output_impedance)
 
     # Function Generator Function: NOISe
-    @tester._member_logger
+    
     def function_generator_noise(
         self,
         channel: int,
@@ -1119,7 +1119,7 @@ class MSO5000(Device):
         self.set_source_output_impedance(channel, output_impedance)
 
     # Function Generator Function: DC
-    @tester._member_logger
+    
     def function_generator_dc(
         self,
         channel: int,
@@ -1132,7 +1132,7 @@ class MSO5000(Device):
         self.set_source_output_impedance(channel, output_impedance)
 
     # Function Generator Function: SINC
-    @tester._member_logger
+    
     def function_generator_sinc(
         self,
         channel: int,
@@ -1158,13 +1158,13 @@ class MSO5000(Device):
     # Function Generator Function: HAVersine
     # Function Generator Function: ARBitrary
     # Function Generator Type: None
-    @tester._member_logger
+    
     def function_generator_no_modulation(self, channel: int):
         self.function_generator_state(channel, False)
         self.set_source_type(channel, MSO5000.SourceType._None)
 
     # Function Generator Type: Modulation
-    @tester._member_logger
+    
     def set_source_mod_type(self, channel: int, mod_type: SourceModulation):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1172,7 +1172,7 @@ class MSO5000(Device):
         ), "Modulation type must be one of the Modulation enum values."
         self._set_parameter(f"SOURce{channel}", "MODulation:TYPE", mod_type.value)
 
-    @tester._member_logger
+    
     def set_source_mod_am_depth(self, channel: int, depth: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1180,7 +1180,7 @@ class MSO5000(Device):
         ), "Modulation amplitude depth must be between 0 and 120%."
         self._set_parameter(f"SOURce{channel}", "MOD:DEPTh", depth)
 
-    @tester._member_logger
+    
     def set_source_mod_am_freq(self, channel: int, frequency: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1190,7 +1190,7 @@ class MSO5000(Device):
             f"SOURce{channel}", "MOD:AM:INTernal:FREQuency", frequency
         )
 
-    @tester._member_logger
+    
     def set_source_mod_fm_freq(self, channel: int, frequency: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1200,7 +1200,7 @@ class MSO5000(Device):
             f"SOURce{channel}", "MOD:FM:INTernal:FREQuency", frequency
         )
 
-    @tester._member_logger
+    
     def set_source_mod_am_function(self, channel: int, function: SourceFunction):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert function in [
@@ -1213,7 +1213,7 @@ class MSO5000(Device):
             f"SOURce{channel}", "MOD:AM:INTernal:FUNCtion", function.value
         )
 
-    @tester._member_logger
+    
     def set_source_mod_fm_function(self, channel: int, function: SourceFunction):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert function in [
@@ -1226,7 +1226,7 @@ class MSO5000(Device):
             f"SOURce{channel}", "MOD:FM:INTernal:FUNCtion", function.value
         )
 
-    @tester._member_logger
+    
     def set_source_mod_fm_deviation(self, channel: int, deviation: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1234,7 +1234,7 @@ class MSO5000(Device):
         ), "Modulation frequency deviation must be greater than or equal to 0 Hz."
         self._set_parameter(f"SOURce{channel}", "MOD:FM:DEViation", deviation)
 
-    @tester._member_logger
+    
     def function_generator_modulation(
         self,
         channel: int,
@@ -1257,7 +1257,7 @@ class MSO5000(Device):
             self.set_source_mod_fm_deviation(channel, fm_deviation)
 
     # Function Generator Type: Sweep
-    @tester._member_logger
+    
     def set_source_sweep_type(self, channel: int, type_: SourceSweepType):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1265,7 +1265,7 @@ class MSO5000(Device):
         ), "Sweep type must be one of the SweepType enum values."
         self._set_parameter(f"SOURce{channel}", "SWEep:TYPE", type_.value)
 
-    @tester._member_logger
+    
     def set_source_sweep_sweep_time(self, channel: int, time: int):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1273,7 +1273,7 @@ class MSO5000(Device):
         ), "Sweep time must be between 1 and 500 seconds."
         self._set_parameter(f"SOURce{channel}", "SWEep:STIMe", time)
 
-    @tester._member_logger
+    
     def set_source_sweep_return_time(self, channel: int, time: int):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1281,7 +1281,7 @@ class MSO5000(Device):
         ), "Return time must be between 1 and 500 seconds."
         self._set_parameter(f"SOURce{channel}", "SWEep:BTIMe", time)
 
-    @tester._member_logger
+    
     def function_generator_sweep(
         self,
         channel: int,
@@ -1296,7 +1296,7 @@ class MSO5000(Device):
         self.set_source_sweep_return_time(channel, return_time)
 
     # Function Generator Type: Burst
-    @tester._member_logger
+    
     def set_source_burst_type(self, channel: int, type_: SourceBurstType):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1304,7 +1304,7 @@ class MSO5000(Device):
         ), "Burst type must be one of the BurstType enum values."
         self._set_parameter(f"SOURce{channel}", "BURSt:TYPE", type_.value)
 
-    @tester._member_logger
+    
     def set_source_burst_cycles(self, channel: int, cycles: int):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1312,7 +1312,7 @@ class MSO5000(Device):
         ), "Burst cycles must be between 1 and 1000000."
         self._set_parameter(f"SOURce{channel}", "BURSt:CYCLes", cycles)
 
-    @tester._member_logger
+    
     def set_source_burst_delay(self, channel: int, delay: int):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1320,7 +1320,7 @@ class MSO5000(Device):
         ), "Burst delay must be between 1 and 1000000."
         self._set_parameter(f"SOURce{channel}", "BURSt:DELay", delay)
 
-    @tester._member_logger
+    
     def function_generator_burst(
         self,
         channel: int,
@@ -1335,7 +1335,7 @@ class MSO5000(Device):
         self.set_source_burst_delay(channel, delay)
 
     # The :SYSTem commands are used to set sound, language, and other relevant system settings.
-    @tester._member_logger
+    
     def get_system_error(self) -> str:
         return self._get_parameter("SYSTem", "ERRor:NEXT")
 
@@ -1353,19 +1353,19 @@ class MSO5000(Device):
         Trigger = "TRIG"
         User = "USER"
 
-    @tester._member_logger
+    
     def set_timebase_delay_enable(self, enable: bool):
         self.__set_parameter("TIMebase", "DELay:ENABle", enable)
 
-    @tester._member_logger
+    
     def set_timebase_delay_offset(self, offset: float):
         self._set_parameter("TIMebase", "DELay:OFFSet", offset)
 
-    @tester._member_logger
+    
     def set_timebase_delay_scale(self, scale: float):
         self._set_parameter("TIMebase", "DELay:SCALe", scale)
 
-    @tester._member_logger
+    
     def timebase_delay(
         self, enable: bool = False, offset: float = 0, scale: float = 500e-9
     ):
@@ -1373,40 +1373,40 @@ class MSO5000(Device):
         self.set_timebase_delay_offset(offset)
         self.set_timebase_delay_scale(scale)
 
-    @tester._member_logger
+    
     def set_timebase_offset(self, offset: float):
         self._set_parameter("TIMebase", "MAIN:OFFSet", offset)
 
-    @tester._member_logger
+    
     def set_timebase_scale(self, scale: float):
         self._set_parameter("TIMebase", "MAIN:SCALe", scale)
 
-    @tester._member_logger
+    
     def set_timebase_mode(self, mode: TimebaseMode):
         assert (
             mode in MSO5000.TimebaseMode
         ), "Timebase mode must be one of the TimebaseMode enum values."
         self._set_parameter("TIMebase", "MODE", mode.value)
 
-    @tester._member_logger
+    
     def set_timebase_href_mode(self, mode: HrefMode):
         assert (
             mode in MSO5000.HrefMode
         ), "Href mode must be one of the HrefMode enum values."
         self._set_parameter("TIMebase", "HREFerence:MODE", mode.value)
 
-    @tester._member_logger
+    
     def set_timebase_position(self, position: int):
         assert (
             position >= -500 and position <= 500
         ), "Horizontal reference position must be between -500 to 500."
         self._set_parameter("TIMebase", "HREFerence:POSition", position)
 
-    @tester._member_logger
+    
     def set_timebase_vernier(self, vernier: bool):
         self._set_parameter("TIMebase", "VERNier", vernier)
 
-    @tester._member_logger
+    
     def timebase_settings(
         self,
         offset: float = 0,
@@ -1562,7 +1562,7 @@ class MSO5000(Device):
         TB = "TB"
         TAB = "TAB"
 
-    @tester._member_logger
+    
     def get_trigger_status(self):
         """
         Retrieves the current trigger status from the device.
@@ -1576,7 +1576,7 @@ class MSO5000(Device):
         _status = self._get_parameter("TRIGger", "STATus")
         return MSO5000.TriggerStatus(_status)
 
-    @tester._member_logger
+    
     def set_trigger_mode(self, mode: TriggerMode):
         """
         Sets the trigger mode of the MSO5000 device.
@@ -1595,7 +1595,7 @@ class MSO5000(Device):
         ), "Trigger mode must be one of the TriggerMode enum values."
         self._set_parameter("TRIGger", "MODE", mode.value)
 
-    @tester._member_logger
+    
     def set_trigger_coupling(self, coupling: TriggerCoupling):
         """
         Sets the trigger coupling mode for the device.
@@ -1612,7 +1612,7 @@ class MSO5000(Device):
         ), "Trigger coupling must be one of the TriggerCoupling enum values."
         self._set_parameter("TRIGger", "COUPling", coupling.value)
 
-    @tester._member_logger
+    
     def set_trigger_sweep(self, sweep: TriggerSweep):
         """
         Sets the trigger sweep mode for the device.
@@ -1634,7 +1634,7 @@ class MSO5000(Device):
         ), "Trigger sweep must be one of the TriggerSweep enum values."
         self._set_parameter("TRIGger", "SWEep", sweep.value)
 
-    @tester._member_logger
+    
     def set_trigger_holdoff(self, holdoff: float):
         """
         Sets the trigger holdoff time for the device.
@@ -1653,7 +1653,7 @@ class MSO5000(Device):
         ), "Trigger holdoff must be between 8ns and 10s."
         self._set_parameter("TRIGger", "HOLDoff", holdoff)
 
-    @tester._member_logger
+    
     def set_trigger_noise_reject(self, status: bool):
         """
         Enables or disables the noise reject function for the trigger system.
@@ -1670,7 +1670,7 @@ class MSO5000(Device):
         self._set_parameter("TRIGger", "NREJect", status)
 
     # Trigger mode: Edge
-    @tester._member_logger
+    
     def set_trigger_edge_source(self, source: TriggerSource):
         """
         Set the trigger edge source for the oscilloscope.
@@ -1688,7 +1688,7 @@ class MSO5000(Device):
         ), "Trigger edge source must be one of the TriggerSource enum values."
         self._set_parameter("TRIGger", "EDGE:SOURce", source.value)
 
-    @tester._member_logger
+    
     def set_trigger_edge_slope(self, slope: TriggerSlope):
         """
         Sets the trigger edge slope for the oscilloscope.
@@ -1707,7 +1707,7 @@ class MSO5000(Device):
         ), "Trigger edge slope must be one of the TriggerEdgeSlope enum values."
         self._set_parameter("TRIGger", "EDGE:SLOPe", slope.value)
 
-    @tester._member_logger
+    
     def set_trigger_edge_level(self, level: float):
         """
         Sets the trigger edge level for the device.
@@ -1725,7 +1725,7 @@ class MSO5000(Device):
         ), "Trigger edge level must be between -15 and 15 V."
         self._set_parameter("TRIGger", "EDGE:LEVel", level)
 
-    @tester._member_logger
+    
     def trigger_edge(
         self,
         coupling: TriggerCoupling = TriggerCoupling.DC,
@@ -1761,7 +1761,7 @@ class MSO5000(Device):
         self.set_trigger_edge_level(edge_level)
 
     # Trigger mode: Pulse
-    @tester._member_logger
+    
     def set_trigger_pulse_source(self, source: TriggerSource):
         """
         Sets the trigger pulse source for the oscilloscope.
@@ -1778,7 +1778,7 @@ class MSO5000(Device):
         ), "Trigger pulse source must be one of the TriggerSource enum values."
         self._set_parameter("TRIGger", "PULSe:SOURce", source.value)
 
-    @tester._member_logger
+    
     def set_trigger_pulse_when(self, when: TriggerWhen):
         """
         Sets the trigger condition for pulse width triggering on the device.
@@ -1796,7 +1796,7 @@ class MSO5000(Device):
         ), "Trigger pulse when must be one of the TriggerWhen enum values."
         self._set_parameter("TRIGger", "PULSe:WHEN", when.value)
 
-    @tester._member_logger
+    
     def set_trigger_pulse_upper_width(self, width: float):
         """
         Sets the upper width for the trigger pulse.
@@ -1812,7 +1812,7 @@ class MSO5000(Device):
         assert width <= 10, "Trigger pulse upper width must be less than 10s."
         self._set_parameter("TRIGger", "PULSe:UWIDth", width)
 
-    @tester._member_logger
+    
     def set_trigger_pulse_lower_width(self, width: float):
         """
         Sets the lower width threshold for the trigger pulse.
@@ -1828,7 +1828,7 @@ class MSO5000(Device):
         assert width >= 8e-12, "Trigger pulse lower width must be greater than 8 ps."
         self._set_parameter("TRIGger", "PULSe:LWIDth", width)
 
-    @tester._member_logger
+    
     def set_trigger_pulse_level(self, level: float):
         """
         Sets the trigger pulse level for the device.
@@ -1845,7 +1845,7 @@ class MSO5000(Device):
         ), "Trigger pulse level must be between -15 and 15 V."
         self._set_parameter("TRIGger", "PULSe:LEVel", level)
 
-    @tester._member_logger
+    
     def trigger_pulse(
         self,
         coupling: TriggerCoupling = TriggerCoupling.DC,
@@ -1887,7 +1887,7 @@ class MSO5000(Device):
         self.set_trigger_pulse_level(pulse_level)
 
     # Trigger mode: Slope
-    @tester._member_logger
+    
     def set_trigger_slope_source(self, source: TriggerSource):
         """
         Sets the trigger slope source for the oscilloscope.
@@ -1909,7 +1909,7 @@ class MSO5000(Device):
         ], "Trigger source must be one of Channel 1, Channel 2, Channel 3 or Channel 4."
         self._set_parameter("TRIGger", "SLOPe:SOURce", source.value)
 
-    @tester._member_logger
+    
     def set_trigger_slope_when(self, when: TriggerWhen):
         """
         Sets the trigger slope condition for the oscilloscope.
@@ -1926,7 +1926,7 @@ class MSO5000(Device):
         ), "Trigger when must be one of the TriggerWhen enum values."
         self._set_parameter("TRIGger", "SLOPe:WHEN", when.value)
 
-    @tester._member_logger
+    
     def set_trigger_slope_time_upper(self, time: float):
         """
         Sets the upper time limit for the trigger slope.
@@ -1941,7 +1941,7 @@ class MSO5000(Device):
         assert time <= 10, "Upper time limit must be less than 10 s."
         self._set_parameter("TRIGger", "SLOPe:TUPPer", time)
 
-    @tester._member_logger
+    
     def set_trigger_slope_time_lower(self, time: float):
         """
         Sets the lower time limit for the trigger slope on the oscilloscope.
@@ -1957,7 +1957,7 @@ class MSO5000(Device):
         assert time >= 800e-12, "Lower time limit must be greater than 800 ps."
         self._set_parameter("TRIGger", "SLOPe:TLOWer", time)
 
-    @tester._member_logger
+    
     def set_trigger_slope_window(self, window: TriggerWindow):
         """
         Sets the trigger slope window of the oscilloscope.
@@ -1975,7 +1975,7 @@ class MSO5000(Device):
         ), "Trigger window must be one of the TriggerWindow enum values."
         self._set_parameter("TRIGger", "SLOPe:WINDow", window.value)
 
-    @tester._member_logger
+    
     def set_trigger_slope_amplitude_upper(self, amplitude: float):
         """
         Sets the upper amplitude limit for the trigger slope on the oscilloscope.
@@ -1988,7 +1988,7 @@ class MSO5000(Device):
         """
         self._set_parameter("TRIGger", "SLOPe:ALEVel", amplitude)
 
-    @tester._member_logger
+    
     def set_trigger_slope_amplitude_lower(self, amplitude: float):
         """
         Sets the lower amplitude limit for the trigger slope on the oscilloscope.
@@ -2005,7 +2005,7 @@ class MSO5000(Device):
         """
         self._set_parameter("TRIGger", "SLOPe:BLEVel", amplitude)
 
-    @tester._member_logger
+    
     def trigger_slope(
         self,
         coupling: TriggerCoupling = TriggerCoupling.DC,
@@ -2055,7 +2055,7 @@ class MSO5000(Device):
     # Trigger mode: Pattern
     # Trigger mode: Duration
     # Trigger mode: Timeout
-    @tester._member_logger
+    
     def set_trigger_timeout_source(self, source: TriggerSource):
         """
         Sets the trigger timeout source for the oscilloscope.
@@ -2072,7 +2072,7 @@ class MSO5000(Device):
         ), "Trigger source cannot be ACLine."
         self._set_parameter("TRIGger", "TIMeout:SOURce", source.value)
 
-    @tester._member_logger
+    
     def set_trigger_timeout_slope(self, slope: TriggerSlope):
         """
         Sets the trigger timeout slope for the device.
@@ -2089,7 +2089,7 @@ class MSO5000(Device):
         ), "Trigger slope must be one of the TriggerSlope enum values."
         self._set_parameter("TRIGger", "TIMeout:SLOPe", slope.value)
 
-    @tester._member_logger
+    
     def set_trigger_timeout_time(self, time: float):
         """
         Sets the trigger timeout time for the device.
@@ -2107,7 +2107,7 @@ class MSO5000(Device):
         ), "Trigger time must be between 16ns and 10s."
         self._set_parameter("TRIGger", "TIMeout:TIME", time)
 
-    @tester._member_logger
+    
     def set_trigger_timeout_level(self, level: float):
         """
         Sets the trigger timeout level for the device.
@@ -2126,7 +2126,7 @@ class MSO5000(Device):
         ), "Trigger level must be between -15V and 15V."
         self._set_parameter("TRIGger", "TIMeout:LEVel", level)
 
-    @tester._member_logger
+    
     def trigger_timeout(
         self,
         coupling: TriggerCoupling = TriggerCoupling.DC,
@@ -2208,7 +2208,7 @@ class MSO5000(Device):
         Byte = "BYTE"
         Ascii = "ASC"
 
-    @tester._member_logger
+    
     def set_waveform_source(self, source: Source):
         """
         Sets the waveform source for the device.
@@ -2225,7 +2225,7 @@ class MSO5000(Device):
         ), "Waveform source must be one of the WaveformSource enum values."
         self._set_parameter("WAVeform", "SOURce", source.value)
 
-    @tester._member_logger
+    
     def set_waveform_mode(self, mode: WaveformMode):
         """
         Sets the waveform mode of the device.
@@ -2244,7 +2244,7 @@ class MSO5000(Device):
         ), "Waveform mode must be one of the WaveformMode enum values."
         self._set_parameter("WAVeform", "MODE", mode.value)
 
-    @tester._member_logger
+    
     def set_waveform_format(self, format_: WaveformFormat):
         """
         Sets the waveform data format for the device.
@@ -2261,7 +2261,7 @@ class MSO5000(Device):
         ), "Waveform format must be one of the WaveformFormat enum values."
         self._set_parameter("WAVeform", "FORMat", format_.value)
 
-    @tester._member_logger
+    
     def set_waveform_points(self, points: int):
         """
         Sets the number of waveform points for the device.
@@ -2275,7 +2275,7 @@ class MSO5000(Device):
         assert points >= 1, "Waveform points must be greater than 1."
         self._set_parameter("WAVeform", "POINts", points)
 
-    @tester._member_logger
+    
     def get_waveform(
         self,
         source: Source = Source.Channel1,
@@ -2339,7 +2339,7 @@ class MSO5000(Device):
             _stop = min(_start + 100, stop)
         return _data
 
-    @tester._member_logger
+    
     def get_waveform_xincrement(self) -> float:
         """
         Retrieves the horizontal (X-axis) increment value of the current waveform.
@@ -2349,7 +2349,7 @@ class MSO5000(Device):
         """
         return self._get_parameter("WAVeform", "XINCrement")
 
-    @tester._member_logger
+    
     def get_waveform_xorigin(self) -> float:
         """
         Retrieves the X origin value of the current waveform.
@@ -2359,7 +2359,7 @@ class MSO5000(Device):
         """
         return self._get_parameter("WAVeform", "XORigin")
 
-    @tester._member_logger
+    
     def get_waveform_xreference(self) -> float:
         """
         Retrieves the X reference value of the current waveform.
@@ -2369,7 +2369,7 @@ class MSO5000(Device):
         """
         return self._get_parameter("WAVeform", "XREFerence")
 
-    @tester._member_logger
+    
     def get_waveform_yincrement(self) -> float:
         """
         Retrieves the vertical increment (Y increment) value of the current waveform.
@@ -2379,7 +2379,7 @@ class MSO5000(Device):
         """
         return self._get_parameter("WAVeform", "YINCrement")
 
-    @tester._member_logger
+    
     def get_waveform_yorigin(self) -> float:
         """
         Gets the Y origin value of the current waveform.
@@ -2389,7 +2389,7 @@ class MSO5000(Device):
         """
         return self._get_parameter("WAVeform", "YORigin")
 
-    @tester._member_logger
+    
     def get_waveform_yreference(self) -> float:
         """
         Retrieves the Y reference value of the current waveform.
@@ -2399,7 +2399,7 @@ class MSO5000(Device):
         """
         return self._get_parameter("WAVeform", "YREFerence")
 
-    @tester._member_logger
+    
     def set_waveform_start(self, start: int):
         """
         Sets the starting point for waveform data acquisition.
@@ -2413,7 +2413,7 @@ class MSO5000(Device):
         assert start >= 1, "Waveform start must be greater than 1."
         self._set_parameter("WAVeform", "STARt", start)
 
-    @tester._member_logger
+    
     def set_waveform_stop(self, stop: int):
         """
         Sets the stop point for waveform data acquisition.
@@ -2427,7 +2427,7 @@ class MSO5000(Device):
         assert stop >= 1, "Waveform stop must be greater than 1."
         self._set_parameter("WAVeform", "STOP", stop)
 
-    @tester._member_logger
+    
     def get_waveform_preamble(self) -> str:
         """
         Retrieves the waveform preamble from the device.

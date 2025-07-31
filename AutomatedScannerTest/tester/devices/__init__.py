@@ -26,20 +26,14 @@ class Device(QtCore.QObject):
             self.logger.warning("findInstrument() not implemented for this device.")
 
     def getSetting(self, key: str, default=None):
-        group_path = f"Devices/{self.Name}"
-        self.__settings.beginGroup(group_path)
-        value = self.__settings.value(key, default)
-        self.__settings.endGroup()
-        self.__settings.sync()
-        return value
+        self.logger.debug("Retrieving setting '%s' for device '%s'", key, self.Name)
+        return self.__settings.getSetting(f"Devices/{self.Name}", key, default)
 
+    def setSetting(self, key: str, value):
+        self.logger.debug("Setting '%s' to '%s' for device '%s'", key, value, self.Name)
+        self.__settings.setSetting(f"Devices/{self.Name}", key, value)
+
+    @QtCore.Slot()
     def onSettingsModified(self):
         if self.logger:
             self.logger.debug("Settings modified for device: %s", self.Name)
-
-    def setSetting(self, key: str, value):
-        group_path = f"Devices/{self.Name}"
-        self.__settings.beginGroup(group_path)
-        self.__settings.setValue(key, value)
-        self.__settings.endGroup()
-        self.__settings.sync()
