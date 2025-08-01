@@ -22,11 +22,10 @@ class SettingsDialog(QtWidgets.QDialog):
         main_layout = QtWidgets.QVBoxLayout(self)
         content_layout = QtWidgets.QHBoxLayout()
         self.tree_view = QtWidgets.QTreeView()
-        self.tree_view.header().hide()
+        self.tree_view.setHeaderHidden(True)
         self.stacked_widget = QtWidgets.QStackedWidget()
         content_layout.addWidget(self.tree_view)
         content_layout.addWidget(self.stacked_widget)
-        # Set stretch: left (tree_view) is 1, right (stacked_widget) is 2
         content_layout.setStretch(0, 1)
         content_layout.setStretch(1, 2)
         main_layout.addLayout(content_layout)
@@ -38,31 +37,36 @@ class SettingsDialog(QtWidgets.QDialog):
         main_layout.addWidget(button_box)
 
         self._populate_tree()
-        self.tree_view.clicked.connect(self._on_tree_clicked)
+        self.tree_view.selectionModel().currentChanged.connect(self._on_tree_selection_changed)
 
     def _populate_tree(self):
         """
         Populate the tree view with settings groups and create corresponding form pages.
+
+        This method retrieves all groups from the QSettings instance, creates a tree item for each group,
+        and adds a corresponding form page to the stacked widget for editing the group's settings.
         """
         groups = self.settings.childGroups()
-        # Use QStandardItemModel to support icons
         self.tree_model = QtGui.QStandardItemModel()
         self.tree_view.setModel(self.tree_model)
         self.tree_model.setHorizontalHeaderLabels(["Groups"])
-
-        # Use a standard folder icon from the style
         folder_icon = self.style().standardIcon(QtWidgets.QStyle.SP_DirIcon)
 
-        # Clear stacked widget pages
-        for i in reversed(range(self.stacked_widget.count())):
-            widget = self.stacked_widget.widget(i)
+        # Efficiently clear stacked widget pages
+        while self.stacked_widget.count():
+            widget = self.stacked_widget.widget(0)
             self.stacked_widget.removeWidget(widget)
             widget.deleteLater()
 
+        items = []
         for group in groups:
             item = QtGui.QStandardItem(folder_icon, group)
-            self.tree_model.appendRow(item)
+            items.append(item)
             self.stacked_widget.addWidget(self._create_group_page(group))
+        if items:
+            self.tree_model.appendColumn(items)
+            self.tree_view.setCurrentIndex(self.tree_model.index(0, 0))
+            self.stacked_widget.setCurrentIndex(0)
 
     def _create_group_page(self, group):
         """
@@ -86,19 +90,24 @@ class SettingsDialog(QtWidgets.QDialog):
         self.settings.endGroup()
         return page
 
-    def _on_tree_clicked(self, index: QtCore.QModelIndex):
+    def _on_tree_selection_changed(self, current: QtCore.QModelIndex, previous: QtCore.QModelIndex):
         """
         Slot called when a group is selected in the tree view.
 
         Args:
-            index (QModelIndex): The index of the selected group.
+            current (QModelIndex): The new selected index.
+            previous (QModelIndex): The previously selected index.
         """
-        if 0 <= index.row() < self.stacked_widget.count():
-            self.stacked_widget.setCurrentIndex(index.row())
+        idx = current.row()
+        if 0 <= idx < self.stacked_widget.count():
+            self.stacked_widget.setCurrentIndex(idx)
 
     def _on_save_clicked(self):
         """
         Save all changes from the form widgets to QSettings and close the dialog.
+
+        This method iterates through all form pages, retrieves the edited values, updates the QSettings instance,
+        and emits the settingsModified signal if present before closing the dialog.
         """
         groups = self.settings.childGroups()
         for i, group in enumerate(groups):
@@ -113,6 +122,8 @@ class SettingsDialog(QtWidgets.QDialog):
                 self.settings.setValue(key, value)
             self.settings.endGroup()
         self.settings.sync()
-        if hasattr(self.settings, "settingsModified"):
-            self.settings.settingsModified.emit()
+        # Emit settingsModified if it exists as a Qt signal
+        signal = getattr(self.settings, "settingsModified", None)
+        if callable(signal):
+            signal.emit()
         self.accept()

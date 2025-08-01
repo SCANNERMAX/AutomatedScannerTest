@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from PySide6 import QtCore, QtWidgets, QtCharts
-import time
 
 import tester
 from tester.devices.mso5000 import MSO5000
@@ -17,7 +16,7 @@ class BearingTest(tester.tests.Test):
     resistance in the scanner's bearings.
 
     Attributes:
-        FrictionData (list): List of (position, current) tuples.
+        FrictionData (list[QPointF]): List of (position, current) points.
         frictionDataChanged (Signal): Emitted when friction data is updated.
     """
 
@@ -31,29 +30,34 @@ class BearingTest(tester.tests.Test):
             cancel (tester.tests.CancelToken): The cancel token to allow test interruption.
         """
         super().__init__("Bearing Test", cancel)
+        QtCore.qInfo("BearingTest initialized.")
 
-    def get_friction_data(self) -> list:
+    @QtCore.Property(list, notify=frictionDataChanged)
+    def FrictionData(self):
         """
         Get the current friction data.
 
         Returns:
-            list: The list of (position, current) tuples.
+            list: The list of (position, current) QPointF tuples.
         """
-        return self.getParameter("FrictionData", [])
+        data = self.getParameter("FrictionData", [])
+        if QtCore.QLoggingCategory.defaultCategory().isDebugEnabled():
+            QtCore.qDebug(f"Accessed FrictionData: {len(data)} points")
+        return data
 
-    def set_friction_data(self, value: list):
+    @FrictionData.setter
+    def FrictionData(self, value):
         """
         Set the friction data and emit the frictionDataChanged signal.
 
         Args:
-            value (list): The new friction data as a list of (position, current) tuples.
+            value (list): The new friction data as a list of QPointF tuples.
         """
+        if QtCore.QLoggingCategory.defaultCategory().isDebugEnabled():
+            QtCore.qDebug(f"Setting FrictionData: {len(value)} points")
         self.setParameter("FrictionData", value)
         self.frictionDataChanged.emit(value)
 
-    FrictionData = QtCore.Property(list, get_friction_data, set_friction_data)
-
-    
     def analyzeResults(self, serial_number: str):
         """
         Analyze the results of the bearing test for the given serial number.
@@ -64,11 +68,14 @@ class BearingTest(tester.tests.Test):
         Returns:
             Any: The result of the analysis from the base class.
         """
-        return super().analyzeResults(serial_number)
+        QtCore.qInfo(f"Analyzing results for serial: {serial_number}")
+        result = super().analyzeResults(serial_number)
+        QtCore.qInfo(f"Analysis complete for serial: {serial_number}, result: {result}")
+        return result
 
     def onSettingsModified(self):
         """
-        Handle modifications to the test settings.
+        Handle modifications to the test settings and update internal state.
         """
         super().onSettingsModified()
         self.readDelay = self.getSetting("ReadDelay", 5)
@@ -79,21 +86,29 @@ class BearingTest(tester.tests.Test):
         self.ytitle = self.getSetting("TorqueCurrentTitle", "Torque Current (mA)")
         self.ymin = self.getSetting("TorqueCurrentMinimum", -400.0)
         self.ymax = self.getSetting("TorqueCurrentMaximum", 400.0)
+        QtCore.qInfo(
+            f"Settings modified: readDelay={self.readDelay}, charttitle={self.charttitle}, "
+            f"xtitle={self.xtitle}, xmin={self.xmin}, xmax={self.xmax}, "
+            f"ytitle={self.ytitle}, ymin={self.ymin}, ymax={self.ymax}"
+        )
 
-    
     def setupUi(self, widget: QtWidgets.QWidget):
         """
-        Load the test's user interface components into the provided widget, including the friction data plot.
+        Set up the user interface for the bearing test, including the chart for friction data.
 
         Args:
             widget (QtWidgets.QWidget): The parent widget to load UI components into.
         """
+        QtCore.qInfo("Setting up UI for BearingTest.")
         super().setupUi(widget)
         chart = QtCharts.QChart()
         chart.setObjectName("chartFriction")
         line_series = QtCharts.QLineSeries()
-        if self.FrictionData:
-            line_series.replace(self.FrictionData)
+        data = self.FrictionData
+        if data:
+            if QtCore.QLoggingCategory.defaultCategory().isDebugEnabled():
+                QtCore.qDebug(f"Populating chart with {len(data)} FrictionData points")
+            line_series.replace(data)
         chart.addSeries(line_series)
 
         axis_x = QtCharts.QValueAxis()
@@ -123,8 +138,8 @@ class BearingTest(tester.tests.Test):
         self.axisX = axis_x
         self.axisY = axis_y
         self.chartViewFriction = chart_view
+        QtCore.qInfo("UI setup for BearingTest complete.")
 
-    
     def onGenerateReport(self, report):
         """
         Generate a report section for the bearing test, including a friction plot.
@@ -132,22 +147,26 @@ class BearingTest(tester.tests.Test):
         Args:
             report: The report object to which the plot will be added.
         """
+        QtCore.qInfo("Generating report for BearingTest.")
         super().onGenerateReport(report)
-        report.plotXYData(
-            self.FrictionData,
-            self.charttitle,
-            self.xtitle,
-            self.ytitle,
-            str(self.figurePath),
-            xmin=self.xmin,
-            xmax=self.xmax,
-            xTickCount=7,
-            ymin=self.ymin,
-            ymax=self.ymax,
-            yTickCount=9,
-        )
+        try:
+            report.plotXYData(
+                self.FrictionData,
+                self.charttitle,
+                self.xtitle,
+                self.ytitle,
+                str(self.figurePath),
+                xmin=self.xmin,
+                xmax=self.xmax,
+                xTickCount=7,
+                ymin=self.ymin,
+                ymax=self.ymax,
+                yTickCount=9,
+            )
+            QtCore.qInfo("Friction plot added to report.")
+        except Exception as e:
+            QtCore.qCritical(f"Failed to add friction plot to report: {e}")
 
-    
     def onSave(self):
         """
         Save the friction data to a CSV file.
@@ -155,25 +174,34 @@ class BearingTest(tester.tests.Test):
         Returns:
             Any: The result of the save operation from the base class.
         """
+        QtCore.qInfo(f"Saving friction data to {getattr(self, 'dataFilePath', None)}")
         try:
             file = QtCore.QFile(self.dataFilePath)
             if file.open(QtCore.QIODevice.WriteOnly | QtCore.QIODevice.Text):
                 stream = QtCore.QTextStream(file)
                 stream << f"Time (ns),{self.xtitle},{self.ytitle}\n"
-                stream << "".join(
-                    f"{_time},{_data[0]},{_data[1]}\n"
-                    for _time, _data in enumerate(self.FrictionData)
-                )
+                for _time, _data in enumerate(self.FrictionData):
+                    if isinstance(_data, QtCore.QPointF):
+                        stream << f"{_time},{_data.x()},{_data.y()}\n"
+                    else:
+                        stream << f"{_time},{_data[0]},{_data[1]}\n"
                 file.close()
+                QtCore.qInfo(f"Friction data saved to {self.dataFilePath}")
+            else:
+                QtCore.qWarning(f"Could not open file {self.dataFilePath} for writing.")
         except Exception as e:
-            self.logger.warning(f"Failed to save friction data: {e}")
+            QtCore.qCritical(f"Failed to save friction data: {e}")
         return super().onSave()
 
     def resetParameters(self):
+        """
+        Reset the test parameters and clear the friction data.
+        """
+        if QtCore.QLoggingCategory.defaultCategory().isDebugEnabled():
+            QtCore.qDebug("Resetting parameters for BearingTest.")
         super().resetParameters()
         self.FrictionData = []
 
-    
     def run(self, serial_number: str, devices: DeviceManager):
         """
         Execute the bearing test, collecting position and current data from the connected devices.
@@ -182,37 +210,46 @@ class BearingTest(tester.tests.Test):
             serial_number (str): The serial number of the device under test.
             devices (DeviceManager): The device manager containing connected devices.
         """
+        QtCore.qInfo(f"Running BearingTest for serial: {serial_number}")
         super().run(serial_number, devices)
-        MSO = devices.MSO5000
-        MSO.function_generator_state(1, True)
-        MSO.function_generator_state(2, True)
-        MSO.phase_align(2)
-        MSO.clear()
-        MSO.single()
-        time.sleep(self.readDelay)
-        get_waveform = MSO.get_waveform
-        _positions_raw = get_waveform(
-            source=MSO5000.Source.Channel2,
-            mode=MSO5000.WaveformMode.Raw,
-            format_=MSO5000.WaveformFormat.Ascii,
-            stop=10000,
-        )
-        _currents_raw = get_waveform(
-            source=MSO5000.Source.Channel3,
-            mode=MSO5000.WaveformMode.Raw,
-            format_=MSO5000.WaveformFormat.Ascii,
-            stop=10000,
-        )
-        self.FrictionData = list(
-            zip(
-                (4.5 * x for x in _positions_raw),
-                (100 * x for x in _currents_raw),
+        try:
+            MSO = devices.MSO5000
+            QtCore.qDebug("Enabling function generators and aligning phase.")
+            MSO.function_generator_state(1, True)
+            MSO.function_generator_state(2, True)
+            MSO.phase_align(2)
+            MSO.clear()
+            MSO.single()
+            QtCore.qDebug(f"Sleeping for readDelay: {self.readDelay}s using QtCore.QThread.msleep")
+            QtCore.QThread.msleep(int(self.readDelay * 1000))
+            get_waveform = MSO.get_waveform
+            QtCore.qDebug("Acquiring position waveform.")
+            _positions_raw = get_waveform(
+                source=MSO5000.Source.Channel2,
+                mode=MSO5000.WaveformMode.Raw,
+                format_=MSO5000.WaveformFormat.Ascii,
+                stop=10000,
             )
-        )
-        MSO.function_generator_state(1, False)
-        MSO.function_generator_state(2, False)
+            QtCore.qDebug("Acquiring current waveform.")
+            _currents_raw = get_waveform(
+                source=MSO5000.Source.Channel3,
+                mode=MSO5000.WaveformMode.Raw,
+                format_=MSO5000.WaveformFormat.Ascii,
+                stop=10000,
+            )
+            QtCore.qDebug("Processing and storing friction data.")
+            self.FrictionData = [QtCore.QPointF(4.5 * x, 100 * y) for x, y in zip(_positions_raw, _currents_raw)]
+            QtCore.qInfo(f"Collected {len(self.FrictionData)} friction data points.")
+        except Exception as e:
+            QtCore.qCritical(f"Error during BearingTest run: {e}")
+        finally:
+            try:
+                MSO.function_generator_state(1, False)
+                MSO.function_generator_state(2, False)
+                QtCore.qDebug("Function generators disabled.")
+            except Exception as e:
+                QtCore.qWarning(f"Error disabling function generators: {e}")
 
-    
     def setDataDirectory(self, root_directory):
         """
         Set the directory for saving test data and figures.
@@ -220,14 +257,17 @@ class BearingTest(tester.tests.Test):
         Args:
             root_directory: The root directory where data and figures will be saved.
         """
+        QtCore.qInfo(f"Setting data directory for BearingTest: {root_directory}")
         super().setDataDirectory(root_directory)
         dir_obj = QtCore.QDir(self.dataDirectory)
         if not dir_obj.exists():
             dir_obj.mkpath(".")
+            QtCore.qDebug(f"Created data directory: {self.dataDirectory}")
         self.figurePath = dir_obj.filePath("friction_plot.png")
         self.dataFilePath = dir_obj.filePath("friction_plot_data.csv")
+        QtCore.qInfo(f"Figure path set to: {self.figurePath}")
+        QtCore.qInfo(f"Data file path set to: {self.dataFilePath}")
 
-    
     def setup(self, serial_number: str, devices: DeviceManager):
         """
         Configure the devices and prepare the test environment for the bearing test.
@@ -236,35 +276,41 @@ class BearingTest(tester.tests.Test):
             serial_number (str): The serial number of the device under test.
             devices (DeviceManager): The device manager containing connected devices.
         """
+        QtCore.qInfo(f"Setting up BearingTest for serial: {serial_number}")
         super().setup(serial_number, devices)
-        MSO = devices.MSO5000
-        MSO.acquire_settings(
-            averages=16,
-            memory_depth=MSO5000.MemoryDepth._10K,
-            type_=MSO5000.AcquireType.Averages,
-        )
-        self.SampleRate = MSO.get_sample_rate()
-        MSO.channel_settings(1, scale=2, display=True)
-        MSO.channel_settings(
-            2, scale=2, display=True, bandwidth_limit=MSO5000.BandwidthLimit._20M
-        )
-        MSO.channel_settings(
-            3,
-            scale=2,
-            display=True,
-            bandwidth_limit=MSO5000.BandwidthLimit._20M,
-        )
-        MSO.timebase_settings(
-            offset=2, scale=0.2, href_mode=MSO5000.HrefMode.Trigger
-        )
-        MSO.trigger_edge(nreject=True)
-        MSO.function_generator_ramp(
-            1,
-            frequency=0.5,
-            phase=270,
-            amplitude=5,
-            output_impedance=MSO5000.SourceOutputImpedance.Fifty,
-        )
-        MSO.function_generator_square(
-            2, frequency=0.5, phase=270, amplitude=5
-        )
+        try:
+            MSO = devices.MSO5000
+            MSO.acquire_settings(
+                averages=16,
+                memory_depth=MSO5000.MemoryDepth._10K,
+                type_=MSO5000.AcquireType.Averages,
+            )
+            self.SampleRate = MSO.get_sample_rate()
+            QtCore.qDebug(f"SampleRate set to: {self.SampleRate}")
+            MSO.channel_settings(1, scale=2, display=True)
+            MSO.channel_settings(
+                2, scale=2, display=True, bandwidth_limit=MSO5000.BandwidthLimit._20M
+            )
+            MSO.channel_settings(
+                3,
+                scale=2,
+                display=True,
+                bandwidth_limit=MSO5000.BandwidthLimit._20M,
+            )
+            MSO.timebase_settings(
+                offset=2, scale=0.2, href_mode=MSO5000.HrefMode.Trigger
+            )
+            MSO.trigger_edge(nreject=True)
+            MSO.function_generator_ramp(
+                1,
+                frequency=0.5,
+                phase=270,
+                amplitude=5,
+                output_impedance=MSO5000.SourceOutputImpedance.Fifty,
+            )
+            MSO.function_generator_square(
+                2, frequency=0.5, phase=270, amplitude=5
+            )
+            QtCore.qInfo("Device setup for BearingTest complete.")
+        except Exception as e:
+            QtCore.qCritical(f"Error during BearingTest setup: {e}")

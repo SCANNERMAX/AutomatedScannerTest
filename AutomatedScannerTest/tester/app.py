@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 from PySide6 import QtWidgets, QtCore
-import logging
-from logging.handlers import RotatingFileHandler
 import sys
 
+from AutomatedScannerTest.tester.manager.worker import TestWorker
 from tester import __application__, __company__, __version__, __doc__
 from tester.gui.gui import TesterWindow
 from tester.manager.sequence import TestSequenceModel
@@ -13,6 +12,18 @@ class TesterSettings(QtCore.QSettings):
     """
     QSettings subclass with a custom signal for when settings are modified.
     Provides convenience methods for grouped settings access.
+
+    Signals
+    -------
+    settingsModified : Signal
+        Emitted when a setting is modified.
+
+    Methods
+    -------
+    getSetting(group, key, default=None)
+        Get a setting value from a specific group, or set and return the default if not present.
+    setSetting(group, key, value)
+        Set a setting value in a specific group and emit the settingsModified signal.
     """
     settingsModified = QtCore.Signal()
 
@@ -29,14 +40,11 @@ class TesterSettings(QtCore.QSettings):
             The value from QSettings, or the default if not present, cast to the type of default.
         """
         self.beginGroup(group)
-        if self.contains(key):
-            value = self.value(key, defaultValue=default)
-        else:
+        value = self.value(key, defaultValue=default) if self.contains(key) else default
+        if not self.contains(key):
             self.setValue(key, default)
             self.sync()
-            value = default
         self.endGroup()
-        # Ensure the returned value is of the same type as default
         if default is not None and not isinstance(value, type(default)):
             try:
                 value = type(default)(value)
@@ -60,52 +68,29 @@ class TesterSettings(QtCore.QSettings):
         self.settingsModified.emit()
 
 
-class QtContextFilter(logging.Filter):
-    """
-    Logging filter that injects Qt context attributes into log records.
-    """
-    __slots__ = ()
-    def filter(self, record):
-        """
-        Add Qt context attributes to the log record if missing.
-
-        Args:
-            record (logging.LogRecord): The log record.
-
-        Returns:
-            bool: Always True.
-        """
-        record.file = getattr(record, "file", "unknown")
-        record.line = getattr(record, "line", -1)
-        record.function = getattr(record, "function", "unknown")
-        record.category = getattr(record, "category", "general")
-        return True
-
-
-class QtFormatter(logging.Formatter):
-    """
-    Custom logging formatter that appends Qt context information to log messages.
-    """
-    __slots__ = ()
-    def format(self, record):
-        """
-        Format the log record with additional Qt context information.
-
-        Args:
-            record (logging.LogRecord): The log record.
-
-        Returns:
-            str: The formatted log message.
-        """
-        base = super().format(record)
-        return f"{base} | {record.file}:{record.line} - {record.function} [{record.category}]"
-
-
 class TesterApp(QtWidgets.QApplication):
     """
     Custom QApplication subclass for the AutomatedScannerTest tester GUI.
 
     Handles application-wide settings, logging, and command-line options.
+
+    Properties
+    ----------
+    DataDirectory : str
+        The current data directory used by the application.
+
+    Methods
+    -------
+    __init__(argv, *args, **kwargs)
+        Initialize the TesterApp instance.
+    _setup_qt_logging()
+        Set up Qt logging to both console and a log file.
+    onSettingsModified()
+        Read settings from QSettings and update the data directory if needed.
+    qt_message_handler(mode, context, message)
+        Route Qt messages to both the console and a log file with context.
+    get_settings()
+        Get the application settings.
     """
 
     @property
@@ -126,6 +111,9 @@ class TesterApp(QtWidgets.QApplication):
             argv (list): Command-line arguments.
             *args: Additional positional arguments.
             **kwargs: Additional keyword arguments.
+
+        Raises:
+            RuntimeError: If more than one QApplication instance is created.
         """
         if QtWidgets.QApplication.instance() is not None:
             raise RuntimeError("Only one QApplication instance is allowed.")
@@ -148,9 +136,6 @@ class TesterApp(QtWidgets.QApplication):
         self.__settings.settingsModified.connect(self.onSettingsModified)
         self.onSettingsModified()
 
-        # Setup logging only once, using a standard application data folder
-        self._setup_logging()
-
         # Set application properties
         self.setApplicationDisplayName(f"{__application__} v{__version__}")
         self.setApplicationName(__application__)
@@ -158,8 +143,9 @@ class TesterApp(QtWidgets.QApplication):
         self.setOrganizationDomain("pangolin.com")
         self.setApplicationVersion(__version__)
         self.setQuitOnLastWindowClosed(True)
-        QtCore.qInstallMessageHandler(self.qt_message_handler)
-        QtCore.qDebug("App initialized and settings applied")
+
+        # Setup Qt logging to console and file
+        self._setup_qt_logging()
 
         # Command line options
         self.options = QtCore.QCommandLineParser()
@@ -188,42 +174,21 @@ class TesterApp(QtWidgets.QApplication):
         self.options.addVersionOption()
         self.options.process(self)
 
-    def _setup_logging(self):
+    def _setup_qt_logging(self):
         """
-        Set up the RotatingFileHandler for logging in the standard application data folder.
+        Set up Qt logging to both console and a log file.
         """
-        self.__logger = logging.getLogger(__package__)
-        self.__logger.setLevel(logging.DEBUG)
-        if not logging.root.handlers:
-            _stream_handler = logging.StreamHandler(sys.stdout)
-            _stream_handler.setLevel(logging.INFO)
-            _stream_handler.setFormatter(logging.Formatter("%(levelname)s - %(message)s"))
-            logging.root.addHandler(_stream_handler)
-            logging.root.setLevel(logging.INFO)
-
-        # Remove any existing file handler
-        if hasattr(self, "_log_file_handler") and self._log_file_handler:
-            logging.root.removeHandler(self._log_file_handler)
-            self._log_file_handler.close()
-            self._log_file_handler = None
-
-        # Use a system directory for the log file (AppLocalDataLocation is cross-platform)
         log_dir = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.AppLocalDataLocation)
         QtCore.QDir(log_dir).mkpath(".")
-        log_file_path = QtCore.QDir(log_dir).filePath("tester.log")
-        _file_handler = RotatingFileHandler(
-            log_file_path, maxBytes=5_000_000, backupCount=3, encoding="utf-8"
-        )
-        _file_handler.setFormatter(QtFormatter("%(asctime)s - %(levelname)s - %(message)s"))
-        _file_handler.addFilter(QtContextFilter())
-        logging.root.addHandler(_file_handler)
-        self._log_file_handler = _file_handler
-        self._log_file_path = log_file_path
+        log_file_path = QtCore.QDir(log_dir).filePath("tester_qt.log")
+        self._qt_log_file = open(log_file_path, "a", encoding="utf-8")
+        self._qt_log_file_path = log_file_path
+        QtCore.qInstallMessageHandler(self.qt_message_handler)
+        QtCore.qInfo(f"Qt logging initialized. Log file: {log_file_path}")
 
     def onSettingsModified(self) -> None:
         """
         Read settings from QSettings and update the data directory if needed.
-        If the data directory changes, reconfigure logging.
         """
         old_data_directory = self.DataDirectory
         new_data_directory = self.__settings.getSetting(
@@ -231,49 +196,33 @@ class TesterApp(QtWidgets.QApplication):
         )
         if new_data_directory and old_data_directory and new_data_directory != old_data_directory:
             self._data_directory = new_data_directory
-            self._setup_logging()
         else:
             self._data_directory = new_data_directory
 
     def qt_message_handler(self, mode: QtCore.QtMsgType, context: QtCore.QMessageLogContext, message: str) -> None:
         """
-        Route Qt messages to the Python logging system with context.
+        Route Qt messages to both the console and a log file with context.
 
         Args:
             mode (QtCore.QtMsgType): The type of Qt message.
             context (QtCore.QMessageLogContext): The context of the message.
             message (str): The message to log.
         """
-        extra = {
-            "file": getattr(context, "file", "unknown"),
-            "line": getattr(context, "line", -1),
-            "function": getattr(context, "function", "unknown"),
-            "category": getattr(context, "category", "general"),
-        }
-        log_map = {
-            QtCore.QtMsgType.QtDebugMsg: self.__logger.debug,
-            QtCore.QtMsgType.QtInfoMsg: self.__logger.info,
-            QtCore.QtMsgType.QtWarningMsg: self.__logger.warning,
-            QtCore.QtMsgType.QtCriticalMsg: self.__logger.error,
-            QtCore.QtMsgType.QtFatalMsg: self.__logger.critical,
-        }
-        log_func = log_map.get(mode)
-        if log_func:
-            log_func(message, extra=extra)
-        else:
-            self.__logger.warning(f"Unknown Qt message type: {mode} - {message}", extra=extra)
-
-    def get_logger(self, name: str) -> logging.Logger:
-        """
-        Get a logger instance with the specified name.
-
-        Args:
-            name (str): The name of the logger.
-
-        Returns:
-            logging.Logger: The logger instance.
-        """
-        return self.__logger.getChild(name)
+        msg = f"{message} | {getattr(context, 'file', 'unknown')}:{getattr(context, 'line', -1)} - {getattr(context, 'function', 'unknown')} [{getattr(context, 'category', 'general')}]"
+        prefix = {
+            QtCore.QtMsgType.QtDebugMsg: "DEBUG",
+            QtCore.QtMsgType.QtInfoMsg: "INFO",
+            QtCore.QtMsgType.QtWarningMsg: "WARNING",
+            QtCore.QtMsgType.QtCriticalMsg: "CRITICAL",
+            QtCore.QtMsgType.QtFatalMsg: "FATAL",
+        }.get(mode, "LOG")
+        full_msg = f"{prefix}: {msg}"
+        print(full_msg)
+        try:
+            self._qt_log_file.write(full_msg + "\n")
+            self._qt_log_file.flush()
+        except Exception:
+            pass
 
     def get_settings(self) -> TesterSettings:
         """
@@ -298,5 +247,8 @@ def main() -> int:
         window.show()
         return app.exec()
     else:
-        ts = TestSequenceModel()
-        return ts.run_nogui()
+        # Launch worker and start a test sequence
+        worker = TestWorker(TestSequenceModel())
+        worker.start()
+        worker.wait()  # Wait for the worker to finish
+        return 0
