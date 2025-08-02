@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from tester import CancelToken
 from tester.gui.settings import SettingsDialog
 from tester.gui.tester_ui import Ui_TesterWindow
 from tester.manager.sequence import TestSequenceModel
@@ -53,15 +54,13 @@ class TesterWindow(QtWidgets.QMainWindow):
             QtCore.qCritical("[TesterWindow] TesterApp instance not found.")
             raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
 
-        model = TestSequenceModel()
-        self.__cancel = model.Cancel
-        self.worker = TestWorker(model)
+        self.__cancel = CancelToken()
+        self.worker = TestWorker(self.__cancel)
         QtCore.qInfo("[TesterWindow] Model and worker initialized.")
 
         if getattr(app, "options", None) and app.options.isSet("gui"):
             self.ui = Ui_TesterWindow()
             self.ui.setupUi(self)
-            self.ui.tableSequence.setModel(model)
             self.ui.tableSequence.setColumnWidth(0, self.firstColumnWidth)
             self.ui.tableSequence.setColumnWidth(1, self.secondColumnWidth)
             self.ui.tableSequence.verticalHeader().setVisible(False)
@@ -103,7 +102,7 @@ class TesterWindow(QtWidgets.QMainWindow):
             self.signalLoadData.connect(self.worker.onLoadData)
             self.signalSaveData.connect(self.worker.onSaveData)
             self.signalStartTest.connect(self.worker.onStartTest)
-
+            self.worker.setupUi(self.ui)
             self.worker.resetTestData()
 
             self.thread = QtCore.QThread()
@@ -115,9 +114,7 @@ class TesterWindow(QtWidgets.QMainWindow):
             self._current_time_timer = QtCore.QTimer(self)
             self._current_time_timer.timeout.connect(self.updateCurrentTime)
             self._current_time_timer.start(1000)
-            self.updateCurrentTime()
 
-            model.setupUi(self.ui.widgetTest)
             QtCore.qInfo("[TesterWindow] UI setup complete.")
 
     def updateCurrentTime(self):
@@ -209,6 +206,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         QtCore.qInfo("[TesterWindow] Exit menu clicked, stopping test and quitting application.")
         self.updateStatus("Exit menu clicked, stopping test and quitting application.")
         self.onStopTest()
+        self.worker.stop()
         QtCore.QCoreApplication.quit()
 
     @QtCore.Slot()
@@ -448,20 +446,6 @@ class TesterWindow(QtWidgets.QMainWindow):
             raise RuntimeError("No QCoreApplication instance found. Ensure the application is initialized correctly.")
         self.setWindowTitle("Startup")
         return super().show()
-
-    def showEvent(self, event):
-        """
-        Override showEvent to start the test automatically if the 'run' option is set.
-
-        Args:
-            event (QShowEvent): The show event.
-        """
-        QtCore.qDebug("[TesterWindow] showEvent triggered.")
-        super().showEvent(event)
-        app = QtCore.QCoreApplication.instance()
-        if getattr(app, "options", None) and app.options.isSet("run"):
-            QtCore.qInfo("[TesterWindow] 'run' option set, starting test automatically.")
-            self.onStartTest()
 
     def updateStatus(self, message: str):
         """

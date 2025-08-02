@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from PySide6 import QtCore, QtWidgets
 
-from tester.app import __application__
 from tester.manager.devices import DeviceManager
 from tester.tests import CancelToken, _test_list
 
@@ -15,7 +14,7 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
     and supports both GUI and command-line workflows.
     """
 
-    def __init__(self):
+    def __init__(self, cancel: CancelToken, devices: DeviceManager):
         """
         Initialize the TestSequenceModel, set up logging, device manager, test list, and default parameters.
 
@@ -25,27 +24,22 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         super().__init__()
         QtCore.qInfo("[TestSequenceModel] Initializing...")
         # Use AppLocalDataLocation and ensure app subdir exists
-        base_dir = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.AppLocalDataLocation)
-        app_dir = QtCore.QDir(base_dir)
-        app_dir.mkpath(__application__)
-        self._data_directory = app_dir.filePath(__application__)
-
         app_instance = QtCore.QCoreApplication.instance()
-        if app_instance is not None and app_instance.__class__.__name__ == "TesterApp":
-            self.__settings = app_instance.get_settings()
-            self.__settings.settingsModified.connect(self.onSettingsModified)
-            self.onSettingsModified()
-            QtCore.qInfo("[TestSequenceModel] Logger and settings initialized.")
-        else:
+        if app_instance is None or app_instance.__class__.__name__ != "TesterApp":
             QtCore.qCritical("[TestSequenceModel] TesterApp instance not found. Ensure the application is initialized correctly.")
             raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
+        self.__settings = app_instance.get_settings()
+        self.__settings.settingsModified.connect(self.onSettingsModified)
+        self.onSettingsModified()
+        QtCore.qInfo("[TestSequenceModel] Logger and settings initialized.")
 
-        self.__timezone = QtCore.QTimeZone.systemTimeZone()
-        self.__cancel = CancelToken()
         self.__parameters = {}
-        self.__devices = DeviceManager()
-        self.__tests = list(_test_list())
-        self.__headers = ("Test", "Status")
+        self.__header = ("Test", "Status")
+        self.__cancel = cancel
+        self.__devices = devices
+        self.__tests = []
+        for test in _test_list():
+            self.__tests.append(test(self.__cancel, self.__devices))
         QtCore.qInfo("[TestSequenceModel] Initialization complete.")
 
     # Qt Properties for the sequence parameters (using Qt types where possible)
@@ -131,6 +125,8 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
             value (str): The model name.
         """
         self.__parameters["ModelName"] = value
+        for _test in self.__tests:
+            _test.ModelName = value
 
     @QtCore.Property(str)
     def SerialNumber(self):
@@ -151,6 +147,8 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
             value (str): The serial number.
         """
         self.__parameters["SerialNumber"] = value
+        for _test in self.__tests:
+            _test.SerialNumber = value
 
     @QtCore.Property(QtCore.QDateTime)
     def StartTime(self):
@@ -215,129 +213,7 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         """
         self.__parameters["TesterName"] = value
 
-    @property
-    def Cancel(self):
-        """
-        Get the cancel token for the test sequence.
-
-        Returns:
-            CancelToken: The cancel token instance.
-        """
-        return self.__cancel
-
-    @QtCore.Property(str)
-    def DataDirectory(self) -> str:
-        """
-        Get or set the base data directory for storing test data.
-
-        Returns:
-            str: The data directory path.
-        """
-        return self._data_directory
-
-    @DataDirectory.setter
-    def DataDirectory(self, value):
-        """
-        Set the base data directory for storing test data.
-
-        Args:
-            value (str): The new data directory path.
-        """
-        QtCore.qDebug(f"[TestSequenceModel] Setting DataDirectory: {value}")
-        self._data_directory = QtCore.QDir(str(value)).absolutePath()
-
-    @QtCore.Property(str)
-    def DataFilePath(self) -> str:
-        """
-        Get the path to the JSON data file for the current run.
-
-        Returns:
-            str: The data file path.
-        """
-        return QtCore.QDir(self.RunDataDirectory).filePath("data.json")
-
-    @property
-    def Devices(self):
-        """
-        Get the device manager instance.
-
-        Returns:
-            DeviceManager: The device manager.
-        """
-        return self.__devices
-
-    @property
-    def Parameters(self):
-        """
-        Get the current parameters of the test sequence.
-
-        Returns:
-            dict: The parameters dictionary.
-        """
-        return self.__parameters
-
-    @QtCore.Property(str)
-    def PdfReportPath(self) -> str:
-        """
-        Get the path to the PDF report file for the current run.
-
-        Returns:
-            str: The PDF report file path.
-        """
-        return QtCore.QDir(self.RunDataDirectory).filePath("report.pdf")
-
-    @QtCore.Property(str)
-    def RunDataDirectory(self) -> str:
-        """
-        Get or create the directory for the current test run, based on serial number and start time.
-
-        Returns:
-            str: The run data directory.
-        """
-        serial = self.SerialNumber
-        start_time = self.StartTime
-        dir_path = QtCore.QDir(self.DataDirectory)
-        if serial and start_time and start_time.isValid():
-            subdir = f"{serial}/{start_time.toString('yyyyMMdd_HHmmss')}"
-        else:
-            subdir = "Unknown/Unknown"
-        dir_path.mkpath(subdir)
-        return dir_path.filePath(subdir)
-
-    @property
-    def Tests(self):
-        """
-        Get the list of available tests.
-
-        Returns:
-            list: The list of test objects.
-        """
-        return self.__tests
-
-    def getTime(self) -> QtCore.QDateTime:
-        """
-        Get the current local time in the configured timezone.
-
-        Returns:
-            QtCore.QDateTime: The current time.
-        """
-        now = QtCore.QDateTime.currentDateTime()
-        if self.__timezone.isValid():
-            now.setTimeZone(self.__timezone)
-        return now
-
-    @QtCore.Slot()
-    def onSettingsModified(self):
-        """
-        Read settings from the QSettings object and update parameters accordingly.
-
-        This method is called when the settings are modified.
-        """
-        QtCore.qInfo("[TestSequenceModel] Reading settings")
-        _data_directory = str(self.DataDirectory)
-        _data_directory = self.__settings.getSetting("Tests", "DataDirectory", _data_directory)
-        self.DataDirectory = _data_directory
-
+    # QtCore methods for the model
     def rowCount(self, parent=QtCore.QModelIndex()):
         """
         Get the number of rows (tests) in the model.
@@ -360,7 +236,7 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         Returns:
             int: The number of columns (always 2: Test, Status).
         """
-        return len(self.__headers)
+        return len(self.__header)
 
     def data(self, index, role=QtCore.Qt.DisplayRole):
         """
@@ -376,7 +252,7 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         if not index.isValid():
             return None
         row, col = index.row(), index.column()
-        if row >= len(self.__tests) or col >= len(self.__headers):
+        if row >= len(self.__tests) or col >= len(self.__header):
             return None
         test = self.__tests[row]
         if role == QtCore.Qt.DisplayRole:
@@ -398,9 +274,10 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
             The header label or None.
         """
         if role == QtCore.Qt.DisplayRole and orientation == QtCore.Qt.Horizontal:
-            return self.__headers[section] if section < len(self.__headers) else None
+            return self.__header[section] if section < len(self.__header) else None
         return super().headerData(section, orientation, role)
 
+    # Methods for managing the test sequence
     def extend(self, tests: list):
         """
         Extend the list of tests with new test objects.
@@ -418,18 +295,68 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         self.layoutChanged.emit()
         QtCore.qInfo(f"[TestSequenceModel] Test list extended by {len(tests)} items.")
 
-    def printTestList(self):
+    def cliPrintTestList(self):
         """
         Print the list of available tests and their descriptions to the console.
         """
         QtCore.qInfo("[TestSequenceModel] Listing available tests.")
         print("Available tests:")
         for test in self.__tests:
-            print(f"- {test.Name}:")
-            if test.__doc__:
-                print("\n".join(f"    {line.strip()}" for line in test.__doc__.strip().splitlines()))
+            test.cliPrintTest()
 
-    def resetTests(self):
+    def onGenerateReport(self, report):
+        for _test in self.__tests:
+            if getattr(_test, "Status", None) != "Skipped":
+                _test.onGenerateReport(report)
+
+    def onLoadData(self, tests_data):
+        """
+        Load test data from a dictionary into the model and its tests.
+        """
+        if tests_data:
+            _name_to_test = {t.Name: t for t in self.__tests}
+            for _test_name, _test_data in tests_data.items():
+                _test_obj = _name_to_test.get(_test_name)
+                if _test_obj:
+                    _test_obj.onLoadData(_test_data)
+
+    def onSaveData(self) -> dict:
+        _data = self.__parameters.copy()
+        _data["Tests"] = {t.Name: t.onSaveData() for t in self.__tests}
+        return _data
+
+    @QtCore.Slot()
+    def onSettingsModified(self):
+        """
+        Read settings from the QSettings object and update parameters accordingly.
+
+        This method is called when the settings are modified.
+        """
+        QtCore.qInfo("[TestSequenceModel] Reading settings")
+
+    def onStartTest(self, data_directory, test=None):
+        statuses = []
+        for index, _test in enumerate(self.__tests):
+            self.startedTest.emit(index, _test.Name)
+            if getattr(self.__cancel, "cancelled", False):
+                _test.Status = "Skipped"
+                continue
+            if test and _test.Name != test:
+                _test.Status = "Skipped"
+                continue
+            result = _test.onStartTest(data_directory)
+            statuses.append(result)
+            self.finishedTest.emit(index, _test.Name, result)
+        if self.__cancel.cancelled:
+            QtCore.qWarning("[TestSequenceModel] Test sequence was cancelled.")
+            return None
+        elif statuses.count() == 0:
+            QtCore.qWarning("[TestSequenceModel] No tests were executed.")
+            return None
+        else:
+            return all(statuses) if statuses else False
+
+    def resetTestData(self):
         """
         Reset the test data by clearing the parameters and cancel token.
         """
@@ -437,14 +364,6 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         for test in self.__tests:
             test.resetParameters()
         QtCore.qInfo("[TestSequenceModel] All test parameters reset")
-
-    def setupDevices(self):
-        """
-        Set up the devices required for the test sequence.
-        """
-        QtCore.qInfo("[TestSequenceModel] Setting up devices")
-        self.__devices.setup()
-        QtCore.qInfo("[TestSequenceModel] Devices setup complete")
 
     def setupUi(self, parent=None):
         """
@@ -461,4 +380,3 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
                 parent.addWidget(widget)
                 test.setupUi(widget)
         QtCore.qInfo("[TestSequenceModel] UI setup complete")
-
