@@ -50,6 +50,7 @@ class TesterWindow(QtWidgets.QMainWindow):
             self.__settings = app.get_settings()
             self.__settings.settingsModified.connect(self.onSettingsModified)
             self.onSettingsModified()
+            app.statusMessage.connect(self.updateStatus)
         else:
             QtCore.qCritical("[TesterWindow] TesterApp instance not found.")
             raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")

@@ -5,6 +5,7 @@ from PySide6 import QtCore
 __version__ = "1.1.0"
 __company__ = "Pangolin Laser Systems"
 __application__ = "Automated Scanner Test"
+__doc__ = "This application runs a series of tests designed to validate the quality of Pangolin Laser System scanners."
 
 class CancelToken(QtCore.QObject):
     """

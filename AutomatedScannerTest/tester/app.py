@@ -5,7 +5,6 @@ import sys
 from tester.manager.worker import TestWorker
 from tester import __application__, __company__, __version__, __doc__
 from tester.gui.gui import TesterWindow
-from tester.manager.sequence import TestSequenceModel
 
 
 class TesterSettings(QtCore.QSettings):
@@ -38,16 +37,48 @@ class TesterSettings(QtCore.QSettings):
 
 
 class TesterApp(QtWidgets.QApplication):
+    """
+    Main application class for the Automated Scanner Tester.
+
+    Handles application initialization, settings management, command-line parsing,
+    logging setup, and message handling. Provides access to application-wide settings
+    and data directory, and emits status messages for UI or CLI display.
+    """
+
+    statusMessage = QtCore.Signal(str)
+
     @property
     def DataDirectory(self) -> str:
+        """
+        Returns the current data directory used by the application.
+
+        Returns:
+            str: Path to the application's data directory.
+        """
         return getattr(self, "_data_directory", None)
 
     def __init__(self, argv, *args, **kwargs):
+        """
+        Initializes the TesterApp instance.
+
+        Sets up application metadata, data directory, settings, command-line options,
+        and logging. Ensures only one QApplication instance is created.
+
+        Args:
+            argv (list): Command-line arguments.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+
+        Raises:
+            RuntimeError: If another QApplication instance already exists.
+        """
         if QtWidgets.QApplication.instance() is not None:
             raise RuntimeError("Only one QApplication instance is allowed.")
         super().__init__(argv, *args, **kwargs)
 
-        base_dir = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.AppLocalDataLocation)
+        base_dir = QtCore.QStandardPaths.writableLocation(
+            QtCore.QStandardPaths.AppLocalDataLocation
+        )
         app_dir = QtCore.QDir(base_dir)
         app_dir.mkpath(__application__)
         self._data_directory = app_dir.filePath(__application__)
@@ -74,46 +105,89 @@ class TesterApp(QtWidgets.QApplication):
         self.options.setApplicationDescription(__doc__)
 
         options = [
-            (["d", "directory"], "Set the data directory.", "directory", str(self.DataDirectory)),
-            (["cli"], "Run in commandline mode.", None, None),
+            (
+                ["d", "directory"],
+                "Set the data directory.",
+                "directory",
+                str(self.DataDirectory),
+            ),
+            (["r", "run"], "Run test(s) in commandline mode.", None, None),
             (["l", "list"], "List the available tests.", None, None),
             (["s", "serial"], "The serial number on which to test.", "serial", ""),
             (["m", "model"], "The model number on which to test.", "model", ""),
             (["t", "test"], "The test to run.", "test", None),
+            (["x", "exitcodes"], "Display exit codes and their meaning.", None, None),
         ]
         for names, desc, value_name, default in options:
-            opt = QtCore.QCommandLineOption(
-                names,
-                QtCore.QCoreApplication.translate(_context, desc),
-                value_name or "",
-                default or "",
+            self.options.addOption(
+                QtCore.QCommandLineOption(
+                    names,
+                    QtCore.QCoreApplication.translate(_context, desc),
+                    value_name or "",
+                    default or "",
+                )
             )
-            self.options.addOption(opt)
-
         self.options.addHelpOption()
         self.options.addVersionOption()
         self.options.process(self)
-
         self._setup_qt_logging()
 
     def _setup_qt_logging(self):
-        log_dir = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.AppLocalDataLocation)
+        """
+        Sets up Qt logging for the application.
+
+        Initializes the log file, enables console logging for CLI mode,
+        installs the custom Qt message handler, and deletes old log files.
+        """
+        log_dir = QtCore.QStandardPaths.writableLocation(
+            QtCore.QStandardPaths.AppLocalDataLocation
+        )
         QtCore.QDir(log_dir).mkpath(".")
-        log_file_path = QtCore.QDir(log_dir).filePath("tester_qt.log")
+
+        # Delete log files older than 30 days using Qt native code
+        dir_obj = QtCore.QDir(log_dir)
+        log_files = dir_obj.entryInfoList(["*.log"], QtCore.QDir.Files)
+        now = QtCore.QDateTime.currentDateTime()
+        for file_info in log_files:
+            mtime = file_info.lastModified()
+            if mtime.daysTo(now) > 30:
+                QtCore.QFile.remove(file_info.filePath())
+
+        # Generate log file name in log_YYYYmmdd_HHMMSS.log format
+        timestamp = now.toString("yyyyMMdd_HHmmss")
+        log_file_name = f"log_{timestamp}.log"
+        log_file_path = QtCore.QDir(log_dir).filePath(log_file_name)
         self._qt_log_file = open(log_file_path, "a", encoding="utf-8")
         self._qt_log_file_path = log_file_path
-        self._console_logging_enabled = not self.options.isSet("cli")
+        self._console_logging_enabled = self.options.isSet("run")
         QtCore.qInstallMessageHandler(self.qt_message_handler)
         QtCore.qInfo(f"Qt logging initialized. Log file: {log_file_path}")
 
     def onSettingsModified(self) -> None:
+        """
+        Slot called when application settings are modified.
+
+        Updates the data directory from settings.
+        """
         old_data_directory = self.DataDirectory
-        new_data_directory = self.__settings.getSetting(
+        self._data_directory = self.__settings.getSetting(
             "", "DataDirectory", str(old_data_directory)
         )
-        self._data_directory = new_data_directory
 
-    def qt_message_handler(self, mode: QtCore.QtMsgType, context: QtCore.QMessageLogContext, message: str) -> None:
+    def qt_message_handler(
+        self, mode: QtCore.QtMsgType, context: QtCore.QMessageLogContext, message: str
+    ) -> None:
+        """
+        Custom Qt message handler for logging and status message emission.
+
+        Logs messages to file and optionally to console. Emits statusMessage signal
+        for info, warning, and critical messages.
+
+        Args:
+            mode (QtCore.QtMsgType): The type of Qt message.
+            context (QtCore.QMessageLogContext): Context of the message.
+            message (str): The message text.
+        """
         msg = f"{message} | {getattr(context, 'file', 'unknown')}:{getattr(context, 'line', -1)} - {getattr(context, 'function', 'unknown')} [{getattr(context, 'category', 'general')}]"
         prefix = {
             QtCore.QtMsgType.QtDebugMsg: "DEBUG",
@@ -131,21 +205,39 @@ class TesterApp(QtWidgets.QApplication):
         except Exception:
             pass
 
+        # Emit statusMessage for info, warning, or critical
+        if mode == QtCore.QtMsgType.QtInfoMsg:
+            self.statusMessage.emit(full_msg)
+        elif mode == QtCore.QtMsgType.QtWarningMsg:
+            self.statusMessage.emit(full_msg)
+        elif mode in (QtCore.QtMsgType.QtCriticalMsg, QtCore.QtMsgType.QtFatalMsg):
+            self.statusMessage.emit(full_msg)
+
     def get_settings(self) -> TesterSettings:
+        """
+        Returns the application settings object.
+
+        Returns:
+            TesterSettings: The settings instance for the application.
+        """
         return self.__settings
 
 
 def main() -> int:
     app = TesterApp(sys.argv)
-    if app.options.isSet("list") or app.options.isSet("cli"):
+    if len(sys.argv) > 1:
         worker = TestWorker()
         thread = QtCore.QThread()
         worker.moveToThread(thread)
         thread.started.connect(worker.run_cli)
         thread.finished.connect(app.quit)
         thread.start()
-        return app.exec()
     else:
         window = TesterWindow()
+        app.statusMessage.connect(window.updateStatus)
         window.show()
-        return app.exec()
+    return app.exec()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

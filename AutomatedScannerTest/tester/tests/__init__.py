@@ -98,15 +98,15 @@ class Test(QtCore.QObject):
         if app is None or app.__class__.__name__ != "TesterApp":
             QtCore.qCritical("Test class must be initialized within a TesterApp instance.")
             raise RuntimeError("Test class must be initialized within a TesterApp instance.")
-        self._settings = app.get_settings()
-        self._settings.settingsModified.connect(self.onSettingsModified)
+        self.__parameters = {}
+        self.__settings = app.get_settings()
+        self.__settings.settingsModified.connect(self.onSettingsModified)
         self.onSettingsModified()
         self.cancel = cancel
         self.devices = devices
         self.widgetTestMain = None
-        self.Name = name
-        self._parameters = {}
         self.resetParameters()
+        self.Name = name
         QtCore.qInfo(f"Test instance '{self.Name}' initialized.")
 
     @QtCore.Property(float, notify=durationChanged)
@@ -117,7 +117,7 @@ class Test(QtCore.QObject):
         Returns:
             float: The duration of the test in seconds.
         """
-        return self._parameter.get("Duration", 0.0)
+        return self.__parameters.get("Duration", 0.0)
 
     @Duration.setter
     def Duration(self, value):
@@ -127,8 +127,8 @@ class Test(QtCore.QObject):
         Args:
             value (float): The duration in seconds.
         """
-        old = self._parameter.get("Duration", None)
-        self._parameters["Duration"] = value
+        old = self.__parameters.get("Duration", None)
+        self.__parameters["Duration"] = value
         QtCore.qDebug(f"Duration changed from {old} to {value} for test '{self.Name}'.")
         self.durationChanged.emit(f"{value} sec")
 
@@ -140,7 +140,7 @@ class Test(QtCore.QObject):
         Returns:
             QDateTime: The end time of the test.
         """
-        return self._parameter.get("EndTime", self.getCurrentTime())
+        return self.__parameters.get("EndTime", self.getCurrentTime())
 
     @EndTime.setter
     def EndTime(self, value):
@@ -150,8 +150,8 @@ class Test(QtCore.QObject):
         Args:
             value (QDateTime): The end time.
         """
-        old = self._parameter.get("EndTime", None)
-        self._parameters["EndTime"] = value
+        old = self.__parameters.get("EndTime", None)
+        self.__parameters["EndTime"] = value
         QtCore.qDebug(f"EndTime changed from {old} to {value} for test '{self.Name}'.")
         self.endTimeChanged.emit(value.toString("HH:mm:ss") if value and value.isValid() else "")
         self.Duration = self.StartTime.secsTo(value)
@@ -164,7 +164,7 @@ class Test(QtCore.QObject):
         Returns:
             str: The test name.
         """
-        return self._parameter.get("Name", "")
+        return self.getParameter("Name", "")
 
     @Name.setter
     def Name(self, value):
@@ -185,7 +185,7 @@ class Test(QtCore.QObject):
         Returns:
             str: The serial number.
         """
-        return self._parameter.get("SerialNumber", "")
+        return self.__parameters.get("SerialNumber", "")
 
     @SerialNumber.setter
     def SerialNumber(self, value):
@@ -206,7 +206,7 @@ class Test(QtCore.QObject):
         Returns:
             QDateTime: The start time of the test.
         """
-        return self._parameter.get("StartTime", self.getCurrentTime())
+        return self.__parameters.get("StartTime", self.getCurrentTime())
 
     @StartTime.setter
     def StartTime(self, value):
@@ -227,7 +227,7 @@ class Test(QtCore.QObject):
         Returns:
             str: The test status.
         """
-        return self._parameter.get("Status", "")
+        return self.__parameters.get("Status", "")
 
     @Status.setter
     def Status(self, value):
@@ -251,7 +251,7 @@ class Test(QtCore.QObject):
         Returns:
             any: The setting value.
         """
-        return self._settings.getSetting(f"Tests/{self.Name}", key, default)
+        return self.__settings.getSetting(f"Tests/{self.Name}", key, default)
 
     def setSetting(self, key: str, value):
         """
@@ -261,7 +261,7 @@ class Test(QtCore.QObject):
             key (str): The setting key.
             value (any): The value to set.
         """
-        self._settings.setSetting(f"Tests/{self.Name}", key, value)
+        self.__settings.setSetting(f"Tests/{self.Name}", key, value)
 
     def onSettingsModified(self):
         """
@@ -280,7 +280,7 @@ class Test(QtCore.QObject):
         Returns:
             any: The parameter value.
         """
-        return self._parameter.get(key, default)
+        return self.__parameters.get(key, default)
 
     def setParameter(self, key: str, value):
         """
@@ -290,7 +290,7 @@ class Test(QtCore.QObject):
             key (str): The parameter key.
             value (any): The value to set.
         """
-        self._parameters[key] = value
+        self.__parameters[key] = value
         self.parameterChanged.emit(key, value)
 
     def getCurrentTime(self) -> QtCore.QDateTime:
@@ -401,9 +401,9 @@ class Test(QtCore.QObject):
         Returns:
             dict: The current parameters.
         """
-        return dict(self._parameters)
+        return dict(self.__parameters)
 
-    def onStartTest(self) -> bool:
+    def onStartTest(self, data_directory: str) -> bool:
         """
         Run the full test sequence: setup, run, teardown, and analysis.
 
@@ -411,6 +411,7 @@ class Test(QtCore.QObject):
             bool: True if the test and analysis succeed, False otherwise.
         """
         try:
+            self.setDataDirectory(data_directory)
             self.StartTime = self.getCurrentTime()
             self.checkCancelled()
             self.setup()
@@ -437,7 +438,7 @@ class Test(QtCore.QObject):
         """
         Reset the test state and parameters to their initial values.
         """
-        self._parameters.clear()
+        self.__parameters.clear()
         self.StartTime = QtCore.QDateTime()
         self.EndTime = QtCore.QDateTime()
         self.Status = "Idle"

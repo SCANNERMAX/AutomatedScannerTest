@@ -13,6 +13,8 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
     result logging, report generation, and parameter management. It integrates with device management
     and supports both GUI and command-line workflows.
     """
+    startedTest = QtCore.Signal(int, str)
+    finishedTest = QtCore.Signal(int, str, bool)
 
     def __init__(self, cancel: CancelToken, devices: DeviceManager):
         """
@@ -303,6 +305,7 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         print("Available tests:")
         for test in self.__tests:
             test.cliPrintTest()
+            print("\n")
 
     def onGenerateReport(self, report):
         for _test in self.__tests:

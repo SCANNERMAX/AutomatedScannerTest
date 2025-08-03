@@ -40,7 +40,7 @@ class TestWorker(QtCore.QObject):
         """
         super().__init__()
         app_instance = QtCore.QCoreApplication.instance()
-        if app_instance is None or app_instance.__class__.__name__ != "TesterApp":
+        if not (app_instance and app_instance.__class__.__name__ == "TesterApp"):
             QtCore.qCritical("TesterApp instance not found. Ensure the application is initialized correctly.")
             raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
         self.__settings = app_instance.get_settings()
@@ -49,13 +49,15 @@ class TestWorker(QtCore.QObject):
         self.__cancel = cancel
         self.__devices = DeviceManager()
         self.__model = TestSequenceModel(self.__cancel, self.__devices)
+        self.__model.startedTest.connect(self.modelStartedTest)
+        self.__model.finishedTest.connect(self.modelFinishedTest)
         self.__timezone = QtCore.QTimeZone.systemTimeZone()
         QtCore.qInfo("TestWorker initialized.")
 
     @QtCore.Property(str, notify=computerNameChanged)
     def ComputerName(self):
         """
-        Get or set the computer name used for the test.
+        Get the computer name used for the test.
 
         Returns:
             str: The computer name.
@@ -86,7 +88,7 @@ class TestWorker(QtCore.QObject):
     @QtCore.Property(float, notify=durationChanged)
     def Duration(self):
         """
-        Get or set the test duration in seconds.
+        Get the test duration in seconds.
 
         Returns:
             float: The test duration.
@@ -107,7 +109,7 @@ class TestWorker(QtCore.QObject):
     @QtCore.Property(QtCore.QDateTime, notify=endTimeChanged)
     def EndTime(self):
         """
-        Get or set the end time of the test.
+        Get the end time of the test.
 
         Returns:
             QtCore.QDateTime: The end time.
@@ -129,7 +131,7 @@ class TestWorker(QtCore.QObject):
     @QtCore.Property(str, notify=modelNameChanged)
     def ModelName(self):
         """
-        Get or set the model name for the test.
+        Get the model name for the test.
 
         Returns:
             str: The model name.
@@ -177,7 +179,7 @@ class TestWorker(QtCore.QObject):
     @QtCore.Property(str, notify=serialNumberChanged)
     def SerialNumber(self):
         """
-        Get or set the serial number for the test.
+        Get the serial number for the test.
 
         Returns:
             str: The serial number.
@@ -198,7 +200,7 @@ class TestWorker(QtCore.QObject):
     @QtCore.Property(QtCore.QDateTime, notify=startTimeChanged)
     def StartTime(self):
         """
-        Get or set the start time of the test.
+        Get the start time of the test.
 
         Returns:
             QtCore.QDateTime: The start time.
@@ -219,7 +221,7 @@ class TestWorker(QtCore.QObject):
     @QtCore.Property(str, notify=statusChanged)
     def Status(self):
         """
-        Get or set the test status.
+        Get the test status.
 
         Returns:
             str: The test status.
@@ -240,7 +242,7 @@ class TestWorker(QtCore.QObject):
     @QtCore.Property(str, notify=testerNameChanged)
     def TesterName(self):
         """
-        Get or set the tester name.
+        Get the tester name.
 
         Returns:
             str: The tester name.
@@ -257,6 +259,29 @@ class TestWorker(QtCore.QObject):
         """
         self.__model.TesterName = value
         self.testerNameChanged.emit(value)
+
+    @QtCore.Slot(int, str)
+    def modelStartedTest(self, test_id: int, test_name: str):
+        """
+        Slot called when a test starts in the model.
+        Args:
+            test_id (int): The ID of the test.
+            test_name (str): The name of the test.
+        """
+        QtCore.qInfo(f"[modelStartedTest] Test started: ID={test_id}, Name={test_name}.")
+        self.startedTest.emit(test_id, test_name)
+
+    @QtCore.Slot(int, str, bool)
+    def modelFinishedTest(self, test_id: int, test_name: str, status: bool):
+        """
+        Slot called when a test finishes in the model.
+        Args:
+            test_id (int): The ID of the test.
+            test_name (str): The name of the test.
+            status (bool): The status of the test (True for pass, False for fail).
+        """
+        QtCore.qInfo(f"[modelFinishedTest] Test finished: ID={test_id}, Name={test_name}, Status={'Pass' if status else 'Fail'}.")
+        self.finishedTest.emit(test_id, test_name, status)
 
     def getCurrentTime(self) -> QtCore.QDateTime:
         """
@@ -285,7 +310,7 @@ class TestWorker(QtCore.QObject):
 
     def setupUi(self, parent=None):
         """
-        Set up the UI for the worker. This method can be overridden in subclasses.
+        Set up the UI for the worker.
 
         Args:
             parent: The parent widget.
@@ -380,6 +405,9 @@ class TestWorker(QtCore.QObject):
         QtCore.qInfo(f"[onSaveData] Saving test data to file {_path}.")
 
         def _to_qvariant(obj):
+            """
+            Recursively convert objects to QVariant-compatible types.
+            """
             if isinstance(obj, dict):
                 return {k: _to_qvariant(v) for k, v in obj.items()}
             if isinstance(obj, list):
@@ -419,7 +447,7 @@ class TestWorker(QtCore.QObject):
         self.StartTime = self.getCurrentTime()
         self.Status = "Running"
         self.__devices.setup()
-        final_status = self.__model.onStartTest(self.RunDataDirectory, test)
+        final_status = self.__model.onStartTest(self.RunDataDirectory, test=test)
         if getattr(self.__cancel, "cancelled", False):
             self.Status = "Cancelled"
         elif final_status is None:
@@ -458,38 +486,108 @@ class TestWorker(QtCore.QObject):
     def run_cli(self):
         """
         Run the test sequence in CLI mode.
-        Handles help, version, and list options. Prompts for serial/model if not provided.
+        Handles help, version, list, and exitcodes options. Prompts for serial/model if not provided.
+        Supplies unique exit codes for each error type using an exit code map.
         """
         app_instance = QtCore.QCoreApplication.instance()
-        if app_instance is None or app_instance.__class__.__name__ != "TesterApp":
+        if not (app_instance and app_instance.__class__.__name__ == "TesterApp"):
             QtCore.qCritical("TesterApp instance not found. Ensure the application is initialized correctly.")
-            raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
+            QtCore.QCoreApplication.exit(10)
+            return
+
+        exit_code_map = {
+            KeyboardInterrupt: 2,
+            FileNotFoundError: 20,
+            PermissionError: 21,
+            ValueError: 22,
+            TypeError: 23,
+            RuntimeError: 24,
+            ImportError: 25,
+            OSError: 26,
+            Exception: 99,
+        }
+        exit_code_meanings = {
+            0: "Success, help, version, or list shown",
+            1: "Unknown/invalid usage",
+            2: "User interrupt (KeyboardInterrupt)",
+            10: "No TesterApp instance",
+            11: "Error listing tests",
+            12: "Test run error",
+            20: "File not found",
+            21: "Permission error",
+            22: "Value error",
+            23: "Type error",
+            24: "Runtime error",
+            25: "Import error",
+            26: "OS error",
+            99: "Generic/unknown exception",
+        }
 
         options = app_instance.options
 
-        # Handle help option
+        def print_exit_codes():
+            """
+            Print the list of exit codes and their meanings.
+            """
+            print("\nExit codes and their meaning:")
+            for code, meaning in sorted(exit_code_meanings.items()):
+                print(f"  {code}: {meaning}")
+
         if options.isSet("help"):
             options.showHelp()
-            QtCore.QCoreApplication.quit()
+            print_exit_codes()
+            QtCore.QCoreApplication.exit(0)
             return
 
-        # Handle version option
         if options.isSet("version"):
             options.showVersion()
-            QtCore.QCoreApplication.quit()
+            QtCore.QCoreApplication.exit(0)
             return
 
-        # Handle list option
+        if options.isSet("exitcodes"):
+            print_exit_codes()
+            QtCore.QCoreApplication.exit(0)
+            return
+
         if options.isSet("list"):
-            self.__model.cliPrintTestList()
+            try:
+                self.__model.cliPrintTestList()
+                QtCore.QCoreApplication.exit(0)
+            except Exception as e:
+                QtCore.qCritical(f"Error listing tests: {e}")
+                code = exit_code_map.get(type(e), exit_code_map[Exception])
+                QtCore.QCoreApplication.exit(code)
             return
 
-        serial = options.value("serial", "").strip()
-        model = options.value("model", "").strip()
-        if not serial:
-            serial = input("Enter serial number: ").strip()
-        if not model:
-            model = input("Enter model name: ").strip()
-        test = options.value("test", "").strip() if options.value("test") else None
-        self.onStartTest(serial, model, test)
+        if options.isSet("run"):
+            try:
+                if options.isSet("serial"):
+                    serial = options.value("serial").strip()
+                else:
+                    serial = input("Enter serial number: ").strip()
+                if options.isSet("model"):
+                    model = options.value("model").strip()
+                else:
+                    model = input("Enter model name: ").strip()
+                if options.isSet("test"):
+                    test = options.value("test").strip()
+                else:
+                    test = ""
+                self.onStartTest(serial, model, test)
+                QtCore.QCoreApplication.exit(0)
+                return
+            except Exception as e:
+                if isinstance(e, KeyboardInterrupt):
+                    QtCore.qCritical("Test interrupted by user.")
+                else:
+                    QtCore.qCritical(f"Error running test: {e}")
+                    options.showHelp()
+                    print_exit_codes()
+                code = exit_code_map.get(type(e), exit_code_map[Exception])
+                QtCore.QCoreApplication.exit(code)
+                return
 
+        options.showHelp()
+        print_exit_codes()
+        QtCore.QCoreApplication.exit(1)
+        return
