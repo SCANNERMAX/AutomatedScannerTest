@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """This application runs a series of tests designed to validate the quality of Pangolin Laser System scanners."""
 from PySide6 import QtCore
+import logging
 
+__logger = logging.getLogger(__name__)
 __version__ = "1.1.0"
 __company__ = "Pangolin Laser Systems"
 __application__ = "Automated Scanner Test"
@@ -34,8 +36,11 @@ class CancelToken(QtCore.QObject):
             The parent QObject.
         """
         super().__init__(parent)
+        app = QtCore.QCoreApplication.instance()
+        if app is None or app.__class__.__name__ != "TestApplication":
+            raise RuntimeError("CancelToken must be used within a TestApplication context.")
         self._cancelled = False
-        QtCore.qDebug("CancelToken initialized with cancelled=False.")
+        __logger.debug("CancelToken initialized with cancelled=False.")
 
     @QtCore.Property(bool, notify=cancelledChanged)
     def cancelled(self):
@@ -47,6 +52,7 @@ class CancelToken(QtCore.QObject):
         bool
             True if cancelled, False otherwise.
         """
+        __logger.debug(f"CancelToken.cancelled accessed, current value: {self._cancelled}.")
         return self._cancelled
 
     @cancelled.setter
@@ -60,7 +66,7 @@ class CancelToken(QtCore.QObject):
             The new cancelled state.
         """
         if self._cancelled != value:
-            QtCore.qInfo(f"CancelToken.cancelled changed from {self._cancelled} to {value}.")
+            __logger.debug(f"CancelToken.cancelled changed from {self._cancelled} to {value}.")
             self._cancelled = value
             self.cancelledChanged.emit(self._cancelled)
 
@@ -69,7 +75,7 @@ class CancelToken(QtCore.QObject):
         """
         Set the cancelled state to True.
         """
-        QtCore.qInfo("CancelToken.cancel() called.")
+        __logger.debug("CancelToken.cancel() called.")
         self.cancelled = True
 
     @QtCore.Slot()
@@ -77,7 +83,7 @@ class CancelToken(QtCore.QObject):
         """
         Reset the cancelled state to False.
         """
-        QtCore.qInfo("CancelToken.reset() called.")
+        __logger.debug("CancelToken.reset() called.")
         self.cancelled = False
 
 

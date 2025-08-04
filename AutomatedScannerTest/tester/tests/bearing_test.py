@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 from PySide6 import QtCore, QtWidgets, QtCharts
+import logging
 
 import tester
 from tester.devices.mso5000 import MSO5000
 from tester.manager.devices import DeviceManager
 import tester.tests
 
+__logger = logging.getLogger(__name__)
 
 class BearingTest(tester.tests.Test):
     """
@@ -33,7 +35,7 @@ class BearingTest(tester.tests.Test):
         super().__init__(
             "Bearing Test", cancel, devices if devices is not None else DeviceManager()
         )
-        QtCore.qInfo("BearingTest initialized.")
+        __logger.debug(f"BearingTest Initialized.")
 
     @QtCore.Property(list, notify=frictionDataChanged)
     def FrictionData(self):
@@ -43,7 +45,9 @@ class BearingTest(tester.tests.Test):
         Returns:
             list: The list of (position, current) QPointF tuples.
         """
-        return self.getParameter("FrictionData", [])
+        value = self.getParameter("FrictionData", [])
+        __logger.debug(f"Getting FrictionData: {value}")
+        return value
 
     @FrictionData.setter
     def FrictionData(self, value):
@@ -53,6 +57,7 @@ class BearingTest(tester.tests.Test):
         Args:
             value (list): The new friction data as a list of QPointF tuples.
         """
+        __logger.debug(f"Setting FrictionData: {value}")
         self.setParameter("FrictionData", value)
         self.frictionDataChanged.emit(value)
 
@@ -70,10 +75,11 @@ class BearingTest(tester.tests.Test):
         self.ytitle = s("TorqueCurrentTitle", "Torque Current (mA)")
         self.ymin = s("TorqueCurrentMinimum", -400.0)
         self.ymax = s("TorqueCurrentMaximum", 400.0)
-        QtCore.qInfo(
-            f"Settings modified: readDelay={self.readDelay}, charttitle={self.charttitle}, "
-            f"xtitle={self.xtitle}, xmin={self.xmin}, xmax={self.xmax}, "
-            f"ytitle={self.ytitle}, ymin={self.ymin}, ymax={self.ymax}"
+        __logger.debug(
+            f"Settings modified: readDelay={self.readDelay}, "
+            f"charttitle={self.charttitle}, xtitle={self.xtitle}, "
+            f"xmin={self.xmin}, xmax={self.xmax}, ytitle={self.ytitle}, "
+            f"ymin={self.ymin}, ymax={self.ymax}"
         )
 
     def setupUi(self, widget: QtWidgets.QWidget):
@@ -83,7 +89,7 @@ class BearingTest(tester.tests.Test):
         Args:
             widget (QtWidgets.QWidget): The parent widget to load UI components into.
         """
-        QtCore.qInfo("Setting up UI for BearingTest.")
+        __logger.debug(f"Setting up UI for BearingTest.")
         super().setupUi(widget)
         chart = QtCharts.QChart()
         chart.setObjectName("chartFriction")
@@ -122,7 +128,7 @@ class BearingTest(tester.tests.Test):
         self.axisX = axis_x
         self.axisY = axis_y
         self.chartViewFriction = chart_view
-        QtCore.qInfo("UI setup for BearingTest complete.")
+        __logger.debug(f"UI setup for BearingTest complete.")
 
     def onGenerateReport(self, report):
         """
@@ -131,7 +137,7 @@ class BearingTest(tester.tests.Test):
         Args:
             report: The report object to which the plot will be added.
         """
-        QtCore.qInfo("Generating report for BearingTest.")
+        __logger.debug(f"Generating report for BearingTest.")
         super().onGenerateReport(report)
         try:
             report.plotXYData(
@@ -147,9 +153,9 @@ class BearingTest(tester.tests.Test):
                 ymax=self.ymax,
                 yTickCount=9,
             )
-            QtCore.qInfo("Friction plot added to report.")
+            __logger.debug(f"Friction plot added to report.")
         except Exception as e:
-            QtCore.qCritical(f"Failed to add friction plot to report: {e}")
+            __logger.critical(f"Failed to add friction plot to report: {e}")
 
     def onSaveData(self):
         """
@@ -158,9 +164,10 @@ class BearingTest(tester.tests.Test):
         Returns:
             Any: The result of the save operation from the base class.
         """
-        QtCore.qInfo(f"Saving friction data to {getattr(self, 'dataFilePath', None)}")
+        dataFilePath = getattr(self, "dataFilePath", None)
+        __logger.debug(f"Saving friction data to {dataFilePath}")
         try:
-            file = QtCore.QFile(getattr(self, "dataFilePath", ""))
+            file = QtCore.QFile(dataFilePath)
             if file.open(QtCore.QIODevice.WriteOnly | QtCore.QIODevice.Text):
                 stream = QtCore.QTextStream(file)
                 stream << f"Time (ns),{self.xtitle},{self.ytitle}\n"
@@ -170,15 +177,13 @@ class BearingTest(tester.tests.Test):
                     else:
                         stream << f"{_time},{_data[0]},{_data[1]}\n"
                 file.close()
-                QtCore.qInfo(
-                    f"Friction data saved to {getattr(self, 'dataFilePath', None)}"
-                )
+                __logger.debug(f"Friction data saved to {dataFilePath}")
             else:
-                QtCore.qWarning(
-                    f"Could not open file {getattr(self, 'dataFilePath', None)} for writing."
+                __logger.warning(
+                    f"Could not open file {dataFilePath} for writing."
                 )
         except Exception as e:
-            QtCore.qCritical(f"Failed to save friction data: {e}")
+            __logger.critical(f"Failed to save friction data: {e}")
         return super().onSaveData()
 
     def resetParameters(self):
@@ -195,21 +200,23 @@ class BearingTest(tester.tests.Test):
         Args:
             data_directory (str): The root directory where data and figures will be saved.
         """
-        QtCore.qInfo(f"Setting data directory for BearingTest: {data_directory}")
+        __logger.debug(
+            f"Setting data directory for BearingTest: {data_directory}"
+        )
         super().setDataDirectory(data_directory)
         dir_obj = QtCore.QDir(self.dataDirectory)
         if not dir_obj.exists():
             dir_obj.mkpath(".")
         self.figurePath = dir_obj.filePath("friction_plot.png")
+        __logger.debug(f"Figure path set to: {self.figurePath}")
         self.dataFilePath = dir_obj.filePath("friction_plot_data.csv")
-        QtCore.qInfo(f"Figure path set to: {self.figurePath}")
-        QtCore.qInfo(f"Data file path set to: {self.dataFilePath}")
+        __logger.debug(f"Data file path set to: {self.dataFilePath}")
 
     def setup(self):
         """
         Configure the devices and prepare the test environment for the bearing test.
         """
-        QtCore.qInfo(f"Setting up BearingTest for serial: {self.SerialNumber}")
+        __logger.debug(f"Setting up BearingTest for serial: {self.SerialNumber}")
         super().setup()
         MSO = self.devices.MSO5000
         MSO.acquire_settings(
@@ -235,19 +242,19 @@ class BearingTest(tester.tests.Test):
             output_impedance=MSO5000.SourceOutputImpedance.Fifty,
         )
         MSO.function_generator_square(2, frequency=0.5, phase=270, amplitude=5)
-        QtCore.qInfo("Device setup for BearingTest complete.")
+        __logger.debug(f"Device setup for BearingTest complete.")
 
     def run(self):
         """
         Execute the bearing test, collecting position and current data from the connected devices.
         """
-        QtCore.qInfo(f"Running BearingTest for serial: {self.SerialNumber}")
         super().run()
         MSO = self.devices.MSO5000
         MSO.function_generator_state(1, True)
         MSO.function_generator_state(2, True)
         MSO.phase_align(2)
         MSO.clear()
+        __logger.info(f"Sweeping scanner across the field for bearing test.")
         MSO.single()
         self.checkCancelled()
         for _ in range(int(self.readDelay)):
@@ -271,7 +278,7 @@ class BearingTest(tester.tests.Test):
             QtCore.QPointF(4.5 * x, 100 * y)
             for x, y in zip(_positions_raw, _currents_raw)
         ]
-        QtCore.qInfo(f"Collected {len(self.FrictionData)} friction data points.")
+        __logger.info(f"Collected {len(self.FrictionData)} friction data points.")
         MSO.function_generator_state(1, False)
         MSO.function_generator_state(2, False)
 
@@ -282,9 +289,6 @@ class BearingTest(tester.tests.Test):
         Returns:
             bool: The result of the analysis from the base class.
         """
-        QtCore.qInfo(f"Analyzing results for serial: {self.SerialNumber}")
         result = super().analyzeResults()
-        QtCore.qInfo(
-            f"Analysis complete for serial: {self.SerialNumber}, result: {result}"
-        )
+        __logger.info(f"Bearing test data analyzed with result '{result}'.")
         return result

@@ -28,6 +28,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="AutomatedScannerTest\tests\__init__.py" />
     <Compile Include="tester\app.py" />
     <Compile Include="tester\gui\gui.py" />
     <Compile Include="tester\asset\tester_rc.py" />
@@ -48,6 +49,8 @@
     <Compile Include="tester\__init__.py" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="AutomatedScannerTest\" />
+    <Folder Include="AutomatedScannerTest\tests\" />
     <Folder Include="tester\" />
     <Folder Include="tester\asset\" />
     <Folder Include="docs\" />
