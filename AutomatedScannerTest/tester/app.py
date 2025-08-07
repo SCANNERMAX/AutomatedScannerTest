@@ -157,6 +157,19 @@ class TesterApp(QtWidgets.QApplication):
         self._setup_python_logging()
         self._setup_qt_logging()
 
+    class SafeFormatter(logging.Formatter):
+        def format(self, record):
+            # Provide defaults for custom fields if not present
+            for attr, default in [
+                ('qt_file', record.filename if hasattr(record, 'filename') else 'unknown'),
+                ('qt_line', record.lineno if hasattr(record, 'lineno') else -1),
+                ('qt_func', record.funcName if hasattr(record, 'funcName') else 'unknown'),
+                ('qt_category', 'general')
+            ]:
+                if not hasattr(record, attr):
+                    setattr(record, attr, default)
+            return super().format(record)
+
     def _setup_python_logging(self):
         """
         Sets up Python logging for the application.
@@ -169,8 +182,8 @@ class TesterApp(QtWidgets.QApplication):
 
         # Configure root logger
         self.__logger.setLevel(logging.DEBUG)
-        formatter = logging.Formatter(
-            "%(asctime)s %(levelname)s: %(message)s [%(filename)s:%(lineno)d - %(funcName)s]"
+        formatter = self.SafeFormatter(
+            "%(asctime)s %(levelname)s: %(message)s [%(qt_file)s:%(qt_line)s - %(qt_func)s] [%(qt_category)s]"
         )
 
         # File handler (logs everything)
@@ -221,7 +234,12 @@ class TesterApp(QtWidgets.QApplication):
         line = getattr(context, 'line', -1)
         function = getattr(context, 'function', 'unknown')
         category = getattr(context, 'category', 'general')
-        extra = {'fileName': file, 'lineno': line, 'funcName': function}
+        extra = {
+            'qt_file': file,
+            'qt_line': line,
+            'qt_func': function,
+            'qt_category': category
+        }
 
         level_map = {
             QtCore.QtMsgType.QtDebugMsg: logging.DEBUG,
@@ -231,7 +249,7 @@ class TesterApp(QtWidgets.QApplication):
             QtCore.QtMsgType.QtFatalMsg: logging.CRITICAL,
         }
         level = level_map.get(mode, logging.INFO)
-        log_msg = f"{message} [{category}]"
+        log_msg = f"{message}"
 
         logger.log(level, log_msg, extra=extra)
 

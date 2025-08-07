@@ -11,7 +11,7 @@ from tester.devices import Device
 class MSO5000(Device):
     __cache = {}
 
-    def __init__(self, settings: QtCore.QSettings):
+    def __init__(self):
         """
         Initializes the MSO5000 device instance.
 
@@ -22,7 +22,7 @@ class MSO5000(Device):
             Calls the base Device class initializer with the device name "MSO5000" and the provided settings.
             Initializes the internal instrument reference to None.
         """
-        super().__init__("MSO5000", settings)
+        super().__init__("MSO5000")
         self.__instrument = None
 
     def __query(self, message: str) -> str:
@@ -280,22 +280,16 @@ class MSO5000(Device):
             except Exception as e:
                 QtCore.qDebug(f"Error opening resource {_resource_name}: {e}")
         assert found, "No oscilloscope found."
-        # Parse IDN string for model and serial info
+        # Copy all public members of self.__instrument to self
         try:
-            idn = self.__instrument.query("*IDN?").strip()
-            parts = idn.split(",")
-            if len(parts) >= 4:
-                settings = {
-                    "manufacturer_name": parts[0],
-                    "model_name": parts[1],
-                    "serial_number": parts[2],
-                    "model_code": parts[1],
-                    "manufacturer_id": parts[0],
-                }
-                for k, v in settings.items():
-                    self._set_setting(k, v)
+            for attr in ("manufacturer_name", "model_name", "serial_number", "model_code", "manufacturer_id"):
+                try:
+                    setattr(self, attr, getattr(self.__instrument, attr))
+                    self._set_setting(attr, getattr(self.__instrument, attr))
+                except Exception as e:
+                    QtCore.qDebug(f"Error copying attribute {attr}: {e}")
         except Exception as e:
-            QtCore.qDebug(f"Error parsing IDN: {e}")
+            QtCore.qDebug(f"Error copying instrument members: {e}")
         QtCore.qInfo(f"Connected to {getattr(self, 'model_name', 'Unknown')} oscilloscope.")
 
     # The device command system

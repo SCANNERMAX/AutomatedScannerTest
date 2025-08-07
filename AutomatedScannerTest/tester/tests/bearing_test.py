@@ -7,7 +7,7 @@ from tester.devices.mso5000 import MSO5000
 from tester.manager.devices import DeviceManager
 import tester.tests
 
-__logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 class BearingTest(tester.tests.Test):
     """
@@ -35,7 +35,7 @@ class BearingTest(tester.tests.Test):
         super().__init__(
             "Bearing Test", cancel, devices if devices is not None else DeviceManager()
         )
-        __logger.debug(f"BearingTest Initialized.")
+        logger.debug(f"BearingTest Initialized.")
 
     @QtCore.Property(list, notify=frictionDataChanged)
     def FrictionData(self):
@@ -46,7 +46,7 @@ class BearingTest(tester.tests.Test):
             list: The list of (position, current) QPointF tuples.
         """
         value = self.getParameter("FrictionData", [])
-        __logger.debug(f"Getting FrictionData: {value}")
+        logger.debug(f"Getting FrictionData: {value}")
         return value
 
     @FrictionData.setter
@@ -57,7 +57,7 @@ class BearingTest(tester.tests.Test):
         Args:
             value (list): The new friction data as a list of QPointF tuples.
         """
-        __logger.debug(f"Setting FrictionData: {value}")
+        logger.debug(f"Setting FrictionData: {value}")
         self.setParameter("FrictionData", value)
         self.frictionDataChanged.emit(value)
 
@@ -75,7 +75,7 @@ class BearingTest(tester.tests.Test):
         self.ytitle = s("TorqueCurrentTitle", "Torque Current (mA)")
         self.ymin = s("TorqueCurrentMinimum", -400.0)
         self.ymax = s("TorqueCurrentMaximum", 400.0)
-        __logger.debug(
+        logger.debug(
             f"Settings modified: readDelay={self.readDelay}, "
             f"charttitle={self.charttitle}, xtitle={self.xtitle}, "
             f"xmin={self.xmin}, xmax={self.xmax}, ytitle={self.ytitle}, "
@@ -89,7 +89,7 @@ class BearingTest(tester.tests.Test):
         Args:
             widget (QtWidgets.QWidget): The parent widget to load UI components into.
         """
-        __logger.debug(f"Setting up UI for BearingTest.")
+        logger.debug(f"Setting up UI for BearingTest.")
         super().setupUi(widget)
         chart = QtCharts.QChart()
         chart.setObjectName("chartFriction")
@@ -128,7 +128,7 @@ class BearingTest(tester.tests.Test):
         self.axisX = axis_x
         self.axisY = axis_y
         self.chartViewFriction = chart_view
-        __logger.debug(f"UI setup for BearingTest complete.")
+        logger.debug(f"UI setup for BearingTest complete.")
 
     def onGenerateReport(self, report):
         """
@@ -137,7 +137,7 @@ class BearingTest(tester.tests.Test):
         Args:
             report: The report object to which the plot will be added.
         """
-        __logger.debug(f"Generating report for BearingTest.")
+        logger.debug(f"Generating report for BearingTest.")
         super().onGenerateReport(report)
         try:
             report.plotXYData(
@@ -153,9 +153,9 @@ class BearingTest(tester.tests.Test):
                 ymax=self.ymax,
                 yTickCount=9,
             )
-            __logger.debug(f"Friction plot added to report.")
+            logger.debug(f"Friction plot added to report.")
         except Exception as e:
-            __logger.critical(f"Failed to add friction plot to report: {e}")
+            logger.critical(f"Failed to add friction plot to report: {e}")
 
     def onSaveData(self):
         """
@@ -165,7 +165,7 @@ class BearingTest(tester.tests.Test):
             Any: The result of the save operation from the base class.
         """
         dataFilePath = getattr(self, "dataFilePath", None)
-        __logger.debug(f"Saving friction data to {dataFilePath}")
+        logger.debug(f"Saving friction data to {dataFilePath}")
         try:
             file = QtCore.QFile(dataFilePath)
             if file.open(QtCore.QIODevice.WriteOnly | QtCore.QIODevice.Text):
@@ -177,13 +177,13 @@ class BearingTest(tester.tests.Test):
                     else:
                         stream << f"{_time},{_data[0]},{_data[1]}\n"
                 file.close()
-                __logger.debug(f"Friction data saved to {dataFilePath}")
+                logger.debug(f"Friction data saved to {dataFilePath}")
             else:
-                __logger.warning(
+                logger.warning(
                     f"Could not open file {dataFilePath} for writing."
                 )
         except Exception as e:
-            __logger.critical(f"Failed to save friction data: {e}")
+            logger.critical(f"Failed to save friction data: {e}")
         return super().onSaveData()
 
     def resetParameters(self):
@@ -200,7 +200,7 @@ class BearingTest(tester.tests.Test):
         Args:
             data_directory (str): The root directory where data and figures will be saved.
         """
-        __logger.debug(
+        logger.debug(
             f"Setting data directory for BearingTest: {data_directory}"
         )
         super().setDataDirectory(data_directory)
@@ -208,15 +208,15 @@ class BearingTest(tester.tests.Test):
         if not dir_obj.exists():
             dir_obj.mkpath(".")
         self.figurePath = dir_obj.filePath("friction_plot.png")
-        __logger.debug(f"Figure path set to: {self.figurePath}")
+        logger.debug(f"Figure path set to: {self.figurePath}")
         self.dataFilePath = dir_obj.filePath("friction_plot_data.csv")
-        __logger.debug(f"Data file path set to: {self.dataFilePath}")
+        logger.debug(f"Data file path set to: {self.dataFilePath}")
 
     def setup(self):
         """
         Configure the devices and prepare the test environment for the bearing test.
         """
-        __logger.debug(f"Setting up BearingTest for serial: {self.SerialNumber}")
+        logger.debug(f"Setting up BearingTest for serial: {self.SerialNumber}")
         super().setup()
         MSO = self.devices.MSO5000
         MSO.acquire_settings(
@@ -242,7 +242,7 @@ class BearingTest(tester.tests.Test):
             output_impedance=MSO5000.SourceOutputImpedance.Fifty,
         )
         MSO.function_generator_square(2, frequency=0.5, phase=270, amplitude=5)
-        __logger.debug(f"Device setup for BearingTest complete.")
+        logger.debug(f"Device setup for BearingTest complete.")
 
     def run(self):
         """
@@ -254,7 +254,7 @@ class BearingTest(tester.tests.Test):
         MSO.function_generator_state(2, True)
         MSO.phase_align(2)
         MSO.clear()
-        __logger.info(f"Sweeping scanner across the field for bearing test.")
+        logger.info(f"Sweeping scanner across the field for bearing test.")
         MSO.single()
         self.checkCancelled()
         for _ in range(int(self.readDelay)):
@@ -278,7 +278,7 @@ class BearingTest(tester.tests.Test):
             QtCore.QPointF(4.5 * x, 100 * y)
             for x, y in zip(_positions_raw, _currents_raw)
         ]
-        __logger.info(f"Collected {len(self.FrictionData)} friction data points.")
+        logger.info(f"Collected {len(self.FrictionData)} friction data points.")
         MSO.function_generator_state(1, False)
         MSO.function_generator_state(2, False)
 
@@ -290,5 +290,5 @@ class BearingTest(tester.tests.Test):
             bool: The result of the analysis from the base class.
         """
         result = super().analyzeResults()
-        __logger.info(f"Bearing test data analyzed with result '{result}'.")
+        logger.info(f"Bearing test data analyzed with result '{result}'.")
         return result

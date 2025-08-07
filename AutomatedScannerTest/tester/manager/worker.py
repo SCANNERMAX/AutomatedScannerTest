@@ -8,7 +8,7 @@ from tester.manager.report import TestReport
 from tester.tests import _test_list
 
 # Configure logging at the top of your file (customize as needed)
-__logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class TestWorker(QtCore.QObject):
@@ -43,10 +43,10 @@ class TestWorker(QtCore.QObject):
             RuntimeError: If TesterApp instance is not found.
         """
         super().__init__()
-        __logger.debug("__init__ called.")
+        logger.debug("__init__ called.")
         app_instance = QtCore.QCoreApplication.instance()
         if not (app_instance and app_instance.__class__.__name__ == "TesterApp"):
-            __logger.critical(
+            logger.critical(
                 "TesterApp instance not found. Ensure the application is initialized correctly."
             )
             raise RuntimeError(
@@ -70,7 +70,7 @@ class TestWorker(QtCore.QObject):
         Returns:
             str: The computer name.
         """
-        __logger.debug("Getting ComputerName property.")
+        logger.debug("Getting ComputerName property.")
         return self.__model.ComputerName
 
     @ComputerName.setter
@@ -81,7 +81,7 @@ class TestWorker(QtCore.QObject):
         Args:
             value (str): The computer name.
         """
-        __logger.debug(f"Setting ComputerName to '{value}'.")
+        logger.debug(f"Setting ComputerName to '{value}'.")
         self.__model.ComputerName = value
         self.computerNameChanged.emit(value)
 
@@ -93,7 +93,7 @@ class TestWorker(QtCore.QObject):
         Returns:
             str: The data file path.
         """
-        __logger.debug("Getting DataFilePath property.")
+        logger.debug("Getting DataFilePath property.")
         return QtCore.QDir(self.RunDataDirectory).filePath("data.json")
 
     @QtCore.Property(float, notify=durationChanged)
@@ -104,7 +104,7 @@ class TestWorker(QtCore.QObject):
         Returns:
             float: The test duration.
         """
-        __logger.debug("Getting Duration property.")
+        logger.debug("Getting Duration property.")
         return self.__model.Duration
 
     @Duration.setter
@@ -115,7 +115,7 @@ class TestWorker(QtCore.QObject):
         Args:
             value (float): The duration in seconds.
         """
-        __logger.debug(f"Setting Duration to '{value}'.")
+        logger.debug(f"Setting Duration to '{value}'.")
         self.__model.Duration = value
         self.durationChanged.emit(f"{value} sec")
 
@@ -127,7 +127,7 @@ class TestWorker(QtCore.QObject):
         Returns:
             QtCore.QDateTime: The end time.
         """
-        __logger.debug("Getting EndTime property.")
+        logger.debug("Getting EndTime property.")
         return self.__model.EndTime
 
     @EndTime.setter
@@ -138,7 +138,7 @@ class TestWorker(QtCore.QObject):
         Args:
             value (QtCore.QDateTime): The end time.
         """
-        __logger.debug(f"Setting EndTime to '{value.toString(QtCore.Qt.ISODate)}'.")
+        logger.debug(f"Setting EndTime to '{value.toString(QtCore.Qt.ISODate)}'.")
         self.__model.EndTime = value
         self.endTimeChanged.emit(
             value.toString("HH:mm:ss") if value and value.isValid() else ""
@@ -157,7 +157,7 @@ class TestWorker(QtCore.QObject):
         Returns:
             str: The model name.
         """
-        __logger.debug("Getting ModelName property.")
+        logger.debug("Getting ModelName property.")
         return self.__model.ModelName
 
     @ModelName.setter
@@ -168,7 +168,7 @@ class TestWorker(QtCore.QObject):
         Args:
             value (str): The model name.
         """
-        __logger.debug(f"Setting ModelName to '{value}'.")
+        logger.debug(f"Setting ModelName to '{value}'.")
         self.__model.ModelName = value
         self.modelNameChanged.emit(value)
 
@@ -180,7 +180,7 @@ class TestWorker(QtCore.QObject):
         Returns:
             str: The PDF report file path.
         """
-        __logger.debug("Getting PdfReportPath property.")
+        logger.debug("Getting PdfReportPath property.")
         return QtCore.QDir(self.RunDataDirectory).filePath("report.pdf")
 
     @QtCore.Property(str)
@@ -191,7 +191,7 @@ class TestWorker(QtCore.QObject):
         Returns:
             str: The run data directory.
         """
-        __logger.debug("Getting RunDataDirectory property.")
+        logger.debug("Getting RunDataDirectory property.")
         dir_path = QtCore.QDir(self.DataDirectory)
         serial = self.SerialNumber or "Unknown"
         dir_path.mkpath(serial)
@@ -205,7 +205,7 @@ class TestWorker(QtCore.QObject):
         dir_path.mkpath(dir_name)
         dir_path.cd(dir_name)
         result = dir_path.absolutePath()
-        __logger.info(f"RunDataDirectory resolved to '{result}'.")
+        logger.info(f"RunDataDirectory resolved to '{result}'.")
         return result
 
     @QtCore.Property(str, notify=serialNumberChanged)
@@ -216,7 +216,7 @@ class TestWorker(QtCore.QObject):
         Returns:
             str: The serial number.
         """
-        __logger.debug("Getting SerialNumber property.")
+        logger.debug("Getting SerialNumber property.")
         return self.__model.SerialNumber
 
     @SerialNumber.setter
@@ -227,7 +227,7 @@ class TestWorker(QtCore.QObject):
         Args:
             value (str): The serial number.
         """
-        __logger.debug(f"Setting SerialNumber to '{value}'.")
+        logger.debug(f"Setting SerialNumber to '{value}'.")
         self.__model.SerialNumber = value
         self.serialNumberChanged.emit(value)
 
@@ -239,7 +239,7 @@ class TestWorker(QtCore.QObject):
         Returns:
             QtCore.QDateTime: The start time.
         """
-        __logger.debug("Getting StartTime property.")
+        logger.debug("Getting StartTime property.")
         return self.__model.StartTime
 
     @StartTime.setter
@@ -250,7 +250,7 @@ class TestWorker(QtCore.QObject):
         Args:
             value (QtCore.QDateTime): The start time.
         """
-        __logger.debug(f"Setting StartTime to '{value.toString(QtCore.Qt.ISODate)}'.")
+        logger.debug(f"Setting StartTime to '{value.toString(QtCore.Qt.ISODate)}'.")
         self.__model.StartTime = value
         self.startTimeChanged.emit(
             value.toString("HH:mm:ss") if value and value.isValid() else ""
@@ -264,7 +264,7 @@ class TestWorker(QtCore.QObject):
         Returns:
             str: The test status.
         """
-        __logger.debug("Getting Status property.")
+        logger.debug("Getting Status property.")
         return self.__model.Status
 
     @Status.setter
@@ -275,7 +275,7 @@ class TestWorker(QtCore.QObject):
         Args:
             value (str): The test status.
         """
-        __logger.debug(f"Setting Status to '{value}'.")
+        logger.debug(f"Setting Status to '{value}'.")
         self.__model.Status = value
         self.statusChanged.emit(value)
 
@@ -287,7 +287,7 @@ class TestWorker(QtCore.QObject):
         Returns:
             str: The tester name.
         """
-        __logger.debug("Getting TesterName property.")
+        logger.debug("Getting TesterName property.")
         return self.__model.TesterName
 
     @TesterName.setter
@@ -298,7 +298,7 @@ class TestWorker(QtCore.QObject):
         Args:
             value (str): The tester name.
         """
-        __logger.debug(f"Setting TesterName to '{value}'.")
+        logger.debug(f"Setting TesterName to '{value}'.")
         self.__model.TesterName = value
         self.testerNameChanged.emit(value)
 
@@ -311,7 +311,7 @@ class TestWorker(QtCore.QObject):
             test_id (int): The ID of the test.
             test_name (str): The name of the test.
         """
-        __logger.debug(f"Test started: ID={test_id}, Name={test_name}.")
+        logger.debug(f"Test started: ID={test_id}, Name={test_name}.")
         self.startedTest.emit(test_id, test_name)
 
     @QtCore.Slot(int, str, bool)
@@ -324,7 +324,7 @@ class TestWorker(QtCore.QObject):
             test_name (str): The name of the test.
             status (bool): The status of the test (True for pass, False for fail).
         """
-        __logger.debug(
+        logger.debug(
             f"Test finished: ID={test_id}, Name={test_name}, Status={'Pass' if status else 'Fail'}."
         )
         self.finishedTest.emit(test_id, test_name, status)
@@ -339,14 +339,14 @@ class TestWorker(QtCore.QObject):
         now = QtCore.QDateTime.currentDateTime()
         if self.__timezone.isValid():
             now.setTimeZone(self.__timezone)
-        __logger.debug(f"Current time is '{now.toString(QtCore.Qt.ISODate)}'.")
+        logger.debug(f"Current time is '{now.toString(QtCore.Qt.ISODate)}'.")
         return now
 
     def resetTestData(self):
         """
         Reset all test data and status to initial values.
         """
-        __logger.debug("resetTestData called. Resetting all test data and status.")
+        logger.debug("resetTestData called. Resetting all test data and status.")
         self.SerialNumber = ""
         self.ModelName = ""
         self.StartTime = QtCore.QDateTime()
@@ -363,7 +363,7 @@ class TestWorker(QtCore.QObject):
         Args:
             parent: The parent widget.
         """
-        __logger.debug("setupUi called. Setting up UI for TestWorker.")
+        logger.debug("setupUi called. Setting up UI for TestWorker.")
         parent.tableSequence.setModel(self.__model)
         self.__model.setupUi(parent.widgetTest)
 
@@ -372,7 +372,7 @@ class TestWorker(QtCore.QObject):
         """
         Slot called when settings are modified. Updates the data directory.
         """
-        __logger.debug("onSettingsModified called. Updating worker settings.")
+        logger.debug("onSettingsModified called. Updating worker settings.")
         self.DataDirectory = self.__settings.getSetting(
             None, "DataDirectory", self.DataDirectory
         )
@@ -385,16 +385,16 @@ class TestWorker(QtCore.QObject):
         Args:
             path (str, optional): Path to save the report. If None, uses default.
         """
-        __logger.debug(f"onGenerateReport called with path='{path}'.")
+        logger.debug(f"onGenerateReport called with path='{path}'.")
         file_path = path or self.PdfReportPath
         parent_dir = QtCore.QFileInfo(file_path).absolutePath()
         dir_obj = QtCore.QDir(parent_dir)
         if not dir_obj.exists():
-            __logger.warning(
+            logger.warning(
                 f"Report parent directory '{parent_dir}' does not exist. Creating it."
             )
             dir_obj.mkpath(".")
-        __logger.info(f"Generating report at '{file_path}'.")
+        logger.info(f"Generating report at '{file_path}'.")
         report = TestReport(file_path)
         start_time = self.StartTime
         end_time = self.EndTime
@@ -419,7 +419,7 @@ class TestWorker(QtCore.QObject):
         )
         self.__model.onGenerateReport(report)
         report.finish()
-        __logger.debug("Report generation finished.")
+        logger.debug("Report generation finished.")
         self.finishedGeneratingReport.emit()
 
     @QtCore.Slot(str)
@@ -430,12 +430,12 @@ class TestWorker(QtCore.QObject):
         Args:
             path (str): Path to the data file.
         """
-        __logger.debug(f"onLoadData called. Loading test data from file '{path}'.")
+        logger.debug(f"onLoadData called. Loading test data from file '{path}'.")
         file_obj = QtCore.QFile(path)
         if file_obj.open(QtCore.QIODevice.ReadOnly | QtCore.QIODevice.Text):
             doc = QtCore.QJsonDocument.fromJson(file_obj.readAll())
             if not doc.isObject():
-                __logger.warning(f"File '{path}' does not contain a valid JSON object.")
+                logger.warning(f"File '{path}' does not contain a valid JSON object.")
                 file_obj.close()
                 self.finishedLoadingData.emit()
                 return
@@ -444,14 +444,14 @@ class TestWorker(QtCore.QObject):
             self.__model.onLoadData(_tests_data)
             for _key, _value in _data.items():
                 if hasattr(type(self), _key):
-                    __logger.debug(f"Setting attribute '{_key}' from loaded data.")
+                    logger.debug(f"Setting attribute '{_key}' from loaded data.")
                     setattr(self, _key, _value)
                 else:
-                    __logger.warning(f"Attribute '{_key}' not found in TestWorker.")
+                    logger.warning(f"Attribute '{_key}' not found in TestWorker.")
             file_obj.close()
         else:
-            __logger.warning(f"Could not open file '{path}' for reading.")
-        __logger.info(f"Loaded previous test data from '{path}'.")
+            logger.warning(f"Could not open file '{path}' for reading.")
+        logger.info(f"Loaded previous test data from '{path}'.")
         self.finishedLoadingData.emit()
 
     @QtCore.Slot(str)
@@ -462,10 +462,10 @@ class TestWorker(QtCore.QObject):
         Args:
             path (str, optional): Path to save the data. If None, uses default.
         """
-        __logger.debug(f"onSaveData called with path='{path}'.")
+        logger.debug(f"onSaveData called with path='{path}'.")
         _data = self.__model.onSaveData()
         _path = path or self.DataFilePath
-        __logger.info(f"Saving test data to file '{_path}'.")
+        logger.info(f"Saving test data to file '{_path}'.")
 
         def _to_qvariant(obj):
             """
@@ -486,9 +486,9 @@ class TestWorker(QtCore.QObject):
         if file_obj.open(QtCore.QIODevice.WriteOnly | QtCore.QIODevice.Text):
             file_obj.write(doc.toJson(QtCore.QJsonDocument.Indented))
             file_obj.close()
-            __logger.debug(f"Test data saved to '{_path}'.")
+            logger.debug(f"Test data saved to '{_path}'.")
         else:
-            __logger.warning(f"Could not open file '{_path}' for writing.")
+            logger.warning(f"Could not open file '{_path}' for writing.")
         self.finishedSavingData.emit()
 
     @QtCore.Slot(str, str, str)
@@ -501,7 +501,7 @@ class TestWorker(QtCore.QObject):
             model_name (str): Model name for the test.
             test (str, optional): Specific test to run.
         """
-        __logger.debug(
+        logger.debug(
             f"onStartTest called with serial_number='{serial_number}', model_name='{model_name}', test='{test}'."
         )
         self.resetTestData()
@@ -509,21 +509,21 @@ class TestWorker(QtCore.QObject):
         self.ModelName = model_name
         self.StartTime = self.getCurrentTime()
         self.Status = "Running"
-        __logger.debug("Setting up devices for test.")
+        logger.debug("Setting up devices for test.")
         self.__devices.setup()
-        __logger.debug("Starting test sequence in model.")
+        logger.debug("Starting test sequence in model.")
         final_status = self.__model.onStartTest(self.RunDataDirectory, test=test)
         if getattr(self.__cancel, "cancelled", False):
-            __logger.warning("Test was cancelled by user.")
+            logger.warning("Test was cancelled by user.")
             self.Status = "Cancelled"
         elif final_status is None:
-            __logger.critical(f"Test '{test}' not found.")
+            logger.critical(f"Test '{test}' not found.")
         else:
-            __logger.info(
+            logger.info(
                 f"Test finished with status: {'Pass' if final_status else 'Fail'}."
             )
             self.Status = "Pass" if final_status else "Fail"
-        __logger.debug("Tearing down devices after test.")
+        logger.debug("Tearing down devices after test.")
         self.__devices.teardown()
         self.EndTime = self.getCurrentTime()
         self.onSaveData()
@@ -535,26 +535,26 @@ class TestWorker(QtCore.QObject):
         """
         Slot called when the worker thread starts. Initializes the test sequence model.
         """
-        __logger.debug("threadStarted called. Initializing test sequence model.")
+        logger.debug("threadStarted called. Initializing test sequence model.")
         seq = self.__model
         if hasattr(seq, "beginResetModel"):
-            __logger.debug("Calling beginResetModel on sequence.")
+            logger.debug("Calling beginResetModel on sequence.")
             seq.beginResetModel()
         if hasattr(seq, "Devices"):
-            __logger.debug("Setting ComputerName and TesterName from Devices.")
+            logger.debug("Setting ComputerName and TesterName from Devices.")
             self.ComputerName = seq.Devices.ComputerName
             self.TesterName = seq.Devices.UserName
         tests = list(_test_list())
         if hasattr(seq, "beginInsertRows") and hasattr(seq, "endInsertRows"):
-            __logger.debug(f"Inserting {len(tests)} tests into sequence model.")
+            logger.debug(f"Inserting {len(tests)} tests into sequence model.")
             seq.beginInsertRows(QtCore.QModelIndex(), 0, len(tests) - 1)
             if hasattr(seq, "extend"):
                 seq.extend(tests)
             seq.endInsertRows()
         if hasattr(seq, "endResetModel"):
-            __logger.debug("Calling endResetModel on sequence.")
+            logger.debug("Calling endResetModel on sequence.")
             seq.endResetModel()
-        __logger.debug("Test sequence model initialized.")
+        logger.debug("Test sequence model initialized.")
 
     @QtCore.Slot()
     def run_cli(self):
@@ -563,10 +563,10 @@ class TestWorker(QtCore.QObject):
         Handles help, version, list, and exitcodes options. Prompts for serial/model if not provided.
         Supplies unique exit codes for each error type using an exit code map.
         """
-        __logger.debug("run_cli called. Running CLI mode.")
+        logger.debug("run_cli called. Running CLI mode.")
         app_instance = QtCore.QCoreApplication.instance()
         if not (app_instance and app_instance.__class__.__name__ == "TesterApp"):
-            __logger.critical(
+            logger.critical(
                 "TesterApp instance not found. Ensure the application is initialized correctly."
             )
             QtCore.QCoreApplication.exit(10)
@@ -614,7 +614,7 @@ class TestWorker(QtCore.QObject):
             """
             Handle CLI help option.
             """
-            __logger.debug("CLI help requested.")
+            logger.debug("CLI help requested.")
             options.showHelp()
             print_exit_codes()
             QtCore.QCoreApplication.exit(0)
@@ -624,7 +624,7 @@ class TestWorker(QtCore.QObject):
             """
             Handle CLI version option.
             """
-            __logger.debug("CLI version requested.")
+            logger.debug("CLI version requested.")
             options.showVersion()
             QtCore.QCoreApplication.exit(0)
             return
@@ -633,7 +633,7 @@ class TestWorker(QtCore.QObject):
             """
             Handle CLI exitcodes option.
             """
-            __logger.debug("CLI exitcodes requested.")
+            logger.debug("CLI exitcodes requested.")
             print_exit_codes()
             QtCore.QCoreApplication.exit(0)
             return
@@ -643,11 +643,11 @@ class TestWorker(QtCore.QObject):
             Handle CLI list option.
             """
             try:
-                __logger.debug("CLI test list requested.")
+                logger.debug("CLI test list requested.")
                 self.__model.cliPrintTestList()
                 QtCore.QCoreApplication.exit(0)
             except Exception as e:
-                __logger.critical(f"Error listing tests: {e}")
+                logger.critical(f"Error listing tests: {e}")
                 code = exit_code_map.get(type(e), exit_code_map[Exception])
                 QtCore.QCoreApplication.exit(code)
             return
@@ -657,7 +657,7 @@ class TestWorker(QtCore.QObject):
             Handle CLI run option.
             """
             try:
-                __logger.debug("CLI test run requested.")
+                logger.debug("CLI test run requested.")
                 serial = (
                     options.value("serial").strip()
                     if options.isSet("serial")
@@ -674,16 +674,16 @@ class TestWorker(QtCore.QObject):
                 return
             except Exception as e:
                 if isinstance(e, KeyboardInterrupt):
-                    __logger.warning("Test interrupted by user (KeyboardInterrupt).")
+                    logger.warning("Test interrupted by user (KeyboardInterrupt).")
                 else:
-                    __logger.critical(f"Error running test: {e}")
+                    logger.critical(f"Error running test: {e}")
                     options.showHelp()
                     print_exit_codes()
                 code = exit_code_map.get(type(e), exit_code_map[Exception])
                 QtCore.QCoreApplication.exit(code)
                 return
 
-        __logger.warning("Unknown or invalid CLI usage.")
+        logger.warning("Unknown or invalid CLI usage.")
         options.showHelp()
         print_exit_codes()
         QtCore.QCoreApplication.exit(1)
