@@ -182,20 +182,25 @@ class TesterApp(QtWidgets.QApplication):
 
         # Configure root logger
         self.__logger.setLevel(logging.DEBUG)
-        formatter = self.SafeFormatter(
+        
+        # Detailed formatter for file logging
+        file_formatter = self.SafeFormatter(
             "%(asctime)s %(levelname)s: %(message)s [%(qt_file)s:%(qt_line)s - %(qt_func)s] [%(qt_category)s]"
         )
+        
+        # Simple formatter for console logging
+        console_formatter = logging.Formatter("%(levelname)s: %(message)s")
 
         # File handler (logs everything)
         file_handler = RotatingFileHandler(log_file_path, maxBytes=5*1024*1024, backupCount=5, encoding="utf-8")
-        file_handler.setFormatter(formatter)
+        file_handler.setFormatter(file_formatter)
         file_handler.setLevel(logging.DEBUG)
         self.__logger.addHandler(file_handler)
 
         # Console handler (does not show debug messages)
         if self.options.isSet("run"):
             console_handler = logging.StreamHandler()
-            console_handler.setFormatter(formatter)
+            console_handler.setFormatter(console_formatter)
             console_handler.setLevel(logging.INFO)  # Only show INFO and above
             self.__logger.addHandler(console_handler)
 
