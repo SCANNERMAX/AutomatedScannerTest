@@ -1,12 +1,461 @@
 # -*- coding: utf-8 -*-
 from PySide6 import QtCore
-import time
 from ctypes.wintypes import BYTE
 from enum import StrEnum
+import logging
 import pyvisa
+import time
 
 from tester.devices import Device
 
+logger = logging
+
+
+class Source(StrEnum):
+    """
+    Enumeration representing possible signal sources for the MSO5000 device.
+
+    Members:
+        D0-D15: Digital channels 0 through 15.
+        Channel1-Channel4: Analog channels 1 through 4 ("CHAN1" to "CHAN4").
+        Math1-Math4: Math function channels ("MATH1" to "MATH4").
+    """
+
+    D0 = "D0"
+    D1 = "D1"
+    D2 = "D2"
+    D3 = "D3"
+    D4 = "D4"
+    D5 = "D5"
+    D6 = "D6"
+    D7 = "D7"
+    D8 = "D8"
+    D9 = "D9"
+    D10 = "D10"
+    D11 = "D11"
+    D12 = "D12"
+    D13 = "D13"
+    D14 = "D14"
+    D15 = "D15"
+    Channel1 = "CHAN1"
+    Channel2 = "CHAN2"
+    Channel3 = "CHAN3"
+    Channel4 = "CHAN4"
+    Math1 = "MATH1"
+    Math2 = "MATH2"
+    Math3 = "MATH3"
+    Math4 = "MATH4"
+
+class MemoryDepth(StrEnum):
+    """
+    Enumeration representing possible memory depth settings for the MSO5000 oscilloscope.
+
+    Members:
+        Auto: Automatically selects the memory depth based on acquisition settings.
+        _1K: 1,000 points memory depth.
+        _10K: 10,000 points memory depth.
+        _100K: 100,000 points memory depth.
+        _1M: 1,000,000 points memory depth.
+        _10M: 10,000,000 points memory depth.
+        _25M: 25,000,000 points memory depth.
+        _50M: 50,000,000 points memory depth.
+        _100M: 100,000,000 points memory depth.
+        _200M: 200,000,000 points memory depth.
+    """
+    Auto = "AUTO"
+    _1K = "1K"
+    _10K = "10K"
+    _100K = "100K"
+    _1M = "1M"
+    _10M = "10M"
+    _25M = "25M"
+    _50M = "50M"
+    _100M = "100M"
+    _200M = "200M"
+
+class AcquireType(StrEnum):
+    """
+    Enumeration representing the acquisition types for the MSO5000 oscilloscope.
+
+    Members:
+        Normal: Standard acquisition mode.
+        Averages: Acquisition mode with averaging enabled.
+        Peak: Peak detection acquisition mode.
+        HighResolution: High resolution acquisition mode.
+    """
+    Normal = "NORM"
+    Averages = "AVER"
+    Peak = "PEAK"
+    HighResolution = "HRES"
+
+class BandwidthLimit(StrEnum):
+    """
+    Enumeration representing possible bandwidth limit settings for the MSO5000 oscilloscope.
+
+    Members:
+        Off: Disables bandwidth limiting.
+        Auto: Automatically selects bandwidth limit based on device configuration.
+        _20M: Limits bandwidth to 20 MHz.
+        _100M: Limits bandwidth to 100 MHz.
+        _200M: Limits bandwidth to 200 MHz.
+    """
+    Off = "OFF"
+    Auto = "AUTO"
+    _20M = "20M"
+    _100M = "100M"
+    _200M = "200M"
+
+class Coupling(StrEnum):
+    """
+    Enumeration representing the coupling modes for the MSO5000 oscilloscope channels.
+
+    Members:
+        AC: Alternating Current coupling mode.
+        DC: Direct Current coupling mode.
+        Ground: Ground coupling mode.
+    """
+    AC = "AC"
+    DC = "DC"
+    Ground = "GND"
+
+class Units(StrEnum):
+    """
+    Enumeration representing the measurement units for the MSO5000 oscilloscope channels.
+
+    Members:
+        Voltage: Unit for voltage measurements ("VOLT").
+        Watt: Unit for power measurements ("WATT").
+        Ampere: Unit for current measurements ("AMP").
+        Unknown: Unknown or unspecified unit ("UNKN").
+    """
+    Voltage = "VOLT"
+    Watt = "WATT"
+    Ampere = "AMP"
+    Unknown = "UNKN"
+
+class MeasureItem(StrEnum):
+    """
+    Enumeration representing the available measurement item slots for the MSO5000 oscilloscope.
+
+    Members:
+        Item1-Item10: Individual measurement item slots ("ITEM1" to "ITEM10").
+        All: Represents all measurement items ("ALL").
+    """
+    Item1 = "ITEM1"
+    Item2 = "ITEM2"
+    Item3 = "ITEM3"
+    Item4 = "ITEM4"
+    Item5 = "ITEM5"
+    Item6 = "ITEM6"
+    Item7 = "ITEM7"
+    Item8 = "ITEM8"
+    Item9 = "ITEM9"
+    Item10 = "ITEM10"
+    All = "ALL"
+
+class Measurement(StrEnum):
+    """
+    Enumeration representing measurement types available on the MSO5000 oscilloscope.
+
+    Members:
+        VoltageMaximum: Maximum voltage value ("VMAX").
+        VoltageMinimum: Minimum voltage value ("VMIN").
+        VoltagePeakToPeak: Peak-to-peak voltage ("VPP").
+        VoltageTOP: Top voltage value ("VTOP").
+        VoltageBase: Base voltage value ("VBASe").
+        VoltageAmplitude: Amplitude of the voltage ("VAMP").
+        VoltageAverage: Average voltage value ("VAVG").
+        VoltageRms: Root mean square voltage ("VRMS").
+        Overshoot: Overshoot value ("OVERshoot").
+        Preshoot: Preshoot value ("PREShoot").
+        MARea: Measurement area ("MARea").
+        MPARea: Measurement positive area ("MPARea").
+        Period: Signal period ("PERiod").
+        Frequency: Signal frequency ("FREQuency").
+        RiseTime: Signal rise time ("RTIMe").
+        FallTime: Signal fall time ("FTIMe").
+        PositivePulseWidth: Width of positive pulse ("PWIDth").
+        NegativePulseWidth: Width of negative pulse ("NWIDth").
+        PositiveDuty: Positive duty cycle ("PDUTy").
+        NegativeDuty: Negative duty cycle ("NDUTy").
+        TVMAX: Maximum value in TV mode ("TVMAX").
+        TVMIN: Minimum value in TV mode ("TVMIN").
+        PositiveSlewrate: Positive slew rate ("PSLewrate").
+        NegativeSlewrate: Negative slew rate ("NSLewrate").
+        VUPPer: Upper voltage value ("VUPPer").
+        VMID: Middle voltage value ("VMID").
+        VLOWer: Lower voltage value ("VLOWer").
+        VARiance: Variance of the measurement ("VARiance").
+        PVRMs: Peak value RMS ("PVRMs").
+        PPULses: Number of positive pulses ("PPULses").
+        NPULses: Number of negative pulses ("NPULses").
+        PEDGes: Number of positive edges ("PEDGes").
+        NEDGes: Number of negative edges ("NEDGes").
+        RRDelay: Rising-to-rising delay ("RRDelay").
+        RFDelay: Rising-to-falling delay ("RFDelay").
+        FRDelay: Falling-to-rising delay ("FRDelay").
+        FFDelay: Falling-to-falling delay ("FFDelay").
+        RRPHase: Rising-to-rising phase ("RRPHase").
+        RFPHase: Rising-to-falling phase ("RFPHase").
+        FRPHase: Falling-to-rising phase ("FRPHase").
+        FFPHase: Falling-to-falling phase ("FFPHase").
+    """
+    VoltageMaximum = "VMAX"
+    VoltageMinimum = "VMIN"
+    VoltagePeakToPeak = "VPP"
+    VoltageTOP = "VTOP"
+    VoltageBase = "VBASe"
+    VoltageAmplitude = "VAMP"
+    VoltageAverage = "VAVG"
+    VoltageRms = "VRMS"
+    Overshoot = "OVERshoot"
+    Preshoot = "PREShoot"
+    MARea = "MARea"
+    MPARea = "MPARea"
+    Period = "PERiod"
+    Frequency = "FREQuency"
+    RiseTime = "RTIMe"
+    FallTime = "FTIMe"
+    PositivePulseWidth = "PWIDth"
+    NegativePulseWidth = "NWIDth"
+    PositiveDuty = "PDUTy"
+    NegativeDuty = "NDUTy"
+    TVMAX = "TVMAX"
+    TVMIN = "TVMIN"
+    PositiveSlewrate = "PSLewrate"
+    NegativeSlewrate = "NSLewrate"
+    VUPPer = "VUPPer"
+    VMID = "VMID"
+    VLOWer = "VLOWer"
+    VARiance = "VARiance"
+    PVRMs = "PVRMs"
+    PPULses = "PPULses"
+    NPULses = "NPULses"
+    PEDGes = "PEDGes"
+    NEDGes = "NEDGes"
+    RRDelay = "RRDelay"
+    RFDelay = "RFDelay"
+    FRDelay = "FRDelay"
+    FFDelay = "FFDelay"
+    RRPHase = "RRPHase"
+    RFPHase = "RFPHase"
+    FRPHase = "FRPHase"
+    FFPHase = "FFPHase"
+
+class SaveCsvLength(StrEnum):
+    """
+    Enumeration representing the possible CSV save length options for the MSO5000 oscilloscope.
+
+    Members:
+        Display: Save only the data currently displayed on the oscilloscope ("DISP").
+        Maximum: Save the maximum available data points ("MAX").
+    """
+    Display = "DISP"
+    Maximum = "MAX"
+
+class SaveCsvChannel(StrEnum):
+    """
+    Enumeration representing the available channels for saving CSV data on the MSO5000 oscilloscope.
+
+    Members:
+        Channel1: Analog channel 1 ("CHAN1").
+        Channel2: Analog channel 2 ("CHAN2").
+        Channel3: Analog channel 3 ("CHAN3").
+        Channel4: Analog channel 4 ("CHAN4").
+        Pod1: Digital pod 1 ("POD1").
+        Pod2: Digital pod 2 ("POD2").
+    """
+    Channel1 = "CHAN1"
+    Channel2 = "CHAN2"
+    Channel3 = "CHAN3"
+    Channel4 = "CHAN4"
+    Pod1 = "POD1"
+    Pod2 = "POD2"
+
+class ImageType(StrEnum):
+    """
+    Enumeration representing supported image file types for saving oscilloscope screenshots.
+
+    Members:
+        Bitmap: 24-bit bitmap image format ("BMP24").
+        Jpeg: JPEG image format ("JPEG").
+        Png: PNG image format ("PNG").
+        Tiff: TIFF image format ("TIFF").
+    """
+    Bitmap = "BMP24"
+    Jpeg = "JPEG"
+    Png = "PNG"
+    Tiff = "TIFF"
+
+class ImageColor(StrEnum):
+    """
+    Enumeration representing supported color modes for saving oscilloscope screenshots.
+
+    Members:
+        Color: Save the image in color mode ("COL").
+        Gray: Save the image in grayscale mode ("GRAY").
+    """
+    Color = "COL"
+    Gray = "GRAY"
+
+class SourceFunction(StrEnum):
+    """
+    Enumeration representing the available function types for the MSO5000 arbitrary waveform generator.
+
+    Members:
+        Sinusoid: Sine wave output ("SIN").
+        Square: Square wave output ("SQU").
+        Ramp: Ramp (triangle) wave output ("RAMP").
+        Pulse: Pulse wave output ("PULS").
+        Noise: Noise output ("NOIS").
+        Dc: DC output ("DC").
+        Sinc: Sinc function output ("SINC").
+        ExponentialRise: Exponential rise waveform ("EXPR").
+        ExponentialFall: Exponential fall waveform ("EXPF").
+        Ecg: ECG (electrocardiogram) waveform ("ECG").
+        Guass: Gaussian waveform ("GUAS").
+        Lorentz: Lorentzian waveform ("LOR").
+        Haversine: Haversine waveform ("HAV").
+        Arbitrary: Arbitrary waveform ("ARB").
+    """
+    Sinusoid = "SIN"
+    Square = "SQU"
+    Ramp = "RAMP"
+    Pulse = "PULS"
+    Noise = "NOIS"
+    Dc = "DC"
+    Sinc = "SINC"
+    ExponentialRise = "EXPR"
+    ExponentialFall = "EXPF"
+    Ecg = "ECG"
+    Guass = "GUAS"
+    Lorentz = "LOR"
+    Haversine = "HAV"
+    Arbitrary = "ARB"
+
+class SourceType(StrEnum):
+    """
+    Enumeration representing the available source types for the MSO5000 arbitrary waveform generator.
+
+    Members:
+        _None: No source type selected ("NONE").
+        Modulated: Modulation source type ("MOD").
+        Sweep: Sweep source type ("SWE").
+        Burst: Burst source type ("BUR").
+    """
+    _None = "NONE"
+    Modulated = "MOD"
+    Sweep = "SWE"
+    Burst = "BUR"
+
+class SourceModulation(StrEnum):
+    """
+    Enumeration representing the modulation types available for the MSO5000 arbitrary waveform generator.
+
+    Members:
+        AmplitudeModulation: Amplitude modulation ("AM").
+        FrequencyModulation: Frequency modulation ("FM").
+        FrequencyShiftKey: Frequency shift keying ("FSK").
+    """
+    AmplitudeModulation = "AM"
+    FrequencyModulation = "FM"
+    FrequencyShiftKey = "FSK"
+
+class SourceSweepType(StrEnum):
+    """
+    Enumeration representing the sweep types available for the MSO5000 arbitrary waveform generator.
+
+    Members:
+        Linear: Linear sweep type ("LIN").
+        Log: Logarithmic sweep type ("LOG").
+        Step: Step sweep type ("STEP").
+    """
+    Linear = "LIN"
+    Log = "LOG"
+    Step = "STEP"
+
+class SourceBurstType(StrEnum):
+    """
+    Enumeration representing the burst types available for the MSO5000 arbitrary waveform generator.
+
+    Members:
+        Ncycle: Burst mode with a specified number of cycles ("NCYCL").
+        Infinite: Continuous burst mode ("INF").
+    """
+    Ncycle = "NCYCL"
+    Infinite = "INF"
+
+class SourceOutputImpedance(StrEnum):
+    """
+    Enumeration representing the output impedance options for the MSO5000 arbitrary waveform generator.
+
+    Members:
+        Omeg: High impedance output ("OMEG").
+        Fifty: 50 Ohm output impedance ("FIFT").
+    """
+    Omeg = "OMEG"
+    Fifty = "FIFT"
+
+class TimebaseMode(StrEnum):
+    """
+    Enumeration representing the horizontal timebase modes for the MSO5000 oscilloscope.
+
+    Members:
+        Main: Standard timebase mode for regular waveform acquisition ("MAIN").
+        Xy: XY display mode for plotting one channel against another ("XY").
+        Roll: Roll mode for slow signal acquisition, displaying data as it is acquired ("ROLL").
+    """
+    Main = "MAIN"
+    Xy = "XY"
+    Roll = "ROLL"
+
+class HrefMode(StrEnum):
+    """
+    Enumeration representing the horizontal reference modes for the MSO5000 oscilloscope.
+
+    Members:
+        Center: Center reference mode ("CENT").
+        Lb: Left boundary reference mode ("LB").
+        Rb: Right boundary reference mode ("RB").
+        Trigger: Trigger reference mode ("TRIG").
+        User: User-defined reference mode ("USER").
+    """
+    Center = "CENT"
+    Lb = "LB"
+    Rb = "RB"
+    Trigger = "TRIG"
+    User = "USER"
+
+class WaveformMode(StrEnum):
+    """
+    Enumeration of available waveform acquisition modes for the MSO5000 device.
+
+    This enumeration defines the supported modes for waveform data acquisition:
+
+    Attributes:
+        Normal (str): Standard acquisition mode, typically used for regular waveform capture.
+        Maximum (str): Acquires waveform data at the maximum available rate or resolution.
+        Raw (str): Captures raw, unprocessed waveform data directly from the device.
+    """
+    Normal = "NORM"
+    Maximum = "MAX"
+    Raw = "RAW"
+
+class WaveformFormat(StrEnum):
+    """
+    Enumeration of supported waveform data formats for the MSO5000 oscilloscope.
+
+    This enumeration defines the available formats for waveform data returned by the device.
+
+    Attributes:
+        Word (str): Represents waveform data in 16-bit word format ("WORD").
+        Byte (str): Represents waveform data in 8-bit byte format ("BYTE").
+        Ascii (str): Represents waveform data in ASCII format ("ASC").
+    """
+
+    Word = "WORD"
+    Byte = "BYTE"
+    Ascii = "ASC"
 
 class MSO5000(Device):
     __cache = {}
@@ -45,66 +494,95 @@ class MSO5000(Device):
         """
         _message = message.strip()
         assert _message, "Message cannot be empty."
-        QtCore.qDebug(f'sending request "{_message}"...')
-        for _ in range(5):
+        logger.debug(f'[MSO5000] Sending query: "{_message}"')
+        for attempt in range(5):
             try:
-                _response = self.__instrument.query(_message).rstrip()
+                logger.debug(f'[MSO5000] Attempt {attempt+1}: Querying instrument with "{_message}"')
+                _response = self.__instrument.query(_message)
+                logger.debug(f'[MSO5000] Received response: "{_response}"')
                 if _response:
-                    return _response
-            except pyvisa.errors.VisaIOError:
+                    logger.debug(f'[MSO5000] Query successful: "{_message}" -> "{_response.rstrip()}"')
+                    return _response.rstrip()
+                else:
+                    logger.warning(f'[MSO5000] Empty response for query "{_message}" on attempt {attempt+1}')
+            except pyvisa.errors.VisaIOError as e:
+                logger.error(f'[MSO5000] VISA IO Error on query "{_message}" (attempt {attempt+1}): {e}')
                 QtCore.qDebug("retrying...")
                 time.sleep(0.1)
+        logger.critical(f'[MSO5000] Failed to get response for query "{_message}" after 5 attempts')
         raise AssertionError("Failed to get response.")
 
     def __write(self, message: str):
         """
-        Sends a command to the instrument.
+        Sends a SCPI command to the MSO5000 instrument.
+
+        This method attempts to send the specified command string to the instrument up to 5 times,
+        handling transient VISA IO errors by retrying after a short delay. It logs each attempt and
+        the outcome, including errors and successful transmissions.
 
         Args:
             message (str): The SCPI command string to send to the instrument.
 
         Raises:
-            AssertionError: If the message is empty.
+            AssertionError: If the message is empty or if the command fails to send after 5 attempts.
+            pyvisa.errors.VisaIOError: If a VISA IO error occurs during communication.
 
         Side Effects:
-            Logs the command being sent and any retries to the device logger.
-            Retries up to 5 times if a pyvisa VisaIOError occurs, waiting 0.1 seconds between attempts.
+            - Logs the command being sent and any retries to the device logger.
+            - Waits 0.1 seconds between retries if a VISA IO error occurs.
+            - Raises a critical log if the command cannot be sent after 5 attempts.
         """
         _message = message.strip()
         assert _message, "Message cannot be empty."
-        for _ in range(5):
+        logger.debug(f'[MSO5000] Preparing to send command: "{_message}"')
+        for attempt in range(5):
             try:
-                QtCore.qDebug(f'sending command "{_message}"...')
+                if attempt == 0:
+                    logger.debug(f'[MSO5000] Sending command (attempt {attempt+1}): "{_message}"')
+                else:
+                    logger.warning(f'[MSO5000] Retrying command (attempt {attempt+1}): "{_message}"')
                 self.__instrument.write(_message)
+                logger.debug(f'[MSO5000] Command sent successfully: "{_message}"')
                 return
-            except pyvisa.errors.VisaIOError:
-                QtCore.qDebug("retrying...")
-                time.sleep(0.1)
+            except pyvisa.errors.VisaIOError as e:
+                logger.error(f'[MSO5000] VISA IO Error on write "{_message}" (attempt {attempt+1}): {e}')
+                if attempt < 4:
+                    logger.debug(f'[MSO5000] Waiting 0.1s before retrying command: "{_message}"')
+                    time.sleep(0.1)
+        logger.critical(f'[MSO5000] Failed to send command "{_message}" after 5 attempts')
+        raise AssertionError("Failed to send command.")
 
     def __get_names(self, channel: str, parameter: str):
         """
         Generates the SCPI parameter string and corresponding cache attribute name for a given channel and parameter.
 
         Args:
-            channel (str): The channel identifier (e.g., "CHANnel1", "ACQuire", etc.). May optionally start with ':'.
-            parameter (str): The parameter name to be appended to the channel (e.g., "SCALe", "TYPE", etc.).
+            channel (str): The channel identifier (e.g., "CHANnel1", "ACQuire").
+            parameter (str): The parameter name to query or set (e.g., "SCALe", "TYPE").
 
         Returns:
-            tuple:
-                _attribute (str): The cache key for the parameter, formatted as a lowercase string with colons replaced by underscores.
-                _parameter (str): The SCPI command string for the parameter, formatted with a leading colon if not present.
+            tuple: A tuple containing:
+                - _attribute (str): The cache attribute name, formatted as "_<channel>_<parameter>" in lowercase with colons replaced by underscores.
+                - _parameter (str): The SCPI parameter string, formatted as ":<channel>:<parameter>" or "<channel>:<parameter>" if channel starts with ':'.
+
+        Side Effects:
+            Logs detailed debug information about the construction of the parameter and attribute names for traceability.
 
         Example:
             >>> self.__get_names("CHANnel1", "SCALe")
-            ('_channel1_scale', ':CHANnel1:SCALe')
+            ("_channel1_scale", ":CHANnel1:SCALe")
         """
-        # Avoid repeated string operations and use f-string efficiently
-        if channel.startswith(':'):
-            _parameter = f"{channel}:{parameter}"
-        else:
+        logger.debug(f"[MSO5000] __get_names called with channel='{channel}', parameter='{parameter}'")
+        # Fast path: avoid repeated string operations
+        if not channel.startswith(":"):
             _parameter = f":{channel}:{parameter}"
-        # Use str.translate for faster character replacement and avoid .lower() if not needed
-        _attribute = _parameter.replace(":", "_").lower()
+            logger.debug(f"[MSO5000] Channel does not start with ':', constructed _parameter='{_parameter}'")
+        else:
+            _parameter = f"{channel}:{parameter}"
+            logger.debug(f"[MSO5000] Channel starts with ':', constructed _parameter='{_parameter}'")
+        # Use str.translate for fast colon-to-underscore replacement and .lower() in one step
+        _attribute = "_" + _parameter.replace(":", "_").lower()
+        logger.debug(f"[MSO5000] Constructed _attribute='{_attribute}' from _parameter='{_parameter}'")
         return _attribute, _parameter
 
     def __get_parameter(self, channel: str, parameter: str, default=None):
@@ -127,21 +605,39 @@ class MSO5000(Device):
             Caches the result for future queries.
             Sends a query to the instrument if the value is not cached.
         """
+        logger.debug(f"[MSO5000] __get_parameter called with channel='{channel}', parameter='{parameter}', default='{default}'")
         assert channel, "Channel cannot be empty."
         assert parameter, "Parameter cannot be empty."
         _attribute, _parameter = self.__get_names(channel, parameter)
+        logger.debug(f"[MSO5000] Computed cache attribute='{_attribute}', SCPI parameter='{_parameter}'")
         _cache = self.__cache
-        if _attribute in _cache:
-            return _cache[_attribute]
-        _query_result = self.__query(f"{_parameter}?")
+        _value = _cache.get(_attribute)
+        if _value is not None:
+            logger.debug(f"[MSO5000] Cache hit for attribute='{_attribute}', returning value='{_value}'")
+            return _value
+        logger.debug(f"[MSO5000] Cache miss for attribute='{_attribute}', querying instrument with '{_parameter}?'")
+        try:
+            _query_result = self.__query(f"{_parameter}?")
+            logger.debug(f"[MSO5000] Received query result='{_query_result}' for parameter='{_parameter}'")
+        except Exception as e:
+            logger.error(f"[MSO5000] Exception during query for parameter='{_parameter}': {e}")
+            raise
         if default is not None:
             try:
-                _value = type(default)(_query_result)
-            except Exception:
+                if isinstance(default, bool):
+                    _value = _query_result.strip() in ("1", "ON", "TRUE")
+                    logger.debug(f"[MSO5000] Interpreted boolean value='{_value}' from query result='{_query_result}'")
+                else:
+                    _value = type(default)(_query_result)
+                    logger.debug(f"[MSO5000] Casted query result='{_query_result}' to type='{type(default).__name__}', value='{_value}'")
+            except Exception as e:
+                logger.warning(f"[MSO5000] Failed to cast query result='{_query_result}' to type='{type(default).__name__}': {e}. Using default='{default}'")
                 _value = default
         else:
             _value = _query_result
+            logger.debug(f"[MSO5000] No default provided, using raw query result='{_value}'")
         _cache[_attribute] = _value
+        logger.debug(f"[MSO5000] Cached value for attribute='{_attribute}': '{_value}'")
         return _value
 
     def __set_parameter(self, channel: str, parameter: str, value):
@@ -164,83 +660,37 @@ class MSO5000(Device):
             Updates the internal cache with the new value.
             Skips sending the command if the cached value matches the new value.
         """
+        logger.debug(f"[MSO5000] __set_parameter called with channel='{channel}', parameter='{parameter}', value='{value}'")
         assert channel, "Channel cannot be empty."
         assert parameter, "Parameter cannot be empty."
         _attribute, _parameter = self.__get_names(channel, parameter)
-        if self.__cache.get(_attribute) == value:
-            return
+        logger.debug(f"[MSO5000] Computed cache attribute='{_attribute}', SCPI parameter='{_parameter}'")
+        _cache = self.__cache
+        _cached_value = _cache.get(_attribute)
+        logger.debug(f"[MSO5000] Cached value for attribute='{_attribute}': '{_cached_value}'")
+        # Fast path: avoid unnecessary str conversion if types match and are simple
+        if _cached_value is not None:
+            if type(_cached_value) == type(value) and _cached_value == value:
+                logger.debug(f"[MSO5000] Skipping set for '{_parameter}' as cached value matches new value: '{value}'")
+                return
+            # For float comparison, use a tolerance to avoid precision issues
+            if isinstance(_cached_value, float) and isinstance(value, float):
+                if abs(_cached_value - value) < 1e-9:
+                    logger.debug(f"[MSO5000] Skipping set for '{_parameter}' as cached float value matches new value within tolerance: '{value}'")
+                    return
+            # For bool comparison, allow int equivalence
+            if isinstance(_cached_value, bool) and isinstance(value, (bool, int)):
+                if bool(_cached_value) == bool(value):
+                    logger.debug(f"[MSO5000] Skipping set for '{_parameter}' as cached bool value matches new value: '{value}'")
+                    return
+            # Fallback to string comparison for other types
+            if str(_cached_value) == str(value):
+                logger.debug(f"[MSO5000] Skipping set for '{_parameter}' as cached string value matches new value: '{value}'")
+                return
+        logger.debug(f"[MSO5000] Sending command to instrument: '{_parameter} {value}'")
         self.__write(f"{_parameter} {value}")
-        self.__cache[_attribute] = value
-
-    class Source(StrEnum):
-        """
-        Enumeration representing possible signal sources for the MSO5000 device.
-
-        Attributes:
-            D0-D15: Digital channels 0 through 15.
-            Channel1-Channel4: Analog channels 1 through 4 ("CHAN1" to "CHAN4").
-            Math1-Math4: Math function channels ("MATH1" to "MATH4").
-        """
-        D0 = "D0"
-        D1 = "D1"
-        D2 = "D2"
-        D3 = "D3"
-        D4 = "D4"
-        D5 = "D5"
-        D6 = "D6"
-        D7 = "D7"
-        D8 = "D8"
-        D9 = "D9"
-        D10 = "D10"
-        D11 = "D11"
-        D12 = "D12"
-        D13 = "D13"
-        D14 = "D14"
-        D15 = "D15"
-        Channel1 = "CHAN1"
-        Channel2 = "CHAN2"
-        Channel3 = "CHAN3"
-        Channel4 = "CHAN4"
-        Math1 = "MATH1"
-        Math2 = "MATH2"
-        Math3 = "MATH3"
-        Math4 = "MATH4"
-
-    class MemoryDepth(StrEnum):
-        Auto = "AUTO"
-        _1K = "1K"
-        _10K = "10K"
-        _100K = "100K"
-        _1M = "1M"
-        _10M = "10M"
-        _25M = "25M"
-        _50M = "50M"
-        _100M = "100M"
-        _200M = "200M"
-
-    class AcquireType(StrEnum):
-        Normal = "NORM"
-        Averages = "AVER"
-        Peak = "PEAK"
-        HighResolution = "HRES"
-
-    class BandwidthLimit(StrEnum):
-        Off = "OFF"
-        Auto = "AUTO"
-        _20M = "20M"
-        _100M = "100M"
-        _200M = "200M"
-
-    class Coupling(StrEnum):
-        AC = "AC"
-        DC = "DC"
-        Ground = "GND"
-
-    class Units(StrEnum):
-        Voltage = "VOLT"
-        Watt = "WATT"
-        Ampere = "AMP"
-        Unknown = "UNKN"
+        logger.debug(f"[MSO5000] Updating cache for attribute='{_attribute}' with value='{value}'")
+        _cache[_attribute] = value
 
     def findInstrument(self):
         """
@@ -282,7 +732,13 @@ class MSO5000(Device):
         assert found, "No oscilloscope found."
         # Copy all public members of self.__instrument to self
         try:
-            for attr in ("manufacturer_name", "model_name", "serial_number", "model_code", "manufacturer_id"):
+            for attr in (
+                "manufacturer_name",
+                "model_name",
+                "serial_number",
+                "model_code",
+                "manufacturer_id",
+            ):
                 try:
                     setattr(self, attr, getattr(self.__instrument, attr))
                     self._set_setting(attr, getattr(self.__instrument, attr))
@@ -290,37 +746,34 @@ class MSO5000(Device):
                     QtCore.qDebug(f"Error copying attribute {attr}: {e}")
         except Exception as e:
             QtCore.qDebug(f"Error copying instrument members: {e}")
-        QtCore.qInfo(f"Connected to {getattr(self, 'model_name', 'Unknown')} oscilloscope.")
+        QtCore.qInfo(
+            f"Connected to {getattr(self, 'model_name', 'Unknown')} oscilloscope."
+        )
 
     # The device command system
-    
+
     def autoscale(self):
         self.__write("AUToscale")
 
-    
     def clear(self):
         self.__write("CLEar")
 
-    
     def run(self):
         self.__write(":RUN")
 
-    
     def stop(self):
         self.__write(":STOP")
 
-    
     def single(self):
         self.__write(":SINGle")
 
-    
     def force_trigger(self):
         self.__write(":TFORce")
 
     # The :ACQ commands are used to set the memory depth of the
     # oscilloscope, the acquisition mode, the average times, as well as query
     # the current sample rate
-    
+
     def set_acquire_averages(self, averages: int):
         """
         Sets the number of averages for the acquisition mode of the MSO5000 oscilloscope.
@@ -338,37 +791,30 @@ class MSO5000(Device):
             raise AssertionError("Averages must be a power of two between 2 and 65536.")
         self.__set_parameter("ACQuire", "AVERages", averages)
 
-    
     def set_acquire_memory_depth(self, depth: MemoryDepth):
         assert (
             depth in MSO5000.MemoryDepth
         ), "Memory depth must be one of the MemoryDepth enum values."
         self.__set_parameter("ACQuire", "MDEPth", depth.value)
 
-    
     def set_acquire_type(self, type_: AcquireType):
         assert (
             type_ in MSO5000.AcquireType
         ), "Acquire type must be one of the AcquireType enum values."
         self.__set_parameter("ACQuire", "TYPE", type_.value)
 
-    
     def get_sample_rate(self) -> float:
         return self.__get_parameter("ACQuire", "SRATe", 0.0)
 
-    
     def get_digital_sample_rate(self) -> float:
         return self.__get_parameter("ACQuire", "LA:SRATe", 0.0)
 
-    
     def get_digital_memory_depth(self) -> float:
         return self.__get_parameter("ACQuire", "LA:MDEPth", 0.0)
 
-    
     def set_acquire_antialiasing(self, state: bool):
         self.__set_parameter("ACQuire", "AALias", state)
 
-    
     def acquire_settings(
         self,
         averages: int = 2,
@@ -389,7 +835,7 @@ class MSO5000(Device):
     # The :CHANnel<n> commands are used to set or query the bandwidth limit,
     # coupling, vertical scale, vertical offset, and other vertical system
     # parameters of the analog channel.
-    
+
     def set_channel_bandwidth_limit(self, channel: int, limit: BandwidthLimit):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         if self.model_name == "MSO5354":
@@ -407,7 +853,6 @@ class MSO5000(Device):
         ), "Bandwidth limit must be one of the BandwidthLimit enum values."
         self.__set_parameter(f"CHANnel{channel}", "BWLimit", limit.value)
 
-    
     def set_channel_coupling(self, channel: int, coupling: Coupling):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         assert (
@@ -415,17 +860,14 @@ class MSO5000(Device):
         ), "Coupling must be one of the Coupling enum values."
         self.__set_parameter(f"CHANnel{channel}", "COUPling", coupling.value)
 
-    
     def set_channel_display(self, channel: int, display: bool):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         self.__set_parameter(f"CHANnel{channel}", "DISPlay", display)
 
-    
     def set_channel_invert(self, channel: int, invert: bool):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         self.__set_parameter(f"CHANnel{channel}", "INVert", invert)
 
-    
     def set_channel_offset(self, channel: int, offset: float):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         _minimum = -10
@@ -435,7 +877,6 @@ class MSO5000(Device):
         ), f"Offset must be between {_minimum} and {_maximum}."
         self.__set_parameter(f"CHANnel{channel}", "OFFSet", offset)
 
-    
     def set_channel_calibration_time(self, channel: int, time: float):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         assert (
@@ -443,7 +884,6 @@ class MSO5000(Device):
         ), "Delay calibration time must be between -100e-9 and 100e-9 seconds."
         self.__set_parameter(f"CHANnel{channel}", "TCALibrate", time)
 
-    
     def set_channel_scale(self, channel: int, scale: float):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         _minimum = 500e-6
@@ -453,7 +893,6 @@ class MSO5000(Device):
         ), f"Scale must be between {_minimum} and {_maximum}."
         self.__set_parameter(f"CHANnel{channel}", "SCALe", scale)
 
-    
     def set_channel_probe(self, channel: int, probe: float):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         assert probe in [
@@ -487,18 +926,15 @@ class MSO5000(Device):
         ], "Probe must be one of the valid values."
         self.__set_parameter(f"CHANnel{channel}", "PROBe", probe)
 
-    
     def set_channel_units(self, channel: int, units: Units):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         assert units in MSO5000.Units, "Units must be one of the Units enum values."
         self.__set_parameter(f"CHANnel{channel}", "UNITs", units.value)
 
-    
     def set_channel_vernier(self, channel: int, vernier: bool):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         self.__set_parameter(f"CHANnel{channel}", "VERNier", vernier)
 
-    
     def set_channel_position(self, channel: int, position: float):
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         assert (
@@ -506,7 +942,6 @@ class MSO5000(Device):
         ), "Position must be between -100 and 100."
         self.__set_parameter(f"CHANnel{channel}", "POSition", position)
 
-    
     def channel_settings(
         self,
         channel: int,
@@ -550,48 +985,39 @@ class MSO5000(Device):
     # The IEEE488.2 common commands are used to query the basic information of
     # the instrument or executing basic operations. These commands usually
     # start with "*", and the keywords in a command contain 3 characters.
-    
+
     def clear_registers(self):
         self.__write("*CLS")
 
-    
     def get_standard_event_register_enable(self) -> BYTE:
         _response = self.__query("*ESE?")
         return BYTE(int(_response))
 
-    
     def set_standard_event_register_enable(self, bits: BYTE):
         self.__write(f"*ESE {bits}")
 
-    
     def get_standard_event_register_event(self) -> BYTE:
         _response = self.__query("*ESR?")
         return BYTE(int(_response))
 
-    
     def get_identity(self) -> str:
         return self.__query("*IDN?")
 
-    
     def get_operation_complete(self) -> bool:
         _response = self.__query("*OPC?")
         return bool(int(_response))
 
-    
     def set_operation_complete(self, state: bool):
         self.__write(f"*OPC {int(state)}")
 
-    
     def save(self, register: int):
         assert register >= 0 and register <= 49, "Register must be between 0 and 49."
         self.__write(f"*SAVe {register}")
 
-    
     def recall(self, register: int):
         assert register >= 0 and register <= 49, "Register must be between 0 and 49."
         self.__write(f"*RCL {register}")
 
-    
     def reset(self):
         """
         Resets the MSO5000 oscilloscope to its default state.
@@ -610,26 +1036,21 @@ class MSO5000(Device):
         self.__write("*RST")
         self.__cache.clear()
 
-    
     def get_status_byte_register_enable(self) -> BYTE:
         _response = self.__query("*SRE?")
         return BYTE(int(_response))
 
-    
     def set_status_byte_register_enable(self, bits: BYTE):
         self.__write(f"*SRE {bits}")
 
-    
     def get_status_byte_register_event(self) -> BYTE:
         _response = self.__query("*STB?")
         return BYTE(int(_response))
 
-    
     def self_test(self) -> str:
         _response = self.__query("*TST?")
         return _response
 
-    
     def wait(self):
         self.__write("*WAI")
 
@@ -646,75 +1067,16 @@ class MSO5000(Device):
 
     # The :MEASure commands are used to set and query the relevant parameters
     # for measurement.
-    class MeasureItem(StrEnum):
-        Item1 = "ITEM1"
-        Item2 = "ITEM2"
-        Item3 = "ITEM3"
-        Item4 = "ITEM4"
-        Item5 = "ITEM5"
-        Item6 = "ITEM6"
-        Item7 = "ITEM7"
-        Item8 = "ITEM8"
-        Item9 = "ITEM9"
-        Item10 = "ITEM10"
-        All = "ALL"
-
-    class Measurement(StrEnum):
-        VoltageMaximum = "VMAX"
-        VoltageMinimum = "VMIN"
-        VoltagePeakToPeak = "VPP"
-        VoltageTOP = "VTOP"
-        VoltageBase = "VBASe"
-        VoltageAmplitude = "VAMP"
-        VoltageAverage = "VAVG"
-        VoltageRms = "VRMS"
-        Overshoot = "OVERshoot"
-        Preshoot = "PREShoot"
-        MARea = "MARea"
-        MPARea = "MPARea"
-        Period = "PERiod"
-        Frequency = "FREQuency"
-        RiseTime = "RTIMe"
-        FallTime = "FTIMe"
-        PositivePulseWidth = "PWIDth"
-        NegativePulseWidth = "NWIDth"
-        PositiveDuty = "PDUTy"
-        NegativeDuty = "NDUTy"
-        TVMAX = "TVMAX"
-        TVMIN = "TVMIN"
-        PositiveSlewrate = "PSLewrate"
-        NegativeSlewrate = "NSLewrate"
-        VUPPer = "VUPPer"
-        VMID = "VMID"
-        VLOWer = "VLOWer"
-        VARiance = "VARiance"
-        PVRMs = "PVRMs"
-        PPULses = "PPULses"
-        NPULses = "NPULses"
-        PEDGes = "PEDGes"
-        NEDGes = "NEDGes"
-        RRDelay = "RRDelay"
-        RFDelay = "RFDelay"
-        FRDelay = "FRDelay"
-        FFDelay = "FFDelay"
-        RRPHase = "RRPHase"
-        RFPHase = "RFPHase"
-        FRPHase = "FRPHase"
-        FFPHase = "FFPHase"
-
-    
     def set_measure_source(self, source: Source):
         assert source in MSO5000.Source, "Source must be one of the Source enum values."
         self.__set_parameter("MEASure", "SOURce", source.value)
 
-    
     def clear_measurement(self, item: MeasureItem):
         assert (
             item in MSO5000.MeasureItem
         ), "Item must be one of the MeasureItem enum values."
         self.__set_parameter("MEASure", "CLEar", item.value)
 
-    
     def set_measure_threshold_source(self, source: Source):
         _valid = [
             MSO5000.Source.Channel1,
@@ -729,7 +1091,6 @@ class MSO5000(Device):
         assert source in _valid, f"Item must be one of {_valid}."
         self.__set_parameter("MEASure", "THReshold:SOURce", source.value)
 
-    
     def set_measure_threshold_default(self):
         self.__write(":MEASure:THReshold:DEFault")
 
@@ -737,15 +1098,12 @@ class MSO5000(Device):
         Normal = "NORMal"
         Precision = "PRECision"
 
-    
     def set_measure_mode(self, mode: MeasureMode):
         self.__set_parameter("MEASure", "MODE", mode.value)
 
-    
     def set_measure_item(self, measurement: Measurement, source: Source):
         self.__write(f":MEASure:ITEM {measurement.value},{source.value}")
 
-    
     def get_measure_item(self, measurement: Measurement, source: Source):
         return float(self.__query(f":MEASure:ITEM? {measurement.value},{source.value}"))
 
@@ -758,43 +1116,18 @@ class MSO5000(Device):
     # The :REFerence commands are used to set relevant parameters for reference waveforms.
 
     # The :SAVE commands are used to save data or settings from the oscilloscope.
-    class SaveCsvLength(StrEnum):
-        Display = "DISP"
-        Maximum = "MAX"
-
-    class SaveCsvChannel(StrEnum):
-        Channel1 = "CHAN1"
-        Channel2 = "CHAN2"
-        Channel3 = "CHAN3"
-        Channel4 = "CHAN4"
-        Pod1 = "POD1"
-        Pod2 = "POD2"
-
-    class ImageType(StrEnum):
-        Bitmap = "BMP24"
-        Jpeg = "JPEG"
-        Png = "PNG"
-        Tiff = "TIFF"
-
-    class ImageColor(StrEnum):
-        Color = "COL"
-        Gray = "GRAY"
-
-    
     def set_save_csv_length(self, length: SaveCsvLength):
         assert (
             length in MSO5000.SaveCsvLength
         ), "Length must be one of the SaveCsvLength enum values."
         self.__set_parameter("SAVE", "CSV:LENGth", length.value)
 
-    
     def set_save_csv_channel(self, channel: SaveCsvChannel, state: bool):
         assert (
             channel in MSO5000.SaveCsvChannel
         ), "Channel must be one of the SaveCsvChannel enum values."
         self.__set_parameter("SAVE", "CSV:CHANnel", f"{channel.value},{int(state)}")
 
-    
     def save_csv(
         self,
         filename: str,
@@ -803,22 +1136,18 @@ class MSO5000(Device):
         self.set_save_csv_length(length)
         self.__set_parameter("SAVE", "CSV", filename)
 
-    
     def save_image_type(self, type_: ImageType):
         assert (
             type_ in MSO5000.ImageType
         ), "Type must be one of the ImageType enum values."
         self.__set_parameter("SAVE", "IMAGe:TYPE", type_.value)
 
-    
     def save_image_invert(self, invert: bool):
         self.__set_parameter("SAVE", "IMAGe:INVert", invert)
 
-    
     def save_image_color(self, color: ImageColor):
         self.__set_parameter("SAVE", "COLor", color.value)
 
-    
     def save_image(
         self,
         path: str,
@@ -831,19 +1160,15 @@ class MSO5000(Device):
         self.save_image_color(color)
         self.__set_parameter("SAVE", "IMAGe", path)
 
-    
     def save_setup(self, path: str):
         self.__set_parameter("SAVE", "SETup", path)
 
-    
     def save_waveform(self, path: str):
         self.__set_parameter("SAVE", "WAVeform", path)
 
-    
     def get_save_status(self) -> bool:
         return self.__get_parameter("SAVE", "STATus")
 
-    
     def load_setup(self, filename: str):
         self.__write(f":LOAD:SETup {filename}")
 
@@ -853,52 +1178,10 @@ class MSO5000(Device):
     # waveform generator. <n> can set to 1 or 2, which indicates the corresponding built in function/arbitrary
     # waveform generator channel. When <n> or :SOURce[<n>] is omitted, by default, the operations are
     # carried out on AWG GI.
-    class SourceFunction(StrEnum):
-        Sinusoid = "SIN"
-        Square = "SQU"
-        Ramp = "RAMP"
-        Pulse = "PULS"
-        Noise = "NOIS"
-        Dc = "DC"
-        Sinc = "SINC"
-        ExponentialRise = "EXPR"
-        ExponentialFall = "EXPF"
-        Ecg = "ECG"
-        Guass = "GUAS"
-        Lorentz = "LOR"
-        Haversine = "HAV"
-        Arbitrary = "ARB"
-
-    class SourceType(StrEnum):
-        _None = "NONE"
-        Modulated = "MOD"
-        Sweep = "SWE"
-        Burst = "BUR"
-
-    class SourceModulation(StrEnum):
-        AmplitudeModulation = "AM"
-        FrequencyModulation = "FM"
-        FrequencyShiftKey = "FSK"
-
-    class SourceSweepType(StrEnum):
-        Linear = "LIN"
-        Log = "LOG"
-        Step = "STEP"
-
-    class SourceBurstType(StrEnum):
-        Ncycle = "NCYCL"
-        Infinite = "INF"
-
-    class SourceOutputImpedance(StrEnum):
-        Omeg = "OMEG"
-        Fifty = "FIFT"
-
-    
     def function_generator_state(self, channel: int, state: bool):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         self.__set_parameter(f"SOURce{channel}", f"OUTPut{channel}:STATe", state)
 
-    
     def set_source_function(self, channel: int, function: SourceFunction):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -906,13 +1189,11 @@ class MSO5000(Device):
         ), "Function must be one of the Waveform enum values."
         self.__set_parameter(f"SOURce{channel}", "FUNCtion", function.value)
 
-    
     def set_source_type(self, channel: int, type_: SourceType):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert type in MSO5000.SourceType, "Type must be one of the Type enum values."
         self.__set_parameter(f"SOURce{channel}", "TYPE", type_.value)
 
-    
     def set_source_frequency(self, channel: int, frequency: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -920,13 +1201,11 @@ class MSO5000(Device):
         ), "Frequency must be between 0.1 and 25000000 Hz."
         self.__set_parameter(f"SOURce{channel}", "FREQuency", frequency)
 
-    
     def set_source_phase(self, channel: int, phase: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert phase >= 0 and phase <= 360, "Phase must be between 0 and 360 degrees."
         self.__set_parameter(f"SOURce{channel}", "PHASe", phase)
 
-    
     def set_source_amplitude(self, channel: int, amplitude: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -936,7 +1215,6 @@ class MSO5000(Device):
             f"SOURce{channel}", "VOLTage:LEVel:IMMediate:AMPLitude", amplitude
         )
 
-    
     def set_source_offset(self, channel: int, offset: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -946,12 +1224,10 @@ class MSO5000(Device):
             f"SOURce{channel}", "VOLTage:LEVel:IMMediate:OFFSet", offset
         )
 
-    
     def phase_align(self, channel: int):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         self.__write(f"SOURce{channel}:PHASe:INITiate")
 
-    
     def set_source_output_impedance(
         self, channel: int, impedance: SourceOutputImpedance
     ):
@@ -959,12 +1235,10 @@ class MSO5000(Device):
         assert (
             impedance in MSO5000.SourceOutputImpedance
         ), "Output impedance must be one of the OutputImpedance enum values."
-        self.__set_parameter(
-            f"SOURce{channel}", "OUTPut:IMPedance", impedance.value
-        )
+        self.__set_parameter(f"SOURce{channel}", "OUTPut:IMPedance", impedance.value)
 
     # Function Generator Function: Sinusoid
-    
+
     def function_generator_sinusoid(
         self,
         channel: int,
@@ -983,7 +1257,7 @@ class MSO5000(Device):
         self.set_source_output_impedance(channel, output_impedance)
 
     # Function Generator Function: Square
-    
+
     def function_generator_square(
         self,
         channel: int,
@@ -1002,15 +1276,12 @@ class MSO5000(Device):
         self.set_source_output_impedance(channel, output_impedance)
 
     # Function Generator Function: RAMP
-    
+
     def set_source_function_ramp_symmetry(self, channel: int, symmetry: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert symmetry >= 1 and symmetry <= 100, "Symmetry must be between 1 and 100%."
-        self.__set_parameter(
-            f"SOURce{channel}", "FUNCtion:RAMP:SYMMetry", symmetry
-        )
+        self.__set_parameter(f"SOURce{channel}", "FUNCtion:RAMP:SYMMetry", symmetry)
 
-    
     def function_generator_ramp(
         self,
         channel: int,
@@ -1031,7 +1302,7 @@ class MSO5000(Device):
         self.set_source_output_impedance(channel, output_impedance)
 
     # Function Generator Function: PULSe
-    
+
     def set_source_duty_cycle(self, channel: int, duty_cycle: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1039,7 +1310,6 @@ class MSO5000(Device):
         ), "Duty cycle must be between 10 and 90%."
         self.__set_parameter(f"SOURce{channel}", "PULSe:DCYCle", duty_cycle)
 
-    
     def function_generator_pulse(
         self,
         channel: int,
@@ -1060,7 +1330,7 @@ class MSO5000(Device):
         self.set_source_output_impedance(channel, output_impedance)
 
     # Function Generator Function: NOISe
-    
+
     def function_generator_noise(
         self,
         channel: int,
@@ -1075,7 +1345,7 @@ class MSO5000(Device):
         self.set_source_output_impedance(channel, output_impedance)
 
     # Function Generator Function: DC
-    
+
     def function_generator_dc(
         self,
         channel: int,
@@ -1088,7 +1358,7 @@ class MSO5000(Device):
         self.set_source_output_impedance(channel, output_impedance)
 
     # Function Generator Function: SINC
-    
+
     def function_generator_sinc(
         self,
         channel: int,
@@ -1114,13 +1384,13 @@ class MSO5000(Device):
     # Function Generator Function: HAVersine
     # Function Generator Function: ARBitrary
     # Function Generator Type: None
-    
+
     def function_generator_no_modulation(self, channel: int):
         self.function_generator_state(channel, False)
         self.set_source_type(channel, MSO5000.SourceType._None)
 
     # Function Generator Type: Modulation
-    
+
     def set_source_mod_type(self, channel: int, mod_type: SourceModulation):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1128,7 +1398,6 @@ class MSO5000(Device):
         ), "Modulation type must be one of the Modulation enum values."
         self.__set_parameter(f"SOURce{channel}", "MODulation:TYPE", mod_type.value)
 
-    
     def set_source_mod_am_depth(self, channel: int, depth: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1136,27 +1405,20 @@ class MSO5000(Device):
         ), "Modulation amplitude depth must be between 0 and 120%."
         self.__set_parameter(f"SOURce{channel}", "MOD:DEPTh", depth)
 
-    
     def set_source_mod_am_freq(self, channel: int, frequency: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
             frequency >= 1 and frequency <= 50
         ), "Modulation frequency must be between 1 and 50 Hz."
-        self.__set_parameter(
-            f"SOURce{channel}", "MOD:AM:INTernal:FREQuency", frequency
-        )
+        self.__set_parameter(f"SOURce{channel}", "MOD:AM:INTernal:FREQuency", frequency)
 
-    
     def set_source_mod_fm_freq(self, channel: int, frequency: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
             frequency >= 1 and frequency <= 50
         ), "Modulation frequency must be between 1 and 50 Hz."
-        self.__set_parameter(
-            f"SOURce{channel}", "MOD:FM:INTernal:FREQuency", frequency
-        )
+        self.__set_parameter(f"SOURce{channel}", "MOD:FM:INTernal:FREQuency", frequency)
 
-    
     def set_source_mod_am_function(self, channel: int, function: SourceFunction):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert function in [
@@ -1169,7 +1431,6 @@ class MSO5000(Device):
             f"SOURce{channel}", "MOD:AM:INTernal:FUNCtion", function.value
         )
 
-    
     def set_source_mod_fm_function(self, channel: int, function: SourceFunction):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert function in [
@@ -1182,7 +1443,6 @@ class MSO5000(Device):
             f"SOURce{channel}", "MOD:FM:INTernal:FUNCtion", function.value
         )
 
-    
     def set_source_mod_fm_deviation(self, channel: int, deviation: float):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1190,7 +1450,6 @@ class MSO5000(Device):
         ), "Modulation frequency deviation must be greater than or equal to 0 Hz."
         self.__set_parameter(f"SOURce{channel}", "MOD:FM:DEViation", deviation)
 
-    
     def function_generator_modulation(
         self,
         channel: int,
@@ -1213,7 +1472,7 @@ class MSO5000(Device):
             self.set_source_mod_fm_deviation(channel, fm_deviation)
 
     # Function Generator Type: Sweep
-    
+
     def set_source_sweep_type(self, channel: int, type_: SourceSweepType):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1221,7 +1480,6 @@ class MSO5000(Device):
         ), "Sweep type must be one of the SweepType enum values."
         self.__set_parameter(f"SOURce{channel}", "SWEep:TYPE", type_.value)
 
-    
     def set_source_sweep_sweep_time(self, channel: int, time: int):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1229,7 +1487,6 @@ class MSO5000(Device):
         ), "Sweep time must be between 1 and 500 seconds."
         self.__set_parameter(f"SOURce{channel}", "SWEep:STIMe", time)
 
-    
     def set_source_sweep_return_time(self, channel: int, time: int):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1237,7 +1494,6 @@ class MSO5000(Device):
         ), "Return time must be between 1 and 500 seconds."
         self.__set_parameter(f"SOURce{channel}", "SWEep:BTIMe", time)
 
-    
     def function_generator_sweep(
         self,
         channel: int,
@@ -1252,7 +1508,7 @@ class MSO5000(Device):
         self.set_source_sweep_return_time(channel, return_time)
 
     # Function Generator Type: Burst
-    
+
     def set_source_burst_type(self, channel: int, type_: SourceBurstType):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1260,7 +1516,6 @@ class MSO5000(Device):
         ), "Burst type must be one of the BurstType enum values."
         self.__set_parameter(f"SOURce{channel}", "BURSt:TYPE", type_.value)
 
-    
     def set_source_burst_cycles(self, channel: int, cycles: int):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1268,7 +1523,6 @@ class MSO5000(Device):
         ), "Burst cycles must be between 1 and 1000000."
         self.__set_parameter(f"SOURce{channel}", "BURSt:CYCLes", cycles)
 
-    
     def set_source_burst_delay(self, channel: int, delay: int):
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
@@ -1276,7 +1530,6 @@ class MSO5000(Device):
         ), "Burst delay must be between 1 and 1000000."
         self.__set_parameter(f"SOURce{channel}", "BURSt:DELay", delay)
 
-    
     def function_generator_burst(
         self,
         channel: int,
@@ -1291,37 +1544,21 @@ class MSO5000(Device):
         self.set_source_burst_delay(channel, delay)
 
     # The :SYSTem commands are used to set sound, language, and other relevant system settings.
-    
+
     def get_system_error(self) -> str:
         return self.__get_parameter("SYSTem", "ERRor:NEXT")
 
     # The :TIMebase commands are used to set the horizontal system. For example, enable the delayed sweep,
     # set the horizontal time base mode, etc.
-    class TimebaseMode(StrEnum):
-        Main = "MAIN"
-        Xy = "XY"
-        Roll = "ROLL"
-
-    class HrefMode(StrEnum):
-        Center = "CENT"
-        Lb = "LB"
-        Rb = "RB"
-        Trigger = "TRIG"
-        User = "USER"
-
-    
     def set_timebase_delay_enable(self, enable: bool):
         self.__set_parameter("TIMebase", "DELay:ENABle", enable)
 
-    
     def set_timebase_delay_offset(self, offset: float):
         self.__set_parameter("TIMebase", "DELay:OFFSet", offset)
 
-    
     def set_timebase_delay_scale(self, scale: float):
         self.__set_parameter("TIMebase", "DELay:SCALe", scale)
 
-    
     def timebase_delay(
         self, enable: bool = False, offset: float = 0, scale: float = 500e-9
     ):
@@ -1329,40 +1566,33 @@ class MSO5000(Device):
         self.set_timebase_delay_offset(offset)
         self.set_timebase_delay_scale(scale)
 
-    
     def set_timebase_offset(self, offset: float):
         self.__set_parameter("TIMebase", "MAIN:OFFSet", offset)
 
-    
     def set_timebase_scale(self, scale: float):
         self.__set_parameter("TIMebase", "MAIN:SCALe", scale)
 
-    
     def set_timebase_mode(self, mode: TimebaseMode):
         assert (
             mode in MSO5000.TimebaseMode
         ), "Timebase mode must be one of the TimebaseMode enum values."
         self.__set_parameter("TIMebase", "MODE", mode.value)
 
-    
     def set_timebase_href_mode(self, mode: HrefMode):
         assert (
             mode in MSO5000.HrefMode
         ), "Href mode must be one of the HrefMode enum values."
         self.__set_parameter("TIMebase", "HREFerence:MODE", mode.value)
 
-    
     def set_timebase_position(self, position: int):
         assert (
             position >= -500 and position <= 500
         ), "Horizontal reference position must be between -500 to 500."
         self.__set_parameter("TIMebase", "HREFerence:POSition", position)
 
-    
     def set_timebase_vernier(self, vernier: bool):
         self.__set_parameter("TIMebase", "VERNier", vernier)
 
-    
     def timebase_settings(
         self,
         offset: float = 0,
@@ -1518,7 +1748,6 @@ class MSO5000(Device):
         TB = "TB"
         TAB = "TAB"
 
-    
     def get_trigger_status(self):
         """
         Retrieves the current trigger status from the device.
@@ -1532,7 +1761,6 @@ class MSO5000(Device):
         _status = self.__get_parameter("TRIGger", "STATus")
         return MSO5000.TriggerStatus(_status)
 
-    
     def set_trigger_mode(self, mode: TriggerMode):
         """
         Sets the trigger mode of the MSO5000 device.
@@ -1551,7 +1779,6 @@ class MSO5000(Device):
         ), "Trigger mode must be one of the TriggerMode enum values."
         self.__set_parameter("TRIGger", "MODE", mode.value)
 
-    
     def set_trigger_coupling(self, coupling: TriggerCoupling):
         """
         Sets the trigger coupling mode for the device.
@@ -1568,7 +1795,6 @@ class MSO5000(Device):
         ), "Trigger coupling must be one of the TriggerCoupling enum values."
         self.__set_parameter("TRIGger", "COUPling", coupling.value)
 
-    
     def set_trigger_sweep(self, sweep: TriggerSweep):
         """
         Sets the trigger sweep mode for the device.
@@ -1590,7 +1816,6 @@ class MSO5000(Device):
         ), "Trigger sweep must be one of the TriggerSweep enum values."
         self.__set_parameter("TRIGger", "SWEep", sweep.value)
 
-    
     def set_trigger_holdoff(self, holdoff: float):
         """
         Sets the trigger holdoff time for the device.
@@ -1609,7 +1834,6 @@ class MSO5000(Device):
         ), "Trigger holdoff must be between 8ns and 10s."
         self.__set_parameter("TRIGger", "HOLDoff", holdoff)
 
-    
     def set_trigger_noise_reject(self, status: bool):
         """
         Enables or disables the noise reject function for the trigger system.
@@ -1626,7 +1850,7 @@ class MSO5000(Device):
         self.__set_parameter("TRIGger", "NREJect", status)
 
     # Trigger mode: Edge
-    
+
     def set_trigger_edge_source(self, source: TriggerSource):
         """
         Set the trigger edge source for the oscilloscope.
@@ -1644,7 +1868,6 @@ class MSO5000(Device):
         ), "Trigger edge source must be one of the TriggerSource enum values."
         self.__set_parameter("TRIGger", "EDGE:SOURce", source.value)
 
-    
     def set_trigger_edge_slope(self, slope: TriggerSlope):
         """
         Sets the trigger edge slope for the oscilloscope.
@@ -1663,7 +1886,6 @@ class MSO5000(Device):
         ), "Trigger edge slope must be one of the TriggerEdgeSlope enum values."
         self.__set_parameter("TRIGger", "EDGE:SLOPe", slope.value)
 
-    
     def set_trigger_edge_level(self, level: float):
         """
         Sets the trigger edge level for the device.
@@ -1681,7 +1903,6 @@ class MSO5000(Device):
         ), "Trigger edge level must be between -15 and 15 V."
         self.__set_parameter("TRIGger", "EDGE:LEVel", level)
 
-    
     def trigger_edge(
         self,
         coupling: TriggerCoupling = TriggerCoupling.DC,
@@ -1717,7 +1938,7 @@ class MSO5000(Device):
         self.set_trigger_edge_level(edge_level)
 
     # Trigger mode: Pulse
-    
+
     def set_trigger_pulse_source(self, source: TriggerSource):
         """
         Sets the trigger pulse source for the oscilloscope.
@@ -1734,7 +1955,6 @@ class MSO5000(Device):
         ), "Trigger pulse source must be one of the TriggerSource enum values."
         self.__set_parameter("TRIGger", "PULSe:SOURce", source.value)
 
-    
     def set_trigger_pulse_when(self, when: TriggerWhen):
         """
         Sets the trigger condition for pulse width triggering on the device.
@@ -1752,7 +1972,6 @@ class MSO5000(Device):
         ), "Trigger pulse when must be one of the TriggerWhen enum values."
         self.__set_parameter("TRIGger", "PULSe:WHEN", when.value)
 
-    
     def set_trigger_pulse_upper_width(self, width: float):
         """
         Sets the upper width for the trigger pulse.
@@ -1768,7 +1987,6 @@ class MSO5000(Device):
         assert width <= 10, "Trigger pulse upper width must be less than 10s."
         self.__set_parameter("TRIGger", "PULSe:UWIDth", width)
 
-    
     def set_trigger_pulse_lower_width(self, width: float):
         """
         Sets the lower width threshold for the trigger pulse.
@@ -1784,7 +2002,6 @@ class MSO5000(Device):
         assert width >= 8e-12, "Trigger pulse lower width must be greater than 8 ps."
         self.__set_parameter("TRIGger", "PULSe:LWIDth", width)
 
-    
     def set_trigger_pulse_level(self, level: float):
         """
         Sets the trigger pulse level for the device.
@@ -1801,7 +2018,6 @@ class MSO5000(Device):
         ), "Trigger pulse level must be between -15 and 15 V."
         self.__set_parameter("TRIGger", "PULSe:LEVel", level)
 
-    
     def trigger_pulse(
         self,
         coupling: TriggerCoupling = TriggerCoupling.DC,
@@ -1843,7 +2059,7 @@ class MSO5000(Device):
         self.set_trigger_pulse_level(pulse_level)
 
     # Trigger mode: Slope
-    
+
     def set_trigger_slope_source(self, source: TriggerSource):
         """
         Sets the trigger slope source for the oscilloscope.
@@ -1865,7 +2081,6 @@ class MSO5000(Device):
         ], "Trigger source must be one of Channel 1, Channel 2, Channel 3 or Channel 4."
         self.__set_parameter("TRIGger", "SLOPe:SOURce", source.value)
 
-    
     def set_trigger_slope_when(self, when: TriggerWhen):
         """
         Sets the trigger slope condition for the oscilloscope.
@@ -1882,7 +2097,6 @@ class MSO5000(Device):
         ), "Trigger when must be one of the TriggerWhen enum values."
         self.__set_parameter("TRIGger", "SLOPe:WHEN", when.value)
 
-    
     def set_trigger_slope_time_upper(self, time: float):
         """
         Sets the upper time limit for the trigger slope.
@@ -1897,7 +2111,6 @@ class MSO5000(Device):
         assert time <= 10, "Upper time limit must be less than 10 s."
         self.__set_parameter("TRIGger", "SLOPe:TUPPer", time)
 
-    
     def set_trigger_slope_time_lower(self, time: float):
         """
         Sets the lower time limit for the trigger slope on the oscilloscope.
@@ -1913,7 +2126,6 @@ class MSO5000(Device):
         assert time >= 800e-12, "Lower time limit must be greater than 800 ps."
         self.__set_parameter("TRIGger", "SLOPe:TLOWer", time)
 
-    
     def set_trigger_slope_window(self, window: TriggerWindow):
         """
         Sets the trigger slope window of the oscilloscope.
@@ -1931,7 +2143,6 @@ class MSO5000(Device):
         ), "Trigger window must be one of the TriggerWindow enum values."
         self.__set_parameter("TRIGger", "SLOPe:WINDow", window.value)
 
-    
     def set_trigger_slope_amplitude_upper(self, amplitude: float):
         """
         Sets the upper amplitude limit for the trigger slope on the oscilloscope.
@@ -1944,7 +2155,6 @@ class MSO5000(Device):
         """
         self.__set_parameter("TRIGger", "SLOPe:ALEVel", amplitude)
 
-    
     def set_trigger_slope_amplitude_lower(self, amplitude: float):
         """
         Sets the lower amplitude limit for the trigger slope on the oscilloscope.
@@ -1961,7 +2171,6 @@ class MSO5000(Device):
         """
         self.__set_parameter("TRIGger", "SLOPe:BLEVel", amplitude)
 
-    
     def trigger_slope(
         self,
         coupling: TriggerCoupling = TriggerCoupling.DC,
@@ -2011,7 +2220,7 @@ class MSO5000(Device):
     # Trigger mode: Pattern
     # Trigger mode: Duration
     # Trigger mode: Timeout
-    
+
     def set_trigger_timeout_source(self, source: TriggerSource):
         """
         Sets the trigger timeout source for the oscilloscope.
@@ -2028,7 +2237,6 @@ class MSO5000(Device):
         ), "Trigger source cannot be ACLine."
         self.__set_parameter("TRIGger", "TIMeout:SOURce", source.value)
 
-    
     def set_trigger_timeout_slope(self, slope: TriggerSlope):
         """
         Sets the trigger timeout slope for the device.
@@ -2045,7 +2253,6 @@ class MSO5000(Device):
         ), "Trigger slope must be one of the TriggerSlope enum values."
         self.__set_parameter("TRIGger", "TIMeout:SLOPe", slope.value)
 
-    
     def set_trigger_timeout_time(self, time: float):
         """
         Sets the trigger timeout time for the device.
@@ -2063,7 +2270,6 @@ class MSO5000(Device):
         ), "Trigger time must be between 16ns and 10s."
         self.__set_parameter("TRIGger", "TIMeout:TIME", time)
 
-    
     def set_trigger_timeout_level(self, level: float):
         """
         Sets the trigger timeout level for the device.
@@ -2082,7 +2288,6 @@ class MSO5000(Device):
         ), "Trigger level must be between -15V and 15V."
         self.__set_parameter("TRIGger", "TIMeout:LEVel", level)
 
-    
     def trigger_timeout(
         self,
         coupling: TriggerCoupling = TriggerCoupling.DC,
@@ -2136,35 +2341,6 @@ class MSO5000(Device):
     # The :WAVeform commands are used to read waveform data and relevant settings. The
     # :WAVeform:MODE command is used to set the reading mode of waveform data. In different
     # modes, the definitions for the parameters are different.
-    class WaveformMode(StrEnum):
-        """
-        Enumeration of available waveform acquisition modes for the device.
-
-        Attributes:
-            Normal: Standard acquisition mode, typically used for regular waveform capture.
-            Maximum: Acquires waveform data at the maximum available rate or resolution.
-            Raw: Captures raw, unprocessed waveform data directly from the device.
-        """
-
-        Normal = "NORM"
-        Maximum = "MAX"
-        Raw = "RAW"
-
-    class WaveformFormat(StrEnum):
-        """
-        Enumeration of supported waveform data formats for the device.
-
-        Attributes:
-            Word: Represents waveform data in 16-bit word format ("WORD").
-            Byte: Represents waveform data in 8-bit byte format ("BYTE").
-            Ascii: Represents waveform data in ASCII format ("ASC").
-        """
-
-        Word = "WORD"
-        Byte = "BYTE"
-        Ascii = "ASC"
-
-    
     def set_waveform_source(self, source: Source):
         """
         Sets the waveform source for the device.
@@ -2181,7 +2357,6 @@ class MSO5000(Device):
         ), "Waveform source must be one of the WaveformSource enum values."
         self.__set_parameter("WAVeform", "SOURce", source.value)
 
-    
     def set_waveform_mode(self, mode: WaveformMode):
         """
         Sets the waveform mode of the device.
@@ -2200,7 +2375,6 @@ class MSO5000(Device):
         ), "Waveform mode must be one of the WaveformMode enum values."
         self.__set_parameter("WAVeform", "MODE", mode.value)
 
-    
     def set_waveform_format(self, format_: WaveformFormat):
         """
         Sets the waveform data format for the device.
@@ -2217,7 +2391,6 @@ class MSO5000(Device):
         ), "Waveform format must be one of the WaveformFormat enum values."
         self.__set_parameter("WAVeform", "FORMat", format_.value)
 
-    
     def set_waveform_points(self, points: int):
         """
         Sets the number of waveform points for the device.
@@ -2231,7 +2404,6 @@ class MSO5000(Device):
         assert points >= 1, "Waveform points must be greater than 1."
         self.__set_parameter("WAVeform", "POINts", points)
 
-    
     def get_waveform(
         self,
         source: Source = Source.Channel1,
@@ -2295,7 +2467,6 @@ class MSO5000(Device):
             _stop = min(_start + 100, stop)
         return _data
 
-    
     def get_waveform_xincrement(self) -> float:
         """
         Retrieves the horizontal (X-axis) increment value of the current waveform.
@@ -2305,7 +2476,6 @@ class MSO5000(Device):
         """
         return self.__get_parameter("WAVeform", "XINCrement")
 
-    
     def get_waveform_xorigin(self) -> float:
         """
         Retrieves the X origin value of the current waveform.
@@ -2315,7 +2485,6 @@ class MSO5000(Device):
         """
         return self.__get_parameter("WAVeform", "XORigin")
 
-    
     def get_waveform_xreference(self) -> float:
         """
         Retrieves the X reference value of the current waveform.
@@ -2325,7 +2494,6 @@ class MSO5000(Device):
         """
         return self.__get_parameter("WAVeform", "XREFerence")
 
-    
     def get_waveform_yincrement(self) -> float:
         """
         Retrieves the vertical increment (Y increment) value of the current waveform.
@@ -2335,7 +2503,6 @@ class MSO5000(Device):
         """
         return self.__get_parameter("WAVeform", "YINCrement")
 
-    
     def get_waveform_yorigin(self) -> float:
         """
         Gets the Y origin value of the current waveform.
@@ -2345,7 +2512,6 @@ class MSO5000(Device):
         """
         return self.__get_parameter("WAVeform", "YORigin")
 
-    
     def get_waveform_yreference(self) -> float:
         """
         Retrieves the Y reference value of the current waveform.
@@ -2355,7 +2521,6 @@ class MSO5000(Device):
         """
         return self.__get_parameter("WAVeform", "YREFerence")
 
-    
     def set_waveform_start(self, start: int):
         """
         Sets the starting point for waveform data acquisition.
@@ -2369,7 +2534,6 @@ class MSO5000(Device):
         assert start >= 1, "Waveform start must be greater than 1."
         self.__set_parameter("WAVeform", "STARt", start)
 
-    
     def set_waveform_stop(self, stop: int):
         """
         Sets the stop point for waveform data acquisition.
@@ -2383,7 +2547,6 @@ class MSO5000(Device):
         assert stop >= 1, "Waveform stop must be greater than 1."
         self.__set_parameter("WAVeform", "STOP", stop)
 
-    
     def get_waveform_preamble(self) -> str:
         """
         Retrieves the waveform preamble from the device.

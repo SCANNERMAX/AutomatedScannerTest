@@ -311,7 +311,7 @@ class TestWorker(QtCore.QObject):
             test_id (int): The ID of the test.
             test_name (str): The name of the test.
         """
-        logger.debug(f"Test started: ID={test_id}, Name={test_name}.")
+        logger.info(f"Started test #{test_id} -- {test_name}.")
         self.startedTest.emit(test_id, test_name)
 
     @QtCore.Slot(int, str, bool)
@@ -324,8 +324,8 @@ class TestWorker(QtCore.QObject):
             test_name (str): The name of the test.
             status (bool): The status of the test (True for pass, False for fail).
         """
-        logger.debug(
-            f"Test finished: ID={test_id}, Name={test_name}, Status={'Pass' if status else 'Fail'}."
+        logger.info(
+            f"Finished test #{test_id} -- {test_name}, Status={'Pass' if status else 'Fail'}."
         )
         self.finishedTest.emit(test_id, test_name, status)
 
@@ -509,9 +509,9 @@ class TestWorker(QtCore.QObject):
         self.ModelName = model_name
         self.StartTime = self.getCurrentTime()
         self.Status = "Running"
-        logger.debug("Setting up devices for test.")
+        logger.info("Setting up devices for tests.")
         self.__devices.setup()
-        logger.debug("Starting test sequence in model.")
+        logger.debug(f"Starting test sequence for {serial_number}.")
         final_status = self.__model.onStartTest(self.RunDataDirectory, test=test)
         if getattr(self.__cancel, "cancelled", False):
             logger.warning("Test was cancelled by user.")
@@ -520,10 +520,10 @@ class TestWorker(QtCore.QObject):
             logger.critical(f"Test '{test}' not found.")
         else:
             logger.info(
-                f"Test finished with status: {'Pass' if final_status else 'Fail'}."
+                f"Tests finished with status: {'Pass' if final_status else 'Fail'}."
             )
             self.Status = "Pass" if final_status else "Fail"
-        logger.debug("Tearing down devices after test.")
+        logger.info("Tearing down devices after tests.")
         self.__devices.teardown()
         self.EndTime = self.getCurrentTime()
         self.onSaveData()

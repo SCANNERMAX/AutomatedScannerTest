@@ -138,7 +138,7 @@ class TesterApp(QtWidgets.QApplication):
             (["l", "list"], "List the available tests.", None, None),
             (["s", "serial"], "The serial number on which to test.", "serial", ""),
             (["m", "model"], "The model number on which to test.", "model", ""),
-            (["t", "test"], "The test to run.", "test", None),
+            (["t", "test"], "Select a single test to run.", "test", None),
             (["x", "exitcodes"], "Display exit codes and their meaning.", None, None),
         )
         addOption = self.options.addOption
