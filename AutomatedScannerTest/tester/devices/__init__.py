@@ -27,34 +27,37 @@ class Device(QtCore.QObject):
             - Logs initialization steps, application instance checks, settings retrieval,
               signal connection, and device initialization status.
         """
-        logger.debug(f"Initializing device with name: {name}")
+        logger.debug(f"[Device] Initializing device with name: {name}")
         super().__init__()
         self.Name = name
         app = QtCore.QCoreApplication.instance()
-        logger.debug(f"QCoreApplication instance: {app}")
+        logger.debug(f"[Device] QCoreApplication instance: {app}")
         if (
             app is not None
             and hasattr(app, "get_settings")
+            and hasattr(app, "metaObject")
+            and callable(app.metaObject)
             and app.metaObject().className() == "TesterApp"
         ):
-            logger.debug(f"Application is TesterApp, retrieving settings.")
-            self.__settings = app.get_settings()
-            try:
-                logger.debug(f"Connecting settingsModified signal.")
-                self.__settings.settingsModified.connect(self.onSettingsModified)
-            except AttributeError as e:
-                logger.warning(f"settingsModified signal not found: {e}")
+            logger.debug(f"[Device] Application is TesterApp, retrieving settings.")
+            self._settings = app.get_settings()
+            settings_modified = getattr(self._settings, "settingsModified", None)
+            if callable(getattr(settings_modified, "connect", None)):
+                logger.debug(f"[Device] Connecting settingsModified signal.")
+                settings_modified.connect(self.onSettingsModified)
+            else:
+                logger.warning(f"[Device] settingsModified signal not found in settings object.")
             self.onSettingsModified()
         else:
-            logger.critical(f"TesterApp instance not found. Ensure the application is initialized correctly.")
+            logger.critical(f"[Device] TesterApp instance not found. Ensure the application is initialized correctly.")
             raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
-        logger.debug(f"Device initialized successfully.")
+        logger.debug(f"[Device] Device initialized successfully.")
         # Only call findInstrument if subclass has overridden it
         if type(self).findInstrument is not Device.findInstrument:
-            logger.debug(f"Subclass has overridden findInstrument, calling it.")
+            logger.debug(f"[Device] Subclass has overridden findInstrument, calling it.")
             self.findInstrument()
         else:
-            logger.debug(f"Using base findInstrument implementation.")
+            logger.debug(f"[Device] Using base findInstrument implementation.")
 
     @QtCore.Slot()
     def findInstrument(self):
@@ -66,7 +69,7 @@ class Device(QtCore.QObject):
         Logging:
             - Warns if not implemented in subclass.
         """
-        logger.warning(f"findInstrument() not implemented for this device.")
+        logger.warning(f"[Device] findInstrument() not implemented for this device.")
 
     def getSetting(self, key: str, default=None):
         """
@@ -82,16 +85,17 @@ class Device(QtCore.QObject):
         Logging:
             - Logs retrieval attempts, results, and exceptions.
         """
-        logger.debug(f"Retrieving setting '{key}' with default '{default}'")
-        try:
-            value = self.__settings.getSetting(f"Devices/{self.Name}", key, default)
-            logger.debug(f"Retrieved setting '{key}': {value}")
-            return value
-        except AttributeError as e:
-            logger.warning(f"Settings object not initialized: {e}")
+        logger.debug(f"[Device] Retrieving setting '{key}' with default '{default}'")
+        settings = getattr(self, "_settings", None)
+        if settings is None:
+            logger.warning(f"[Device] Settings object not initialized.")
             return default
+        try:
+            value = settings.getSetting(f"Devices/{self.Name}", key, default)
+            logger.debug(f"[Device] Retrieved setting '{key}': {value}")
+            return value
         except Exception as e:
-            logger.critical(f"Exception while retrieving setting '{key}': {e}")
+            logger.critical(f"[Device] Exception while retrieving setting '{key}': {e}")
             return default
 
     def setSetting(self, key: str, value=None):
@@ -105,14 +109,16 @@ class Device(QtCore.QObject):
         Logging:
             - Logs setting attempts, success, and exceptions.
         """
-        logger.debug(f"Setting '{key}' to '{value}'")
+        logger.debug(f"[Device] Setting '{key}' to '{value}'")
+        settings = getattr(self, "_settings", None)
+        if settings is None:
+            logger.warning(f"[Device] Settings object not initialized.")
+            return
         try:
-            self.__settings.setSetting(f"Devices/{self.Name}", key, value)
-            logger.debug(f"Set setting '{key}' to '{value}' successfully.")
-        except AttributeError as e:
-            logger.warning(f"Settings object not initialized: {e}")
+            settings.setSetting(f"Devices/{self.Name}", key, value)
+            logger.debug(f"[Device] Set setting '{key}' to '{value}' successfully.")
         except Exception as e:
-            logger.critical(f"Exception while setting '{key}' to '{value}': {e}")
+            logger.critical(f"[Device] Exception while setting '{key}' to '{value}': {e}")
 
     @QtCore.Slot()
     def onSettingsModified(self):
@@ -124,4 +130,4 @@ class Device(QtCore.QObject):
         Logging:
             - Logs when settings modification event is triggered.
         """
-        logger.debug(f"Settings modified event triggered.")
+        logger.debug(f"[Device] Settings modified event triggered.")

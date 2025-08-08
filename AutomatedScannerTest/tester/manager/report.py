@@ -3,7 +3,7 @@ from PySide6 import QtCharts, QtCore, QtGui, QtWidgets
 import logging
 
 # Configure Python logging
-__logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 class TestReport:
     """
@@ -36,31 +36,31 @@ class TestReport:
         Raises:
             RuntimeError: If not running inside a TesterApp instance.
         """
-        __logger.debug(f"__init__ called with path: {path}")
+        logger.debug(f"[TestReport] __init__ called with path: {path}")
         app = QtCore.QCoreApplication.instance()
         if app is not None and app.__class__.__name__ == "TesterApp":
-            __logger.debug("TesterApp instance found.")
+            logger.debug(f"[TestReport] TesterApp instance found.")
             self.__settings = app.get_settings()
             self.__settings.settingsModified.connect(self.onSettingsModified)
             self.onSettingsModified()
             self.appName = app.applicationName()
             self.company = app.companyName()
-            __logger.debug("Settings initialized.")
+            logger.debug(f"[TestReport] Settings initialized.")
         else:
-            __logger.critical(
-                "TesterApp instance not found. Ensure the application is initialized correctly."
+            logger.critical(
+                f"[TestReport] TesterApp instance not found. Ensure the application is initialized correctly."
             )
             raise RuntimeError(
                 "TesterApp instance not found. Ensure the application is initialized correctly."
             )
 
         parent_dir = QtCore.QFileInfo(path).dir()
-        __logger.debug(f"Checking if parent directory exists: {parent_dir.absolutePath()}")
+        logger.debug(f"[TestReport] Checking if parent directory exists: {parent_dir.absolutePath()}")
         if not parent_dir.exists():
-            __logger.debug("Parent directory does not exist. Creating...")
+            logger.debug(f"[TestReport] Parent directory does not exist. Creating...")
             parent_dir.mkpath(".")
         self.writer = QtGui.QPdfWriter(path)
-        __logger.debug(f"QPdfWriter created for path: {path}")
+        logger.debug(f"[TestReport] QPdfWriter created for path: {path}")
         self.writer.setPageSize(self.pageSize)
         self.writer.setResolution(self.resolution)
         self.painter = QtGui.QPainter(self.writer)
@@ -68,13 +68,13 @@ class TestReport:
         self.rect = QtCore.QRect(self.painter.window())
         self.pageNumber = 0
         self._font_cache = {}
-        __logger.debug(f"PDF writer initialized at {path}.")
+        logger.debug(f"[TestReport] PDF writer initialized at {path}.")
 
     def onSettingsModified(self) -> None:
         """
         Update page and layout settings from the application settings.
         """
-        __logger.debug("onSettingsModified called.")
+        logger.debug(f"[TestReport] onSettingsModified called.")
         _class = self.__class__.__name__
         s = self.__settings
         _size = s.getSetting(_class, "PageSize", "Letter")
@@ -87,7 +87,7 @@ class TestReport:
         self.footer_height = self.convertInches(
             s.getSetting(_class, "FooterHeight", 0.33)
         )
-        __logger.debug(
+        logger.debug(
             f"Settings: size={_size}, pageWidth={_pageWidth}, pageHeight={_pageHeight}, "
             f"resolution={self.resolution}, buffer={self.buffer}, margin={self.margin}, "
             f"header_height={self.header_height}, footer_height={self.footer_height}"
@@ -96,11 +96,11 @@ class TestReport:
             self.pageSize = QtGui.QPageSize(
                 QtCore.QSizeF(_pageWidth, _pageHeight), QtGui.QPageSize.Unit.Inch
             )
-            __logger.debug(f"Custom page size set: {_pageWidth} x {_pageHeight} inches")
+            logger.debug(f"[TestReport] Custom page size set: {_pageWidth} x {_pageHeight} inches")
         else:
             self.pageSize = QtGui.QPageSize(QtGui.QPageSize.id(_size))
-            __logger.debug(f"Standard page size set: {_size}")
-        __logger.debug("Settings modified and page parameters updated.")
+            logger.debug(f"[TestReport] Standard page size set: {_size}")
+        logger.debug(f"[TestReport] Settings modified and page parameters updated.")
 
     def convertInches(self, inches: float) -> int:
         """
@@ -112,9 +112,9 @@ class TestReport:
         Returns:
             int: The value in pixels.
         """
-        __logger.debug(f"convertInches called with inches={inches}")
+        logger.debug(f"[TestReport] convertInches called with inches={inches}")
         result = int(inches * self.resolution)
-        __logger.debug(f"convertInches result: {result} pixels")
+        logger.debug(f"[TestReport] convertInches result: {result} pixels")
         return result
 
     def insertBlankSpace(self, inches: float) -> None:
@@ -124,20 +124,20 @@ class TestReport:
         Args:
             inches (float): The height of the blank space in inches.
         """
-        __logger.debug(f"insertBlankSpace called with inches={inches}")
+        logger.debug(f"[TestReport] insertBlankSpace called with inches={inches}")
         self.rect.adjust(0, self.convertInches(inches), 0, 0)
-        __logger.debug(f"Blank space inserted. New rect: {self.rect}")
+        logger.debug(f"[TestReport] Blank space inserted. New rect: {self.rect}")
 
     def finish(self) -> None:
         """
         Finalize the PDF report, add a blank page if needed, and end the painter.
         """
-        __logger.debug(f"finish called. Current pageNumber: {self.pageNumber}")
+        logger.debug(f"[TestReport] finish called. Current pageNumber: {self.pageNumber}")
         if self.pageNumber % 2 == 1:
-            __logger.debug("Odd page number detected. Inserting blank page.")
+            logger.debug(f"[TestReport] Odd page number detected. Inserting blank page.")
             self.blankPage()
         self.painter.end()
-        __logger.debug("PDF report finished and painter ended.")
+        logger.debug(f"[TestReport] PDF report finished and painter ended.")
 
     def setFont(
         self,
@@ -159,14 +159,14 @@ class TestReport:
             underline (bool): Underline style.
             strikeOut (bool): Strikeout style.
         """
-        __logger.debug(
+        logger.debug(
             f"setFont called with family={family}, pointSize={pointSize}, bold={bold}, "
             f"italic={italic}, underline={underline}, strikeOut={strikeOut}"
         )
         key = (family, pointSize, bold, italic, underline, strikeOut)
         font = self._font_cache.get(key)
         if font is None:
-            __logger.debug("Font not in cache. Creating new QFont.")
+            logger.debug(f"[TestReport] Font not in cache. Creating new QFont.")
             font = QtGui.QFont(family, pointSize)
             font.setBold(bold)
             font.setItalic(italic)
@@ -174,10 +174,10 @@ class TestReport:
             font.setStrikeOut(strikeOut)
             self._font_cache[key] = font
         else:
-            __logger.debug("Font retrieved from cache.")
+            logger.debug(f"[TestReport] Font retrieved from cache.")
         self.painter.setFont(font)
         self.fontMetrics = self.painter.fontMetrics()
-        __logger.debug(f"Font set: {key}")
+        logger.debug(f"[TestReport] Font set: {key}")
 
     def writeLine(
         self,
@@ -201,8 +201,8 @@ class TestReport:
             strikeOut (bool): Strikeout style.
             halign (QtCore.Qt.AlignmentFlag): Horizontal alignment.
         """
-        __logger.debug(
-            f"writeLine called with text='{text}', pointSize={pointSize}, bold={bold}, "
+        logger.debug(
+            f"[TestReport] writeLine called with text='{text}', pointSize={pointSize}, bold={bold}, "
             f"italic={italic}, underline={underline}, strikeOut={strikeOut}, halign={halign}"
         )
         self.setFont(
@@ -213,9 +213,9 @@ class TestReport:
             strikeOut=strikeOut,
         )
         _text_height = self.fontMetrics.height()
-        __logger.debug(f"Calculated text height: {_text_height}, rect height: {self.rect.height()}")
+        logger.debug(f"[TestReport] Calculated text height: {_text_height}, rect height: {self.rect.height()}")
         if _text_height > self.rect.height():
-            __logger.debug("Not enough space for text. Creating new page.")
+            logger.debug(f"[TestReport] Not enough space for text. Creating new page.")
             self.newPage()
         self.painter.drawText(
             self.rect,
@@ -223,21 +223,21 @@ class TestReport:
             QtGui.QTextOption(halign | QtCore.Qt.AlignmentFlag.AlignTop),
         )
         self.rect.adjust(0, _text_height, 0, 0)
-        __logger.debug(f"Wrote line: '{text}'. New rect: {self.rect}")
+        logger.debug(f"[TestReport] Wrote line: '{text}'. New rect: {self.rect}")
 
     def newPage(self) -> None:
         """
         Start a new page in the PDF, draw header and footer, and update the drawing rectangle.
         """
-        __logger.debug(f"newPage called. Current pageNumber: {self.pageNumber}")
+        logger.debug(f"[TestReport] newPage called. Current pageNumber: {self.pageNumber}")
         self.pageNumber += 1
         if self.pageNumber > 1:
-            __logger.debug("Adding new page to PDF writer.")
+            logger.debug(f"[TestReport] Adding new page to PDF writer.")
             self.writer.newPage()
 
         self.rect = QtCore.QRect(self.painter.window())
         self.rect.adjust(self.margin, self.margin, -self.margin, -self.margin)
-        __logger.debug(f"Page rect after margin adjustment: {self.rect}")
+        logger.debug(f"[TestReport] Page rect after margin adjustment: {self.rect}")
         _header = QtCore.QRect(
             self.rect.left(), self.rect.top(), self.rect.width(), self.header_height
         )
@@ -247,30 +247,30 @@ class TestReport:
             self.rect.width(),
             self.footer_height,
         )
-        __logger.debug(f"Header rect: {_header}, Footer rect: {_footer}")
+        logger.debug(f"[TestReport] Header rect: {_header}, Footer rect: {_footer}")
         self.rect.adjust(
             0, self.header_height + self.buffer, 0, -self.footer_height - self.buffer
         )
-        __logger.debug(f"Content rect after header/footer adjustment: {self.rect}")
+        logger.debug(f"[TestReport] Content rect after header/footer adjustment: {self.rect}")
 
         self.painter.setPen(QtGui.QPen(QtCore.Qt.black, 5))
         self.painter.drawRect(_header)
         _header.adjust(self.buffer, self.buffer, -self.buffer, -self.buffer)
-        __logger.debug(f"Header rect after buffer adjustment: {_header}")
+        logger.debug(f"[TestReport] Header rect after buffer adjustment: {_header}")
 
         _logo_path = ":/rsc/logo.png"
         _logo_image = QtGui.QImage(_logo_path)
-        __logger.debug(f"Loading logo image from: {_logo_path}")
+        logger.debug(f"[TestReport] Loading logo image from: {_logo_path}")
         if not _logo_image.isNull():
-            __logger.debug("Logo image loaded successfully.")
+            logger.debug(f"[TestReport] Logo image loaded successfully.")
             _scaled_logo = _logo_image.scaledToHeight(
                 int(_header.height() / 2), QtCore.Qt.SmoothTransformation
             )
             _logo_top = _header.top() + (_header.height() - _scaled_logo.height()) // 2
             self.painter.drawImage(_header.left(), int(_logo_top), _scaled_logo)
-            __logger.debug(f"Logo drawn at: ({_header.left()}, {_logo_top})")
+            logger.debug(f"[TestReport] Logo drawn at: ({_header.left()}, {_logo_top})")
         else:
-            __logger.debug("Logo image is null. Skipping logo drawing.")
+            logger.debug(f"[TestReport] Logo image is null. Skipping logo drawing.")
 
         self.setFont(pointSize=16, bold=True)
         self.painter.drawText(
@@ -281,7 +281,7 @@ class TestReport:
                 | QtCore.Qt.AlignmentFlag.AlignBottom
             ),
         )
-        __logger.debug(f"App name drawn in header: {self.appName}")
+        logger.debug(f"[TestReport] App name drawn in header: {self.appName}")
 
         self.setFont(pointSize=9)
         self.painter.drawText(
@@ -299,14 +299,14 @@ class TestReport:
                 | QtCore.Qt.AlignmentFlag.AlignBottom
             ),
         )
-        __logger.debug(f"Footer drawn with page number and company: {self.company}")
+        logger.debug(f"[TestReport] Footer drawn with page number and company: {self.company}")
 
         self.painter.setPen(QtGui.QPen(QtCore.Qt.black, 2.0))
         self.painter.drawLine(
             QtCore.QLine(_footer.left(), _footer.top(), _footer.right(), _footer.top())
         )
-        __logger.debug("Footer line drawn.")
-        __logger.debug(f"New page created, page number: {self.pageNumber}")
+        logger.debug(f"[TestReport] Footer line drawn.")
+        logger.debug(f"[TestReport] New page created, page number: {self.pageNumber}")
 
     def titlePage(
         self,
@@ -334,8 +334,8 @@ class TestReport:
             computer_name (str): The computer name.
             status (str): The test status.
         """
-        __logger.debug(
-            f"titlePage called with serial_number={serial_number}, model_name={model_name}, "
+        logger.debug(
+            f"[TestReport] titlePage called with serial_number={serial_number}, model_name={model_name}, "
             f"date={date}, start_time={start_time}, end_time={end_time}, duration={duration}, "
             f"tester_name={tester_name}, computer_name={computer_name}, status={status}"
         )
@@ -365,22 +365,22 @@ class TestReport:
             ("Computer", computer_name),
             ("Status", status),
         ]:
-            __logger.debug(f"Writing summary line: {label}: {value}")
+            logger.debug(f"[TestReport] Writing summary line: {label}: {value}")
             self.writeLine(f"{label}: {value}", pointSize=12, bold=True)
-        __logger.debug("Title page written.")
+        logger.debug(f"[TestReport] Title page written.")
 
     def blankPage(self) -> None:
         """
         Add a blank page to the PDF with a centered message.
         """
-        __logger.debug("blankPage called.")
+        logger.debug(f"[TestReport] blankPage called.")
         self.newPage()
         self.setFont()
         _text_opt = QtGui.QTextOption(QtCore.Qt.AlignCenter)
         self.painter.drawText(
             self.rect, "This page intentionally left blank", _text_opt
         )
-        __logger.debug("Blank page inserted.")
+        logger.debug(f"[TestReport] Blank page inserted.")
 
     def startTest(
         self,
@@ -402,12 +402,12 @@ class TestReport:
             duration (str): The duration.
             status (str): The test status.
         """
-        __logger.debug(
-            f"startTest called with name={name}, serial_number={serial_number}, "
+        logger.debug(
+            f"[TestReport] startTest called with name={name}, serial_number={serial_number}, "
             f"start_time={start_time}, end_time={end_time}, duration={duration}, status={status}"
         )
         if self.pageNumber % 2 == 1:
-            __logger.debug("Odd page number detected before test section. Inserting blank page.")
+            logger.debug(f"[TestReport] Odd page number detected before test section. Inserting blank page.")
             self.blankPage()
         self.newPage()
         self.writeLine(
@@ -421,12 +421,12 @@ class TestReport:
             ("Duration", duration),
             ("Status", status),
         ]:
-            __logger.debug(f"Writing test metadata line: {label}: {value}")
+            logger.debug(f"[TestReport] Writing test metadata line: {label}: {value}")
             self.writeLine(f"{label}: {value}")
         self.writeLine()
         self.writeLine("Results", pointSize=12, bold=True)
         self.writeLine()
-        __logger.debug(f"Test section started for '{name}'.")
+        logger.debug(f"[TestReport] Test section started for '{name}'.")
 
     def plotXYData(
         self,
@@ -458,23 +458,23 @@ class TestReport:
             ymax (float): Maximum Y value.
             yTickCount (int): Number of Y ticks.
         """
-        __logger.debug(
-            f"plotXYData called with title={title}, xlabel={xlabel}, ylabel={ylabel}, path={path}, "
+        logger.debug(
+            f"[TestReport] plotXYData called with title={title}, xlabel={xlabel}, ylabel={ylabel}, path={path}, "
             f"xmin={xmin}, xmax={xmax}, xTickCount={xTickCount}, ymin={ymin}, ymax={ymax}, yTickCount={yTickCount}"
         )
         if not data:
-            __logger.warning("No data provided to plotXYData.")
+            logger.warning(f"[TestReport] No data provided to plotXYData.")
             return
 
         _width = int(self.rect.width())
         _height = int(0.75 * _width)
-        __logger.debug(f"Chart dimensions: width={_width}, height={_height}")
+        logger.debug(f"[TestReport] Chart dimensions: width={_width}, height={_height}")
         if _height > self.rect.height():
-            __logger.debug("Not enough space for chart. Creating new page.")
+            logger.debug(f"[TestReport] Not enough space for chart. Creating new page.")
             self.newPage()
 
         _series = QtCharts.QLineSeries()
-        __logger.debug("Appending data points to QLineSeries.")
+        logger.debug(f"[TestReport] Appending data points to QLineSeries.")
         _series.append((QtCore.QPointF(float(x), float(y)) for x, y in data))
         _series.setPen(QtGui.QPen(QtCore.Qt.blue, 4))
 
@@ -510,29 +510,29 @@ class TestReport:
         _chart.axisY().setTickCount(yTickCount)
 
         _chart.resize(_width, _height)
-        __logger.debug("Chart resized.")
+        logger.debug(f"[TestReport] Chart resized.")
 
         _scene = QtWidgets.QGraphicsScene()
         _scene.addItem(_chart)
         _scene.setSceneRect(QtCore.QRectF(0, 0, _width, _height))
-        __logger.debug("QGraphicsScene created and chart added.")
+        logger.debug(f"[TestReport] QGraphicsScene created and chart added.")
 
         _image = QtGui.QImage(_width, _height, QtGui.QImage.Format_ARGB32)
         _image.fill(QtCore.Qt.white)
         _painter = QtGui.QPainter(_image)
         _scene.render(_painter, QtCore.QRectF(0, 0, _width, _height))
         _painter.end()
-        __logger.debug("Chart rendered to image.")
+        logger.debug(f"[TestReport] Chart rendered to image.")
 
         parent_dir = QtCore.QFileInfo(path).dir()
-        __logger.debug(f"Checking if image parent directory exists: {parent_dir.absolutePath()}")
+        logger.debug(f"[TestReport] Checking if image parent directory exists: {parent_dir.absolutePath()}")
         if not parent_dir.exists():
-            __logger.debug("Image parent directory does not exist. Creating...")
+            logger.debug(f"[TestReport] Image parent directory does not exist. Creating...")
             parent_dir.mkpath(".")
         _image.save(path, None, -1)
-        __logger.debug(f"Chart image saved to: {path}")
+        logger.debug(f"[TestReport] Chart image saved to: {path}")
 
         _target_rect = QtCore.QRectF(self.rect.left(), self.rect.top(), _width, _height)
         self.painter.drawImage(_target_rect, _image)
         self.rect.adjust(0, _height + self.buffer, 0, 0)
-        __logger.debug(f"XY data plot saved to {path} and drawn in report.")
+        logger.debug(f"[TestReport] XY data plot saved to {path} and drawn in report.")

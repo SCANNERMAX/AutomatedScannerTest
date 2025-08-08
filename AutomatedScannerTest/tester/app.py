@@ -73,7 +73,6 @@ class TesterApp(QtWidgets.QApplication):
     """
 
     statusMessage = QtCore.Signal(str)
-    __logger = logger
 
     @property
     def ConfigurationPath(self) -> str:
@@ -173,39 +172,40 @@ class TesterApp(QtWidgets.QApplication):
     def _setup_python_logging(self):
         """
         Sets up Python logging for the application.
+        Logs everything to both file and console for all loggers.
         """
-        log_dir = self.ConfigurationPath
+        log_dir = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.AppLocalDataLocation)
         now = QtCore.QDateTime.currentDateTime()
         timestamp = now.toString("yyyyMMdd_HHmmss")
         log_file_name = f"log_{timestamp}.log"
         log_file_path = QtCore.QDir(log_dir).filePath(log_file_name)
 
-        # Configure root logger
-        self.__logger.setLevel(logging.DEBUG)
-        
+        # Get the root logger
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.DEBUG)
+
         # Detailed formatter for file logging
         file_formatter = self.SafeFormatter(
             "%(asctime)s %(levelname)s: %(message)s [%(qt_file)s:%(qt_line)s - %(qt_func)s] [%(qt_category)s]"
         )
-        
-        # Simple formatter for console logging
-        console_formatter = logging.Formatter("%(levelname)s: %(message)s")
+
+        # Console formatter (can be detailed or simple)
+        console_formatter = self.SafeFormatter("%(levelname)s: %(message)s")
 
         # File handler (logs everything)
         file_handler = RotatingFileHandler(log_file_path, maxBytes=5*1024*1024, backupCount=5, encoding="utf-8")
         file_handler.setFormatter(file_formatter)
         file_handler.setLevel(logging.DEBUG)
-        self.__logger.addHandler(file_handler)
+        root_logger.addHandler(file_handler)
 
-        # Console handler (does not show debug messages)
-        if self.options.isSet("run"):
-            console_handler = logging.StreamHandler()
-            console_handler.setFormatter(console_formatter)
-            console_handler.setLevel(logging.INFO)  # Only show INFO and above
-            self.__logger.addHandler(console_handler)
+        # Console handler (logs everything)
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(console_formatter)
+        console_handler.setLevel(logging.INFO)
+        root_logger.addHandler(console_handler)
 
         self._qt_log_file_path = log_file_path
-        self.__logger.info(f"Python logging initialized. Log file: {log_file_path}")
+        root_logger.info(f"Python logging initialized. Log file: {log_file_path}")
 
         # Delete log files older than 30 days
         dir_obj = QtCore.QDir(log_dir)

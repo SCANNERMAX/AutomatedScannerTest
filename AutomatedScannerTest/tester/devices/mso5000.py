@@ -8,7 +8,7 @@ import time
 
 from tester.devices import Device
 
-logger = logging
+logger = logging.getLogger(__name__)
 
 
 class Source(StrEnum):
@@ -426,6 +426,168 @@ class HrefMode(StrEnum):
     Trigger = "TRIG"
     User = "USER"
 
+class TriggerMode(StrEnum):
+    """
+    Enumeration representing the available trigger modes for the MSO5000 oscilloscope.
+
+    Members:
+        Edge: Edge trigger mode ("EDGE").
+        Pulse: Pulse trigger mode ("PULS").
+        Slope: Slope trigger mode ("SLOP").
+        Video: Video trigger mode ("VID").
+        Pattern: Pattern trigger mode ("PATT").
+        Duration: Duration trigger mode ("DUR").
+        Timeout: Timeout trigger mode ("TIM").
+        Runt: Runt trigger mode ("RUNT").
+        Window: Window trigger mode ("WIND").
+        Delay: Delay trigger mode ("DEL").
+        Setup: Setup and hold trigger mode ("SET").
+        Nedge: Nth edge trigger mode ("NEDG").
+        RS232: RS232 serial trigger mode ("RS232").
+        IIC: I2C serial trigger mode ("IIC").
+        SPI: SPI serial trigger mode ("SPI").
+        CAN: CAN bus trigger mode ("CAN").
+        Flexray: FlexRay bus trigger mode ("FLEX").
+        LIN: LIN bus trigger mode ("LIN").
+        IIS: IIS bus trigger mode ("IIS").
+        M1553: MIL-STD-1553 bus trigger mode ("M1553").
+    """
+    Edge = "EDGE"
+    Pulse = "PULS"
+    Slope = "SLOP"
+    Video = "VID"
+    Pattern = "PATT"
+    Duration = "DUR"
+    Timeout = "TIM"
+    Runt = "RUNT"
+    Window = "WIND"
+    Delay = "DEL"
+    Setup = "SET"
+    Nedge = "NEDG"
+    RS232 = "RS232"
+    IIC = "IIC"
+    SPI = "SPI"
+    CAN = "CAN"
+    Flexray = "FLEX"
+    LIN = "LIN"
+    IIS = "IIS"
+    M1553 = "M1553"
+
+class TriggerCoupling(StrEnum):
+    """
+    Enumeration representing the trigger coupling modes for the MSO5000 oscilloscope.
+
+    Members:
+        AC: AC coupling ("AC").
+        DC: DC coupling ("DC").
+        LfReject: Low frequency reject coupling ("LFR").
+        HfReject: High frequency reject coupling ("HFR").
+    """
+    AC = "AC"
+    DC = "DC"
+    LfReject = "LFR"
+    HfReject = "HFR"
+
+class TriggerStatus(StrEnum):
+    """
+    Enumeration representing the possible trigger statuses for the MSO5000 oscilloscope.
+
+    Members:
+        TD: Triggered and data acquisition is complete ("TD").
+        Wait: Waiting for a trigger event ("WAIT").
+        Run: Actively running and acquiring data ("RUN").
+        Auto: Automatically triggering when no trigger event occurs ("AUTO").
+        Stop: Stopped, no data acquisition in progress ("STOP").
+    """
+    TD = "TD"
+    Wait = "WAIT"
+    Run = "RUN"
+    Auto = "AUTO"
+    Stop = "STOP"
+
+class TriggerSweep(StrEnum):
+    """
+    Enumeration representing the available trigger sweep modes for the MSO5000 oscilloscope.
+
+    Members:
+        Auto: Automatic sweep mode ("AUTO").
+        Normal: Normal sweep mode ("NORM").
+        Single: Single sweep mode ("SING").
+    """
+    Auto = "AUTO"
+    Normal = "NORM"
+    Single = "SING"
+
+class TriggerSource(StrEnum):
+    """
+    Enumeration of possible trigger sources for the MSO5000 oscilloscope.
+
+    Members:
+        D0-D15: Digital channels 0 through 15 ("D0" to "D15").
+        Channel1-Channel4: Analog channels 1 through 4 ("CHAN1" to "CHAN4").
+        AcLine: AC line trigger source ("ACL").
+    """
+    D0 = "D0"
+    D1 = "D1"
+    D2 = "D2"
+    D3 = "D3"
+    D4 = "D4"
+    D5 = "D5"
+    D6 = "D6"
+    D7 = "D7"
+    D8 = "D8"
+    D9 = "D9"
+    D10 = "D10"
+    D11 = "D11"
+    D12 = "D12"
+    D13 = "D13"
+    D14 = "D14"
+    D15 = "D15"
+    Channel1 = "CHAN1"
+    Channel2 = "CHAN2"
+    Channel3 = "CHAN3"
+    Channel4 = "CHAN4"
+    AcLine = "ACL"
+
+class TriggerSlope(StrEnum):
+    """
+    Enumeration representing the possible trigger slope types for the MSO5000 oscilloscope.
+
+    Members:
+        Positive: Trigger on a positive slope ("POS").
+        Negative: Trigger on a negative slope ("NEG").
+        RFall: Trigger on a rapid falling edge ("RFAL").
+    """
+    Positive = "POS"
+    Negative = "NEG"
+    RFall = "RFAL"
+
+class TriggerWhen(StrEnum):
+    """
+    Enumeration representing trigger conditions for the MSO5000 oscilloscope.
+
+    Members:
+        Greater: Trigger when the value is greater than a specified threshold ("GRE").
+        Less: Trigger when the value is less than a specified threshold ("LESS").
+        Gless: Trigger when the value is greater or less than a specified threshold ("GLES").
+    """
+    Greater = "GRE"
+    Less = "LESS"
+    Gless = "GLES"
+
+class TriggerWindow(StrEnum):
+    """
+    Enumeration representing the available trigger windows for the MSO5000 oscilloscope.
+
+    Members:
+        TA: Trigger window A ("TA").
+        TB: Trigger window B ("TB").
+        TAB: Trigger window A and B combined ("TAB").
+    """
+    TA = "TA"
+    TB = "TB"
+    TAB = "TAB"
+
 class WaveformMode(StrEnum):
     """
     Enumeration of available waveform acquisition modes for the MSO5000 device.
@@ -494,23 +656,24 @@ class MSO5000(Device):
         """
         _message = message.strip()
         assert _message, "Message cannot be empty."
-        logger.debug(f'[MSO5000] Sending query: "{_message}"')
+        logger.debug(f"[MSO5000] Sending query: "{_message}"")
         for attempt in range(5):
             try:
-                logger.debug(f'[MSO5000] Attempt {attempt+1}: Querying instrument with "{_message}"')
+                logger.debug(f"[MSO5000] Attempt {attempt+1}: Querying instrument with "{_message}"")
                 _response = self.__instrument.query(_message)
-                logger.debug(f'[MSO5000] Received response: "{_response}"')
+                logger.debug(f"[MSO5000] Received response: "{_response}"")
                 if _response:
-                    logger.debug(f'[MSO5000] Query successful: "{_message}" -> "{_response.rstrip()}"')
+                    logger.debug(f"[MSO5000] Query successful: "{_message}" -> "{_response.rstrip()}"")
                     return _response.rstrip()
                 else:
-                    logger.warning(f'[MSO5000] Empty response for query "{_message}" on attempt {attempt+1}')
+                    logger.warning(f"[MSO5000] Empty response for query "{_message}" on attempt {attempt+1}")
             except pyvisa.errors.VisaIOError as e:
-                logger.error(f'[MSO5000] VISA IO Error on query "{_message}" (attempt {attempt+1}): {e}')
-                QtCore.qDebug("retrying...")
+                logger.error(f"[MSO5000] VISA IO Error on query "{_message}" (attempt {attempt+1}): {e}")
+                logging.debug("retrying...")
                 time.sleep(0.1)
-        logger.critical(f'[MSO5000] Failed to get response for query "{_message}" after 5 attempts')
-        raise AssertionError("Failed to get response.")
+        msg = f'Failed to get response for query "{_message}" after 5 attempts'
+        logger.critical(f"[MSO5000] {msg}")
+        raise AssertionError(msg)
 
     def __write(self, message: str):
         """
@@ -534,23 +697,24 @@ class MSO5000(Device):
         """
         _message = message.strip()
         assert _message, "Message cannot be empty."
-        logger.debug(f'[MSO5000] Preparing to send command: "{_message}"')
+        logger.debug(f"[MSO5000] Preparing to send command: "{_message}"")
         for attempt in range(5):
             try:
                 if attempt == 0:
-                    logger.debug(f'[MSO5000] Sending command (attempt {attempt+1}): "{_message}"')
+                    logger.debug(f"[MSO5000] Sending command (attempt {attempt+1}): "{_message}"")
                 else:
-                    logger.warning(f'[MSO5000] Retrying command (attempt {attempt+1}): "{_message}"')
+                    logger.warning(f"[MSO5000] Retrying command (attempt {attempt+1}): "{_message}"")
                 self.__instrument.write(_message)
-                logger.debug(f'[MSO5000] Command sent successfully: "{_message}"')
+                logger.debug(f"[MSO5000] Command sent successfully: "{_message}"")
                 return
             except pyvisa.errors.VisaIOError as e:
-                logger.error(f'[MSO5000] VISA IO Error on write "{_message}" (attempt {attempt+1}): {e}')
+                logger.error(f"[MSO5000] VISA IO Error on write "{_message}" (attempt {attempt+1}): {e}")
                 if attempt < 4:
-                    logger.debug(f'[MSO5000] Waiting 0.1s before retrying command: "{_message}"')
+                    logger.debug(f"[MSO5000] Waiting 0.1s before retrying command: "{_message}"")
                     time.sleep(0.1)
-        logger.critical(f'[MSO5000] Failed to send command "{_message}" after 5 attempts')
-        raise AssertionError("Failed to send command.")
+        msg = f'Failed to send command "{_message}" after 5 attempts'
+        logger.critical(f"[MSO5000] {msg}")
+        raise AssertionError(msg)
 
     def __get_names(self, channel: str, parameter: str):
         """
@@ -563,7 +727,7 @@ class MSO5000(Device):
         Returns:
             tuple: A tuple containing:
                 - _attribute (str): The cache attribute name, formatted as "_<channel>_<parameter>" in lowercase with colons replaced by underscores.
-                - _parameter (str): The SCPI parameter string, formatted as ":<channel>:<parameter>" or "<channel>:<parameter>" if channel starts with ':'.
+                - _parameter (str): The SCPI parameter string, formatted as ":<channel>:<parameter>" or "<channel>:<parameter>" if channel starts with \":\".
 
         Side Effects:
             Logs detailed debug information about the construction of the parameter and attribute names for traceability.
@@ -572,17 +736,17 @@ class MSO5000(Device):
             >>> self.__get_names("CHANnel1", "SCALe")
             ("_channel1_scale", ":CHANnel1:SCALe")
         """
-        logger.debug(f"[MSO5000] __get_names called with channel='{channel}', parameter='{parameter}'")
+        logger.debug(f"[MSO5000] __get_names called with channel=\"{channel}\", parameter=\"{parameter}\"")
         # Fast path: avoid repeated string operations
         if not channel.startswith(":"):
             _parameter = f":{channel}:{parameter}"
-            logger.debug(f"[MSO5000] Channel does not start with ':', constructed _parameter='{_parameter}'")
+            logger.debug(f"[MSO5000] Channel does not start with \":\", constructed _parameter=\"{_parameter}\"")
         else:
             _parameter = f"{channel}:{parameter}"
-            logger.debug(f"[MSO5000] Channel starts with ':', constructed _parameter='{_parameter}'")
+            logger.debug(f"[MSO5000] Channel starts with \":\", constructed _parameter=\"{_parameter}\"")
         # Use str.translate for fast colon-to-underscore replacement and .lower() in one step
         _attribute = "_" + _parameter.replace(":", "_").lower()
-        logger.debug(f"[MSO5000] Constructed _attribute='{_attribute}' from _parameter='{_parameter}'")
+        logger.debug(f"[MSO5000] Constructed _attribute=\"{_attribute}\" from _parameter=\"{_parameter}\"")
         return _attribute, _parameter
 
     def __get_parameter(self, channel: str, parameter: str, default=None):
@@ -605,39 +769,39 @@ class MSO5000(Device):
             Caches the result for future queries.
             Sends a query to the instrument if the value is not cached.
         """
-        logger.debug(f"[MSO5000] __get_parameter called with channel='{channel}', parameter='{parameter}', default='{default}'")
+        logger.debug(f"[MSO5000] __get_parameter called with channel=\"{channel}\", parameter=\"{parameter}\", default=\"{default}\"")
         assert channel, "Channel cannot be empty."
         assert parameter, "Parameter cannot be empty."
         _attribute, _parameter = self.__get_names(channel, parameter)
-        logger.debug(f"[MSO5000] Computed cache attribute='{_attribute}', SCPI parameter='{_parameter}'")
+        logger.debug(f"[MSO5000] Computed cache attribute=\"{_attribute}\", SCPI parameter=\"{_parameter}\"")
         _cache = self.__cache
         _value = _cache.get(_attribute)
         if _value is not None:
-            logger.debug(f"[MSO5000] Cache hit for attribute='{_attribute}', returning value='{_value}'")
+            logger.debug(f"[MSO5000] Cache hit for attribute=\"{_attribute}\", returning value=\"{_value}\"")
             return _value
-        logger.debug(f"[MSO5000] Cache miss for attribute='{_attribute}', querying instrument with '{_parameter}?'")
+        logger.debug(f"[MSO5000] Cache miss for attribute=\"{_attribute}\", querying instrument with \"{_parameter}?\"")
         try:
             _query_result = self.__query(f"{_parameter}?")
-            logger.debug(f"[MSO5000] Received query result='{_query_result}' for parameter='{_parameter}'")
+            logger.debug(f"[MSO5000] Received query result=\"{_query_result}\" for parameter=\"{_parameter}\"")
         except Exception as e:
-            logger.error(f"[MSO5000] Exception during query for parameter='{_parameter}': {e}")
+            logger.error(f"[MSO5000] Exception during query for parameter=\"{_parameter}\": {e}")
             raise
         if default is not None:
             try:
                 if isinstance(default, bool):
                     _value = _query_result.strip() in ("1", "ON", "TRUE")
-                    logger.debug(f"[MSO5000] Interpreted boolean value='{_value}' from query result='{_query_result}'")
+                    logger.debug(f"[MSO5000] Interpreted boolean value=\"{_value}\" from query result=\"{_query_result}\"")
                 else:
                     _value = type(default)(_query_result)
-                    logger.debug(f"[MSO5000] Casted query result='{_query_result}' to type='{type(default).__name__}', value='{_value}'")
+                    logger.debug(f"[MSO5000] Casted query result=\"{_query_result}\" to type=\"{type(default).__name__}\", value=\"{_value}\"")
             except Exception as e:
-                logger.warning(f"[MSO5000] Failed to cast query result='{_query_result}' to type='{type(default).__name__}': {e}. Using default='{default}'")
+                logger.warning(f"[MSO5000] Failed to cast query result=\"{_query_result}\" to type=\"{type(default).__name__}\": {e}. Using default=\"{default}\"")
                 _value = default
         else:
             _value = _query_result
-            logger.debug(f"[MSO5000] No default provided, using raw query result='{_value}'")
+            logger.debug(f"[MSO5000] No default provided, using raw query result=\"{_value}\"")
         _cache[_attribute] = _value
-        logger.debug(f"[MSO5000] Cached value for attribute='{_attribute}': '{_value}'")
+        logger.debug(f"[MSO5000] Cached value for attribute=\"{_attribute}\": \"{_value}\"")
         return _value
 
     def __set_parameter(self, channel: str, parameter: str, value):
@@ -653,43 +817,43 @@ class MSO5000(Device):
             None
 
         Raises:
-            AssertionError: If 'channel' or 'parameter' is empty.
+            AssertionError: If \"channel\" or \"parameter\" is empty.
 
         Side Effects:
             Sends a command to the instrument to set the parameter.
             Updates the internal cache with the new value.
             Skips sending the command if the cached value matches the new value.
         """
-        logger.debug(f"[MSO5000] __set_parameter called with channel='{channel}', parameter='{parameter}', value='{value}'")
+        logger.debug(f"[MSO5000] __set_parameter called with channel=\"{channel}\", parameter=\"{parameter}\", value=\"{value}\"")
         assert channel, "Channel cannot be empty."
         assert parameter, "Parameter cannot be empty."
         _attribute, _parameter = self.__get_names(channel, parameter)
-        logger.debug(f"[MSO5000] Computed cache attribute='{_attribute}', SCPI parameter='{_parameter}'")
+        logger.debug(f"[MSO5000] Computed cache attribute=\"{_attribute}\", SCPI parameter=\"{_parameter}\"")
         _cache = self.__cache
         _cached_value = _cache.get(_attribute)
-        logger.debug(f"[MSO5000] Cached value for attribute='{_attribute}': '{_cached_value}'")
+        logger.debug(f"[MSO5000] Cached value for attribute=\"{_attribute}\": \"{_cached_value}\"")
         # Fast path: avoid unnecessary str conversion if types match and are simple
         if _cached_value is not None:
             if type(_cached_value) == type(value) and _cached_value == value:
-                logger.debug(f"[MSO5000] Skipping set for '{_parameter}' as cached value matches new value: '{value}'")
+                logger.debug(f"[MSO5000] Skipping set for \"{_parameter}\" as cached value matches new value: \"{value}\"")
                 return
             # For float comparison, use a tolerance to avoid precision issues
             if isinstance(_cached_value, float) and isinstance(value, float):
                 if abs(_cached_value - value) < 1e-9:
-                    logger.debug(f"[MSO5000] Skipping set for '{_parameter}' as cached float value matches new value within tolerance: '{value}'")
+                    logger.debug(f"[MSO5000] Skipping set for \"{_parameter}\" as cached float value matches new value within tolerance: \"{value}\"")
                     return
             # For bool comparison, allow int equivalence
             if isinstance(_cached_value, bool) and isinstance(value, (bool, int)):
                 if bool(_cached_value) == bool(value):
-                    logger.debug(f"[MSO5000] Skipping set for '{_parameter}' as cached bool value matches new value: '{value}'")
+                    logger.debug(f"[MSO5000] Skipping set for \"{_parameter}\" as cached bool value matches new value: \"{value}\"")
                     return
             # Fallback to string comparison for other types
             if str(_cached_value) == str(value):
-                logger.debug(f"[MSO5000] Skipping set for '{_parameter}' as cached string value matches new value: '{value}'")
+                logger.debug(f"[MSO5000] Skipping set for \"{_parameter}\" as cached string value matches new value: \"{value}\"")
                 return
-        logger.debug(f"[MSO5000] Sending command to instrument: '{_parameter} {value}'")
+        logger.debug(f"[MSO5000] Sending command to instrument: \"{_parameter} {value}\"")
         self.__write(f"{_parameter} {value}")
-        logger.debug(f"[MSO5000] Updating cache for attribute='{_attribute}' with value='{value}'")
+        logger.debug(f"[MSO5000] Updating cache for attribute=\"{_attribute}\" with value=\"{value}\"")
         _cache[_attribute] = value
 
     def findInstrument(self):
@@ -718,17 +882,17 @@ class MSO5000(Device):
         found = False
         for _resource_name in _resource_manager.list_resources():
             try:
-                QtCore.qInfo(f"Found device: {_resource_name}")
+                logging.debug(f"Found device: {_resource_name}")
                 _instrument = _resource_manager.open_resource(_resource_name)
                 idn = _instrument.query("*IDN?").strip()
                 # Example IDN: "RIGOL TECHNOLOGIES,MSO5074,DS5A123456789,00.01.01"
                 if "RIGOL" in idn and "MSO5" in idn:
-                    QtCore.qInfo(f"Found MSO5000 oscilloscope: {_resource_name}")
+                    logging.debug(f"Found MSO5000 oscilloscope: {_resource_name}")
                     self.__instrument = _instrument
                     found = True
                     break
             except Exception as e:
-                QtCore.qDebug(f"Error opening resource {_resource_name}: {e}")
+                logging.debug(f"Error opening resource {_resource_name}: {e}")
         assert found, "No oscilloscope found."
         # Copy all public members of self.__instrument to self
         try:
@@ -743,31 +907,110 @@ class MSO5000(Device):
                     setattr(self, attr, getattr(self.__instrument, attr))
                     self._set_setting(attr, getattr(self.__instrument, attr))
                 except Exception as e:
-                    QtCore.qDebug(f"Error copying attribute {attr}: {e}")
+                    logging.debug(f"Error copying attribute {attr}: {e}")
         except Exception as e:
-            QtCore.qDebug(f"Error copying instrument members: {e}")
-        QtCore.qInfo(
+            logging.debug(f"Error copying instrument members: {e}")
+        logging.info(
             f"Connected to {getattr(self, 'model_name', 'Unknown')} oscilloscope."
         )
 
     # The device command system
 
     def autoscale(self):
+        """
+        Executes the autoscale command on the MSO5000 oscilloscope.
+
+        This method sends the "AUToscale" SCPI command to the instrument, which automatically adjusts
+        the vertical and horizontal settings to optimally display the input signal.
+
+        Side Effects:
+            - Logs the execution of the autoscale command.
+            - Sends the "AUToscale" command to the oscilloscope.
+
+        Example:
+            >>> device.autoscale()
+        """
+        logging.debug("[MSO5000] Executing autoscale command.")
         self.__write("AUToscale")
 
     def clear(self):
+        """
+        Clears the oscilloscope's display and resets measurement results.
+
+        This method sends the "CLEar" SCPI command to the MSO5000 instrument, which clears the current display and resets any measurement results or status indicators.
+
+        Side Effects:
+            - Logs the execution of the clear command.
+            - Sends the "CLEar" command to the oscilloscope.
+
+        Example:
+            >>> device.clear()
+        """
+        logging.debug("[MSO5000] Executing clear command.")
         self.__write("CLEar")
 
     def run(self):
+        """
+        Starts continuous data acquisition on the MSO5000 oscilloscope.
+
+        This method sends the ":RUN" SCPI command to the instrument, initiating continuous waveform acquisition.
+
+        Side Effects:
+            - Logs the execution of the run command.
+            - Sends the ":RUN" command to the oscilloscope.
+
+        Example:
+            >>> device.run()
+        """
+        logging.debug("[MSO5000] Executing run command.")
         self.__write(":RUN")
 
     def stop(self):
+        """
+        Stops data acquisition on the MSO5000 oscilloscope.
+
+        This method sends the ":STOP" SCPI command to the instrument, halting waveform acquisition.
+
+        Side Effects:
+            - Logs the execution of the stop command.
+            - Sends the ":STOP" command to the oscilloscope.
+
+        Example:
+            >>> device.stop()
+        """
+        logging.debug("[MSO5000] Executing stop command.")
         self.__write(":STOP")
 
     def single(self):
+        """
+        Initiates a single acquisition cycle on the MSO5000 oscilloscope.
+
+        This method sends the ":SINGle" SCPI command to the instrument, causing it to acquire a single waveform and then stop.
+
+        Side Effects:
+            - Logs the execution of the single command.
+            - Sends the ":SINGle" command to the oscilloscope.
+
+        Example:
+            >>> device.single()
+        """
+        logging.debug("[MSO5000] Executing single command.")
         self.__write(":SINGle")
 
     def force_trigger(self):
+        """
+        Forces a trigger event on the MSO5000 oscilloscope.
+
+        This method sends the ":TFORce" SCPI command to the instrument, manually triggering data acquisition regardless of the current trigger conditions.
+
+        Side Effects:
+            - Logs the execution of the force trigger command.
+            - Sends the ":TFORce" command to the oscilloscope.
+
+        Example:
+            >>> device.force_trigger()
+        """
+        logging.debug("[MSO5000] Executing force trigger command.")
         self.__write(":TFORce")
 
     # The :ACQ commands are used to set the memory depth of the
@@ -782,37 +1025,96 @@ class MSO5000(Device):
             averages (int): The number of averages to set. Must be a power of two between 2 and 65536.
 
         Raises:
-            AssertionError: If 'averages' is not a power of two or is outside the valid range [2, 65536].
+            AssertionError: If averages is not a power of two between 2 and 65536.
 
         Side Effects:
-            Updates the acquisition averages parameter on the device.
+            Updates the acquisition averaging setting on the oscilloscope.
         """
-        if averages < 2 or averages > 65536 or (averages & (averages - 1)) != 0:
+        logging.debug(f"[MSO5000] Setting acquire averages: {averages}")
+        if not (2 <= averages <= 65536 and averages & (averages - 1) == 0):
+            logger.error(f"[MSO5000] Invalid averages value: {averages}")
             raise AssertionError("Averages must be a power of two between 2 and 65536.")
         self.__set_parameter("ACQuire", "AVERages", averages)
 
     def set_acquire_memory_depth(self, depth: MemoryDepth):
-        assert (
-            depth in MSO5000.MemoryDepth
-        ), "Memory depth must be one of the MemoryDepth enum values."
+        """
+        Sets the memory depth for waveform acquisition on the MSO5000 oscilloscope.
+
+        Args:
+            depth (MemoryDepth): The desired memory depth, must be a member of the MemoryDepth enum.
+
+        Raises:
+            AssertionError: If depth is not a valid MemoryDepth enum value.
+
+        Side Effects:
+            Updates the acquisition memory depth setting on the oscilloscope.
+        """
+        logging.debug(f"[MSO5000] Setting acquire memory depth: {depth}")
+        if depth not in MemoryDepth:
+            logger.error(f"[MSO5000] Invalid memory depth: {depth}")
+            raise AssertionError("Memory depth must be one of the MemoryDepth enum values.")
         self.__set_parameter("ACQuire", "MDEPth", depth.value)
 
     def set_acquire_type(self, type_: AcquireType):
-        assert (
-            type_ in MSO5000.AcquireType
-        ), "Acquire type must be one of the AcquireType enum values."
+        """
+        Sets the acquisition type for the MSO5000 oscilloscope.
+
+        Args:
+            type_ (AcquireType): The acquisition type to set, must be a member of the AcquireType enum.
+
+        Raises:
+            AssertionError: If type_ is not a valid AcquireType enum value.
+
+        Side Effects:
+            Updates the acquisition type setting on the oscilloscope.
+        """
+        logging.debug(f"[MSO5000] Setting acquire type: {type_}")
+        if type_ not in AcquireType:
+            logger.error(f"[MSO5000] Invalid acquire type: {type_}")
+            raise AssertionError("Acquire type must be one of the AcquireType enum values.")
         self.__set_parameter("ACQuire", "TYPE", type_.value)
 
     def get_sample_rate(self) -> float:
+        """
+        Retrieves the current analog sample rate from the MSO5000 oscilloscope.
+
+        Returns:
+            float: The analog sample rate in samples per second.
+        """
+        logging.debug("[MSO5000] Getting sample rate")
         return self.__get_parameter("ACQuire", "SRATe", 0.0)
 
     def get_digital_sample_rate(self) -> float:
+        """
+        Retrieves the current digital sample rate from the MSO5000 oscilloscope.
+
+        Returns:
+            float: The digital sample rate in samples per second.
+        """
+        logging.debug("[MSO5000] Getting digital sample rate")
         return self.__get_parameter("ACQuire", "LA:SRATe", 0.0)
 
     def get_digital_memory_depth(self) -> float:
+        """
+        Retrieves the current digital memory depth from the MSO5000 oscilloscope.
+
+        Returns:
+            float: The digital memory depth in points.
+        """
+        logging.debug("[MSO5000] Getting digital memory depth")
         return self.__get_parameter("ACQuire", "LA:MDEPth", 0.0)
 
     def set_acquire_antialiasing(self, state: bool):
+        """
+        Enables or disables antialiasing for waveform acquisition on the MSO5000 oscilloscope.
+
+        Args:
+            state (bool): True to enable antialiasing, False to disable.
+
+        Side Effects:
+            Updates the antialiasing setting on the oscilloscope.
+        """
+        logging.debug(f"[MSO5000] Setting acquire antialiasing: {state}")
         self.__set_parameter("ACQuire", "AALias", state)
 
     def acquire_settings(
@@ -822,8 +1124,21 @@ class MSO5000(Device):
         type_: AcquireType = AcquireType.Normal,
         antialiasing: bool = False,
     ):
+        """
+        Applies a set of acquisition settings to the MSO5000 oscilloscope.
+
+        Args:
+            averages (int, optional): Number of averages (used if type_ is AcquireType.Averages). Default is 2.
+            memory_depth (MemoryDepth, optional): Memory depth setting. Default is MemoryDepth.Auto.
+            type_ (AcquireType, optional): Acquisition type. Default is AcquireType.Normal.
+            antialiasing (bool, optional): Enable or disable antialiasing. Default is False.
+
+        Side Effects:
+            Updates the oscilloscope acquisition settings.
+        """
+        logging.debug(f"[MSO5000] Applying acquire settings: averages={averages}, memory_depth={memory_depth}, type_={type_}, antialiasing={antialiasing}")
         self.set_acquire_type(type_)
-        if type_ == MSO5000.AcquireType.Averages:
+        if type_ == AcquireType.Averages:
             self.set_acquire_averages(averages)
         self.set_acquire_memory_depth(memory_depth)
         self.set_acquire_antialiasing(antialiasing)
@@ -837,140 +1152,337 @@ class MSO5000(Device):
     # parameters of the analog channel.
 
     def set_channel_bandwidth_limit(self, channel: int, limit: BandwidthLimit):
+        """
+        Sets the bandwidth limit for a specified analog channel on the MSO5000 oscilloscope.
+
+        The valid bandwidth limits depend on the oscilloscope model:
+            - MSO5354: All BandwidthLimit enum values are valid.
+            - MSO5204: Only Off, 20M, and 100M are valid.
+            - Other models: Only Off and 20M are valid.
+
+        Args:
+            channel (int): The analog channel number (1-4).
+            limit (BandwidthLimit): The desired bandwidth limit, must be a member of BandwidthLimit.
+
+        Raises:
+            AssertionError: If channel is not in [1, 4] or limit is not valid for the model.
+
+        Side Effects:
+            Updates the bandwidth limit setting for the specified channel.
+        """
+        logger.debug(f"[MSO5000] set_channel_bandwidth_limit called with channel={channel}, limit={limit}")
         assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
-        if self.model_name == "MSO5354":
-            _valid = MSO5000.BandwidthLimit.__members__.values()
-        elif self.model_name == "MSO5204":
+        if getattr(self, "model_name", None) == "MSO5354":
+            _valid = list(BandwidthLimit)
+            logger.debug(f"[MSO5000] Model MSO5354 detected, valid limits: {_valid}")
+        elif getattr(self, "model_name", None) == "MSO5204":
             _valid = [
-                MSO5000.BandwidthLimit.Off,
-                MSO5000.BandwidthLimit._20M,
-                MSO5000.BandwidthLimit._100M,
+                BandwidthLimit.Off,
+                BandwidthLimit._20M,
+                BandwidthLimit._100M,
             ]
+            logger.debug(f"[MSO5000] Model MSO5204 detected, valid limits: {_valid}")
         else:
-            _valid = [MSO5000.BandwidthLimit.Off, MSO5000.BandwidthLimit._20M]
+            _valid = [BandwidthLimit.Off, BandwidthLimit._20M]
+            logger.debug(f"[MSO5000] Default model detected, valid limits: {_valid}")
         assert (
             limit in _valid
         ), "Bandwidth limit must be one of the BandwidthLimit enum values."
+        logger.debug(f"[MSO5000] Setting bandwidth limit for channel {channel} to {limit.value}")
         self.__set_parameter(f"CHANnel{channel}", "BWLimit", limit.value)
 
-    def set_channel_coupling(self, channel: int, coupling: Coupling):
-        assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
-        assert (
-            coupling in MSO5000.Coupling
-        ), "Coupling must be one of the Coupling enum values."
-        self.__set_parameter(f"CHANnel{channel}", "COUPling", coupling.value)
+        def set_channel_coupling(self, channel: int, coupling: Coupling):
+            """
+            Sets the coupling mode for a specified analog channel.
 
-    def set_channel_display(self, channel: int, display: bool):
-        assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
-        self.__set_parameter(f"CHANnel{channel}", "DISPlay", display)
+            Args:
+                channel (int): The analog channel number (1-4).
+                coupling (Coupling): The desired coupling mode, must be a member of Coupling.
 
-    def set_channel_invert(self, channel: int, invert: bool):
-        assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
-        self.__set_parameter(f"CHANnel{channel}", "INVert", invert)
+            Raises:
+                AssertionError: If channel is not in [1, 4] or coupling is not valid.
 
-    def set_channel_offset(self, channel: int, offset: float):
-        assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
-        _minimum = -10
-        _maximum = 100
-        assert (
-            offset >= _minimum and offset <= _maximum
-        ), f"Offset must be between {_minimum} and {_maximum}."
-        self.__set_parameter(f"CHANnel{channel}", "OFFSet", offset)
+            Side Effects:
+                Updates the coupling setting for the specified channel.
+            """
+            logger.debug(f"[MSO5000] set_channel_coupling called with channel={channel}, coupling={coupling}")
+            assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
+            assert (
+                coupling in Coupling
+            ), "Coupling must be one of the Coupling enum values."
+            logger.debug(f"[MSO5000] Setting coupling for channel {channel} to {coupling.value}")
+            self.__set_parameter(f"CHANnel{channel}", "COUPling", coupling.value)
 
-    def set_channel_calibration_time(self, channel: int, time: float):
-        assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
-        assert (
-            time >= -100e-9 and time <= 100e-9
-        ), "Delay calibration time must be between -100e-9 and 100e-9 seconds."
-        self.__set_parameter(f"CHANnel{channel}", "TCALibrate", time)
+        def set_channel_display(self, channel: int, display: bool):
+            """
+            Sets the display state for a specified analog channel.
 
-    def set_channel_scale(self, channel: int, scale: float):
-        assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
-        _minimum = 500e-6
-        _maximum = 10
-        assert (
-            scale >= _minimum and scale <= _maximum
-        ), f"Scale must be between {_minimum} and {_maximum}."
-        self.__set_parameter(f"CHANnel{channel}", "SCALe", scale)
+            Args:
+                channel (int): The analog channel number (1-4).
+                display (bool): True to display the channel, False to hide.
 
-    def set_channel_probe(self, channel: int, probe: float):
-        assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
-        assert probe in [
-            0.0001,
-            0.0002,
-            0.0005,
-            0.001,
-            0.002,
-            0.005,
-            0.01,
-            0.02,
-            0.05,
-            0.1,
-            0.2,
-            0.5,
-            1,
-            2,
-            5,
-            10,
-            20,
-            50,
-            100,
-            200,
-            500,
-            1000,
-            2000,
-            5000,
-            10000,
-            20000,
-            50000,
-        ], "Probe must be one of the valid values."
-        self.__set_parameter(f"CHANnel{channel}", "PROBe", probe)
+            Raises:
+                AssertionError: If channel is not in [1, 4].
 
-    def set_channel_units(self, channel: int, units: Units):
-        assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
-        assert units in MSO5000.Units, "Units must be one of the Units enum values."
-        self.__set_parameter(f"CHANnel{channel}", "UNITs", units.value)
+            Side Effects:
+                Updates the display state for the specified channel.
+            """
+            logger.debug(f"[MSO5000] set_channel_display called with channel={channel}, display={display}")
+            assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
+            logger.debug(f"[MSO5000] Setting display for channel {channel} to {display}")
+            self.__set_parameter(f"CHANnel{channel}", "DISPlay", display)
 
-    def set_channel_vernier(self, channel: int, vernier: bool):
-        assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
-        self.__set_parameter(f"CHANnel{channel}", "VERNier", vernier)
+        def set_channel_invert(self, channel: int, invert: bool):
+            """
+            Sets the invert state for a specified analog channel.
 
-    def set_channel_position(self, channel: int, position: float):
-        assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
-        assert (
-            position >= -100 and position <= 100
-        ), "Position must be between -100 and 100."
-        self.__set_parameter(f"CHANnel{channel}", "POSition", position)
+            Args:
+                channel (int): The analog channel number (1-4).
+                invert (bool): True to invert the channel signal, False otherwise.
 
-    def channel_settings(
-        self,
-        channel: int,
-        bandwidth_limit: BandwidthLimit = BandwidthLimit.Off,
-        coupling: Coupling = Coupling.DC,
-        display: bool = False,
-        invert: bool = False,
-        offset: float = 0,
-        delay_calibration_time: float = 0,
-        scale: float = 100e-3,
-        probe: float = 1,
-        units: Units = Units.Voltage,
-        vernier: bool = False,
-        position: float = 0,
-    ):
-        self.set_channel_display(channel, display)
-        time.sleep(1)
-        self.set_channel_probe(channel, probe)
-        self.set_channel_scale(channel, scale)
-        self.set_channel_bandwidth_limit(channel, bandwidth_limit)
-        self.set_channel_coupling(channel, coupling)
-        self.set_channel_invert(channel, invert)
-        self.set_channel_offset(channel, offset)
-        self.set_channel_calibration_time(channel, delay_calibration_time)
-        self.set_channel_units(channel, units)
-        self.set_channel_vernier(channel, vernier)
-        self.set_channel_position(channel, position)
+            Raises:
+                AssertionError: If channel is not in [1, 4].
 
-    # The :COUNter commands are used to set the relevant parameters of the built in counter.
+            Side Effects:
+                Updates the invert state for the specified channel.
+            """
+            logger.debug(f"[MSO5000] set_channel_invert called with channel={channel}, invert={invert}")
+            assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
+            logger.debug(f"[MSO5000] Setting invert for channel {channel} to {invert}")
+            self.__set_parameter(f"CHANnel{channel}", "INVert", invert)
+
+        def set_channel_offset(self, channel: int, offset: float):
+            """
+            Sets the vertical offset for a specified analog channel.
+
+            Args:
+                channel (int): The analog channel number (1-4).
+                offset (float): The offset value in volts, must be between -10 and 100.
+
+            Raises:
+                AssertionError: If channel is not in [1, 4] or offset is out of range.
+
+            Side Effects:
+                Updates the offset setting for the specified channel.
+            """
+            logger.debug(f"[MSO5000] set_channel_offset called with channel={channel}, offset={offset}")
+            assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
+            _minimum = -10
+            _maximum = 100
+            assert (
+                offset >= _minimum and offset <= _maximum
+            ), f"Offset must be between {_minimum} and {_maximum}."
+            logger.debug(f"[MSO5000] Setting offset for channel {channel} to {offset}")
+            self.__set_parameter(f"CHANnel{channel}", "OFFSet", offset)
+
+        def set_channel_calibration_time(self, channel: int, time: float):
+            """
+            Sets the delay calibration time for a specified analog channel.
+
+            Args:
+                channel (int): The analog channel number (1-4).
+                time (float): The calibration time in seconds, must be between -100e-9 and 100e-9.
+
+            Raises:
+                AssertionError: If channel is not in [1, 4] or time is out of range.
+
+            Side Effects:
+                Updates the calibration time for the specified channel.
+            """
+            logger.debug(f"[MSO5000] set_channel_calibration_time called with channel={channel}, time={time}")
+            assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
+            assert (
+                time >= -100e-9 and time <= 100e-9
+            ), "Delay calibration time must be between -100e-9 and 100e-9 seconds."
+            logger.debug(f"[MSO5000] Setting calibration time for channel {channel} to {time}")
+            self.__set_parameter(f"CHANnel{channel}", "TCALibrate", time)
+
+        def set_channel_scale(self, channel: int, scale: float):
+            """
+            Sets the vertical scale for a specified analog channel.
+
+            Args:
+                channel (int): The analog channel number (1-4).
+                scale (float): The scale value in volts/div, must be between 500e-6 and 10.
+
+            Raises:
+                AssertionError: If channel is not in [1, 4] or scale is out of range.
+
+            Side Effects:
+                Updates the scale setting for the specified channel.
+            """
+            logger.debug(f"[MSO5000] set_channel_scale called with channel={channel}, scale={scale}")
+            assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
+            _minimum = 500e-6
+            _maximum = 10
+            assert (
+                scale >= _minimum and scale <= _maximum
+            ), f"Scale must be between {_minimum} and {_maximum}."
+            logger.debug(f"[MSO5000] Setting scale for channel {channel} to {scale}")
+            self.__set_parameter(f"CHANnel{channel}", "SCALe", scale)
+
+        def set_channel_probe(self, channel: int, probe: float):
+            """
+            Sets the probe attenuation factor for a specified analog channel.
+
+            Args:
+                channel (int): The analog channel number (1-4).
+                probe (float): The probe attenuation factor, must be one of the valid values.
+
+            Raises:
+                AssertionError: If channel is not in [1, 4] or probe is not valid.
+
+            Side Effects:
+                Updates the probe setting for the specified channel.
+            """
+            logger.debug(f"[MSO5000] set_channel_probe called with channel={channel}, probe={probe}")
+            assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
+            _valid_probes = [
+                0.0001,
+                0.0002,
+                0.0005,
+                0.001,
+                0.002,
+                0.005,
+                0.01,
+                0.02,
+                0.05,
+                0.1,
+                0.2,
+                0.5,
+                1,
+                2,
+                5,
+                10,
+                20,
+                50,
+                100,
+                200,
+                500,
+                1000,
+                2000,
+                5000,
+                10000,
+                20000,
+                50000,
+            ]
+            assert probe in _valid_probes, "Probe must be one of the valid values."
+            logger.debug(f"[MSO5000] Setting probe for channel {channel} to {probe}")
+            self.__set_parameter(f"CHANnel{channel}", "PROBe", probe)
+
+        def set_channel_units(self, channel: int, units: Units):
+            """
+            Sets the measurement units for a specified analog channel.
+
+            Args:
+                channel (int): The analog channel number (1-4).
+                units (Units): The desired measurement units, must be a member of Units.
+
+            Raises:
+                AssertionError: If channel is not in [1, 4] or units is not valid.
+
+            Side Effects:
+                Updates the units setting for the specified channel.
+            """
+            logger.debug(f"[MSO5000] set_channel_units called with channel={channel}, units={units}")
+            assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
+            assert units in Units, "Units must be one of the Units enum values."
+            logger.debug(f"[MSO5000] Setting units for channel {channel} to {units.value}")
+            self.__set_parameter(f"CHANnel{channel}", "UNITs", units.value)
+
+        def set_channel_vernier(self, channel: int, vernier: bool):
+            """
+            Sets the vernier mode for a specified analog channel.
+
+            Args:
+                channel (int): The analog channel number (1-4).
+                vernier (bool): True to enable vernier mode, False otherwise.
+
+            Raises:
+                AssertionError: If channel is not in [1, 4].
+
+            Side Effects:
+                Updates the vernier setting for the specified channel.
+            """
+            logger.debug(f"[MSO5000] set_channel_vernier called with channel={channel}, vernier={vernier}")
+            assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
+            logger.debug(f"[MSO5000] Setting vernier for channel {channel} to {vernier}")
+            self.__set_parameter(f"CHANnel{channel}", "VERNier", vernier)
+
+        def set_channel_position(self, channel: int, position: float):
+            """
+            Sets the vertical position for a specified analog channel.
+
+            Args:
+                channel (int): The analog channel number (1-4).
+                position (float): The position value, must be between -100 and 100.
+
+            Raises:
+                AssertionError: If channel is not in [1, 4] or position is out of range.
+
+            Side Effects:
+                Updates the position setting for the specified channel.
+            """
+            logger.debug(f"[MSO5000] set_channel_position called with channel={channel}, position={position}")
+            assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
+            assert (
+                position >= -100 and position <= 100
+            ), "Position must be between -100 and 100."
+            logger.debug(f"[MSO5000] Setting position for channel {channel} to {position}")
+            self.__set_parameter(f"CHANnel{channel}", "POSition", position)
+
+        def channel_settings(
+            self,
+            channel: int,
+            bandwidth_limit: BandwidthLimit = BandwidthLimit.Off,
+            coupling: Coupling = Coupling.DC,
+            display: bool = False,
+            invert: bool = False,
+            offset: float = 0,
+            delay_calibration_time: float = 0,
+            scale: float = 100e-3,
+            probe: float = 1,
+            units: Units = Units.Voltage,
+            vernier: bool = False,
+            position: float = 0,
+        ):
+            """
+            Applies a set of configuration settings to a specified analog channel.
+
+            Args:
+                channel (int): The analog channel number (1-4).
+                bandwidth_limit (BandwidthLimit, optional): Bandwidth limit setting.
+                coupling (Coupling, optional): Coupling mode.
+                display (bool, optional): Display state.
+                invert (bool, optional): Invert state.
+                offset (float, optional): Vertical offset.
+                delay_calibration_time (float, optional): Delay calibration time.
+                scale (float, optional): Vertical scale.
+                probe (float, optional): Probe attenuation factor.
+                units (Units, optional): Measurement units.
+                vernier (bool, optional): Vernier mode.
+                position (float, optional): Vertical position.
+
+            Raises:
+                AssertionError: If any parameter is out of valid range.
+
+            Side Effects:
+                Updates all specified settings for the channel.
+            """
+            logger.debug(f"[MSO5000] channel_settings called with channel={channel}, bandwidth_limit={bandwidth_limit}, coupling={coupling}, display={display}, invert={invert}, offset={offset}, delay_calibration_time={delay_calibration_time}, scale={scale}, probe={probe}, units={units}, vernier={vernier}, position={position}")
+            self.set_channel_display(channel, display)
+            time.sleep(1)
+            self.set_channel_probe(channel, probe)
+            self.set_channel_scale(channel, scale)
+            self.set_channel_bandwidth_limit(channel, bandwidth_limit)
+            self.set_channel_coupling(channel, coupling)
+            self.set_channel_invert(channel, invert)
+            self.set_channel_offset(channel, offset)
+            self.set_channel_calibration_time(channel, delay_calibration_time)
+            self.set_channel_units(channel, units)
+            self.set_channel_vernier(channel, vernier)
+            logger.debug(f"[MSO5000] Setting position for channel {channel} to {position}")
+            self.set_channel_position(channel, position)
 
     # The :CURSor commands are used to measure the X axis values (e.g. Time)
     # and Y axis values (e.g. Voltage) of the waveform on the screen.
@@ -987,34 +1499,141 @@ class MSO5000(Device):
     # start with "*", and the keywords in a command contain 3 characters.
 
     def clear_registers(self):
+        """
+        Clears the oscilloscope's registers using the SCPI *CLS command.
+
+        This method sends the "*CLS" command to the instrument, which clears the status registers and event registers.
+
+        Side Effects:
+            - Sends the "*CLS" command to the oscilloscope.
+            - Logs the operation.
+        """
+        logger.debug(f"[MSO5000] Clearing registers with *CLS command.")
         self.__write("*CLS")
 
     def get_standard_event_register_enable(self) -> BYTE:
+        """
+        Queries the standard event register enable mask from the oscilloscope.
+
+        Returns:
+            BYTE: The enable mask for the standard event register.
+
+        Side Effects:
+            - Sends the "*ESE?" query to the oscilloscope.
+            - Logs the operation.
+        """
+        logger.debug(f"[MSO5000] Querying standard event register enable (*ESE?).")
         _response = self.__query("*ESE?")
+        logger.debug(f"[MSO5000] Received standard event register enable: {_response}")
         return BYTE(int(_response))
 
     def set_standard_event_register_enable(self, bits: BYTE):
+        """
+        Sets the standard event register enable mask on the oscilloscope.
+
+        Args:
+            bits (BYTE): The enable mask to set.
+
+        Side Effects:
+            - Sends the "*ESE <bits>" command to the oscilloscope.
+            - Logs the operation.
+        """
+        logger.debug(f"[MSO5000] Setting standard event register enable to {bits}.")
         self.__write(f"*ESE {bits}")
 
     def get_standard_event_register_event(self) -> BYTE:
+        """
+        Queries the standard event register event value from the oscilloscope.
+
+        Returns:
+            BYTE: The event value of the standard event register.
+
+        Side Effects:
+            - Sends the "*ESR?" query to the oscilloscope.
+            - Logs the operation.
+        """
+        logger.debug(f"[MSO5000] Querying standard event register event (*ESR?).")
         _response = self.__query("*ESR?")
+        logger.debug(f"[MSO5000] Received standard event register event: {_response}")
         return BYTE(int(_response))
 
     def get_identity(self) -> str:
+        """
+        Queries the oscilloscope's identity string.
+
+        Returns:
+            str: The identity string returned by the "*IDN?" command.
+
+        Side Effects:
+            - Sends the "*IDN?" query to the oscilloscope.
+            - Logs the operation.
+        """
+        logger.debug(f"[MSO5000] Querying device identity (*IDN?).")
         return self.__query("*IDN?")
 
     def get_operation_complete(self) -> bool:
+        """
+        Queries the operation complete status from the oscilloscope.
+
+        Returns:
+            bool: True if the last operation is complete, False otherwise.
+
+        Side Effects:
+            - Sends the "*OPC?" query to the oscilloscope.
+            - Logs the operation.
+        """
+        logger.debug(f"[MSO5000] Querying operation complete status (*OPC?).")
         _response = self.__query("*OPC?")
+        logger.debug(f"[MSO5000] Received operation complete status: {_response}")
         return bool(int(_response))
 
     def set_operation_complete(self, state: bool):
+        """
+        Sets the operation complete flag on the oscilloscope.
+
+        Args:
+            state (bool): The state to set (True or False).
+
+        Side Effects:
+            - Sends the "*OPC <state>" command to the oscilloscope.
+            - Logs the operation.
+        """
+        logger.debug(f"[MSO5000] Setting operation complete to {state}.")
         self.__write(f"*OPC {int(state)}")
 
     def save(self, register: int):
+        """
+        Saves the current oscilloscope setup to a specified register.
+
+        Args:
+            register (int): The register number (0-49) to save to.
+
+        Raises:
+            AssertionError: If register is not between 0 and 49.
+
+        Side Effects:
+            - Sends the "*SAVe <register>" command to the oscilloscope.
+            - Logs the operation.
+        """
+        logger.debug(f"[MSO5000] Saving to register {register}.")
         assert register >= 0 and register <= 49, "Register must be between 0 and 49."
         self.__write(f"*SAVe {register}")
 
     def recall(self, register: int):
+        """
+        Recalls a previously saved oscilloscope setup from a specified register.
+
+        Args:
+            register (int): The register number (0-49) to recall from.
+
+        Raises:
+            AssertionError: If register is not between 0 and 49.
+
+        Side Effects:
+            - Sends the "*RCL <register>" command to the oscilloscope.
+            - Logs the operation.
+        """
+        logger.debug(f"[MSO5000] Recalling from register {register}.")
         assert register >= 0 and register <= 49, "Register must be between 0 and 49."
         self.__write(f"*RCL {register}")
 
@@ -1033,25 +1652,83 @@ class MSO5000(Device):
         Example:
             >>> device.reset()
         """
+        logger.debug(f"[MSO5000] Resetting device with *RST command and clearing cache.")
         self.__write("*RST")
         self.__cache.clear()
 
     def get_status_byte_register_enable(self) -> BYTE:
+        """
+        Queries the status byte register enable mask from the oscilloscope.
+
+        Returns:
+            BYTE: The enable mask for the status byte register.
+
+        Side Effects:
+            - Sends the "*SRE?" query to the oscilloscope.
+            - Logs the operation.
+        """
+        logger.debug(f"[MSO5000] Querying status byte register enable (*SRE?).")
         _response = self.__query("*SRE?")
+        logger.debug(f"[MSO5000] Received status byte register enable: {_response}")
         return BYTE(int(_response))
 
     def set_status_byte_register_enable(self, bits: BYTE):
+        """
+        Sets the status byte register enable mask on the oscilloscope.
+
+        Args:
+            bits (BYTE): The enable mask to set.
+
+        Side Effects:
+            - Sends the "*SRE <bits>" command to the oscilloscope.
+            - Logs the operation.
+        """
+        logger.debug(f"[MSO5000] Setting status byte register enable to {bits}.")
         self.__write(f"*SRE {bits}")
 
     def get_status_byte_register_event(self) -> BYTE:
+        """
+        Queries the status byte register event value from the oscilloscope.
+
+        Returns:
+            BYTE: The event value of the status byte register.
+
+        Side Effects:
+            - Sends the "*STB?" query to the oscilloscope.
+            - Logs the operation.
+        """
+        logger.debug(f"[MSO5000] Querying status byte register event (*STB?).")
         _response = self.__query("*STB?")
+        logger.debug(f"[MSO5000] Received status byte register event: {_response}")
         return BYTE(int(_response))
 
     def self_test(self) -> str:
+        """
+        Runs the oscilloscope's self-test routine.
+
+        Returns:
+            str: The result of the self-test as returned by "*TST?".
+
+        Side Effects:
+            - Sends the "*TST?" query to the oscilloscope.
+            - Logs the operation.
+        """
+        logger.debug(f"[MSO5000] Running self test (*TST?).")
         _response = self.__query("*TST?")
+        logger.debug(f"[MSO5000] Self test result: {_response}")
         return _response
 
     def wait(self):
+        """
+        Waits for the oscilloscope to complete all pending operations.
+
+        This method sends the "*WAI" command to the instrument, causing it to wait until all operations are finished.
+
+        Side Effects:
+            - Sends the "*WAI" command to the oscilloscope.
+            - Logs the operation.
+        """
+        logger.debug(f"[MSO5000] Waiting for device (*WAI).")
         self.__write("*WAI")
 
     # The :LA commands are used to perform relevant operations on the digital
@@ -1067,45 +1744,90 @@ class MSO5000(Device):
 
     # The :MEASure commands are used to set and query the relevant parameters
     # for measurement.
-    def set_measure_source(self, source: Source):
-        assert source in MSO5000.Source, "Source must be one of the Source enum values."
-        self.__set_parameter("MEASure", "SOURce", source.value)
 
-    def clear_measurement(self, item: MeasureItem):
+    def set_channel_coupling(self, channel: int, coupling: Coupling):
+        """
+        Sets the coupling mode for a specified analog channel.
+
+        Args:
+            channel (int): The analog channel number (1-4).
+            coupling (Coupling): The desired coupling mode, must be a member of Coupling.
+
+        Raises:
+            AssertionError: If channel is not in [1, 4] or coupling is not valid.
+
+        Side Effects:
+            Updates the coupling setting for the specified channel.
+        """
+        logger.debug(f"[MSO5000] set_channel_coupling called with channel={channel}, coupling={coupling}")
+        assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
         assert (
-            item in MSO5000.MeasureItem
-        ), "Item must be one of the MeasureItem enum values."
-        self.__set_parameter("MEASure", "CLEar", item.value)
+            coupling in Coupling
+        ), "Coupling must be one of the Coupling enum values."
+        logger.debug(f"[MSO5000] Setting coupling for channel {channel} to {coupling.value}")
+        self.__set_parameter(f"CHANnel{channel}", "COUPling", coupling.value)
 
-    def set_measure_threshold_source(self, source: Source):
-        _valid = [
-            MSO5000.Source.Channel1,
-            MSO5000.Source.Channel2,
-            MSO5000.Source.Channel3,
-            MSO5000.Source.Channel4,
-            MSO5000.Source.Math1,
-            MSO5000.Source.Math2,
-            MSO5000.Source.Math3,
-            MSO5000.Source.Math4,
-        ]
-        assert source in _valid, f"Item must be one of {_valid}."
-        self.__set_parameter("MEASure", "THReshold:SOURce", source.value)
+    def set_channel_display(self, channel: int, display: bool):
+        """
+        Sets the display state for a specified analog channel.
 
-    def set_measure_threshold_default(self):
-        self.__write(":MEASure:THReshold:DEFault")
+        Args:
+            channel (int): The analog channel number (1-4).
+            display (bool): True to display the channel, False to hide.
 
-    class MeasureMode(StrEnum):
-        Normal = "NORMal"
-        Precision = "PRECision"
+        Raises:
+            AssertionError: If channel is not in [1, 4].
 
-    def set_measure_mode(self, mode: MeasureMode):
-        self.__set_parameter("MEASure", "MODE", mode.value)
+        Side Effects:
+            Updates the display state for the specified channel.
+        """
+        logger.debug(f"[MSO5000] set_channel_display called with channel={channel}, display={display}")
+        assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
+        logger.debug(f"[MSO5000] Setting display for channel {channel} to {display}")
+        self.__set_parameter(f"CHANnel{channel}", "DISPlay", display)
 
-    def set_measure_item(self, measurement: Measurement, source: Source):
-        self.__write(f":MEASure:ITEM {measurement.value},{source.value}")
+    def set_channel_invert(self, channel: int, invert: bool):
+        """
+        Sets the invert state for a specified analog channel.
 
-    def get_measure_item(self, measurement: Measurement, source: Source):
-        return float(self.__query(f":MEASure:ITEM? {measurement.value},{source.value}"))
+        Args:
+            channel (int): The analog channel number (1-4).
+            invert (bool): True to invert the channel signal, False otherwise.
+
+        Raises:
+            AssertionError: If channel is not in [1, 4].
+
+        Side Effects:
+            Updates the invert state for the specified channel.
+        """
+        logger.debug(f"[MSO5000] set_channel_invert called with channel={channel}, invert={invert}")
+        assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
+        logger.debug(f"[MSO5000] Setting invert for channel {channel} to {invert}")
+        self.__set_parameter(f"CHANnel{channel}", "INVert", invert)
+
+    def set_channel_offset(self, channel: int, offset: float):
+        """
+        Sets the vertical offset for a specified analog channel.
+
+        Args:
+            channel (int): The analog channel number (1-4).
+            offset (float): The offset value in volts, must be between -10 and 100.
+
+        Raises:
+            AssertionError: If channel is not in [1, 4] or offset is out of range.
+
+        Side Effects:
+            Updates the offset setting for the specified channel.
+        """
+        logger.debug(f"[MSO5000] set_channel_offset called with channel={channel}, offset={offset}")
+        assert channel >= 1 and channel <= 4, "Channel must be between 1 and 4."
+        _minimum = -10
+        _maximum = 100
+        assert (
+            offset >= _minimum and offset <= _maximum
+        ), f"Offset must be between {_minimum} and {_maximum}."
+        logger.debug(f"[MSO5000] Setting offset for channel {channel} to {offset}")
+        self.__set_parameter(f"CHANnel{channel}", "OFFSet", offset)
 
     # The :POWer commands are used to set the relevant parameters of the power supply module.
 
@@ -1117,14 +1839,41 @@ class MSO5000(Device):
 
     # The :SAVE commands are used to save data or settings from the oscilloscope.
     def set_save_csv_length(self, length: SaveCsvLength):
+        """
+        Sets the CSV save length option for the MSO5000 oscilloscope.
+
+        Args:
+            length (SaveCsvLength): The desired CSV save length, must be a member of SaveCsvLength enum.
+
+        Raises:
+            AssertionError: If length is not a valid SaveCsvLength enum value.
+
+        Side Effects:
+            Updates the CSV save length setting on the oscilloscope.
+        """
+        logger.debug(f"[MSO5000] set_save_csv_length called with length={length}")
         assert (
-            length in MSO5000.SaveCsvLength
+            length in SaveCsvLength
         ), "Length must be one of the SaveCsvLength enum values."
         self.__set_parameter("SAVE", "CSV:LENGth", length.value)
 
     def set_save_csv_channel(self, channel: SaveCsvChannel, state: bool):
+        """
+        Sets the CSV save channel and its state for the MSO5000 oscilloscope.
+
+        Args:
+            channel (SaveCsvChannel): The channel to save, must be a member of SaveCsvChannel enum.
+            state (bool): True to enable saving for the channel, False to disable.
+
+        Raises:
+            AssertionError: If channel is not a valid SaveCsvChannel enum value.
+
+        Side Effects:
+            Updates the CSV save channel setting on the oscilloscope.
+        """
+        logger.debug(f"[MSO5000] set_save_csv_channel called with channel={channel}, state={state}")
         assert (
-            channel in MSO5000.SaveCsvChannel
+            channel in SaveCsvChannel
         ), "Channel must be one of the SaveCsvChannel enum values."
         self.__set_parameter("SAVE", "CSV:CHANnel", f"{channel.value},{int(state)}")
 
@@ -1133,19 +1882,63 @@ class MSO5000(Device):
         filename: str,
         length: SaveCsvLength = SaveCsvLength.Display,
     ):
+        """
+        Saves waveform data to a CSV file on the MSO5000 oscilloscope.
+
+        Args:
+            filename (str): The file path to save the CSV data.
+            length (SaveCsvLength, optional): The CSV save length option. Defaults to SaveCsvLength.Display.
+
+        Side Effects:
+            Sets the CSV save length and saves the data to the specified file.
+        """
+        logger.debug(f"[MSO5000] save_csv called with filename={filename}, length={length}")
         self.set_save_csv_length(length)
         self.__set_parameter("SAVE", "CSV", filename)
 
     def save_image_type(self, type_: ImageType):
+        """
+        Sets the image file type for saving screenshots on the MSO5000 oscilloscope.
+
+        Args:
+            type_ (ImageType): The image type to set, must be a member of ImageType enum.
+
+        Raises:
+            AssertionError: If type_ is not a valid ImageType enum value.
+
+        Side Effects:
+            Updates the image type setting on the oscilloscope.
+        """
+        logger.debug(f"[MSO5000] save_image_type called with type_={type_}")
         assert (
-            type_ in MSO5000.ImageType
+            type_ in ImageType
         ), "Type must be one of the ImageType enum values."
         self.__set_parameter("SAVE", "IMAGe:TYPE", type_.value)
 
     def save_image_invert(self, invert: bool):
+        """
+        Sets the invert option for saving images on the MSO5000 oscilloscope.
+
+        Args:
+            invert (bool): True to invert the image colors, False otherwise.
+
+        Side Effects:
+            Updates the image invert setting on the oscilloscope.
+        """
+        logger.debug(f"[MSO5000] save_image_invert called with invert={invert}")
         self.__set_parameter("SAVE", "IMAGe:INVert", invert)
 
     def save_image_color(self, color: ImageColor):
+        """
+        Sets the color mode for saving images on the MSO5000 oscilloscope.
+
+        Args:
+            color (ImageColor): The color mode to set, must be a member of ImageColor enum.
+
+        Side Effects:
+            Updates the image color mode setting on the oscilloscope.
+        """
+        logger.debug(f"[MSO5000] save_image_color called with color={color}")
         self.__set_parameter("SAVE", "COLor", color.value)
 
     def save_image(
@@ -1155,21 +1948,71 @@ class MSO5000(Device):
         invert: bool = False,
         color: ImageColor = ImageColor.Color,
     ):
+        """
+        Saves a screenshot image to the specified path on the MSO5000 oscilloscope.
+
+        Args:
+            path (str): The file path to save the image.
+            type_ (ImageType): The image file type.
+            invert (bool, optional): Whether to invert the image colors. Defaults to False.
+            color (ImageColor, optional): The color mode. Defaults to ImageColor.Color.
+
+        Side Effects:
+            Sets image type, invert, color, and saves the image to the specified path.
+        """
+        logger.debug(f"[MSO5000] save_image called with path={path}, type_={type_}, invert={invert}, color={color}")
         self.save_image_type(type_)
         self.save_image_invert(invert)
         self.save_image_color(color)
         self.__set_parameter("SAVE", "IMAGe", path)
 
     def save_setup(self, path: str):
+        """
+        Saves the current oscilloscope setup to the specified file path.
+
+        Args:
+            path (str): The file path to save the setup.
+
+        Side Effects:
+            Saves the setup to the specified path on the oscilloscope.
+        """
+        logger.debug(f"[MSO5000] save_setup called with path={path}")
         self.__set_parameter("SAVE", "SETup", path)
 
     def save_waveform(self, path: str):
+        """
+        Saves the current waveform data to the specified file path.
+
+        Args:
+            path (str): The file path to save the waveform data.
+
+        Side Effects:
+            Saves the waveform data to the specified path on the oscilloscope.
+        """
+        logger.debug(f"[MSO5000] save_waveform called with path={path}")
         self.__set_parameter("SAVE", "WAVeform", path)
 
     def get_save_status(self) -> bool:
+        """
+        Retrieves the status of the last save operation on the MSO5000 oscilloscope.
+
+        Returns:
+            bool: True if the last save operation was successful, False otherwise.
+        """
+        logger.debug(f"[MSO5000] get_save_status called")
         return self.__get_parameter("SAVE", "STATus")
 
     def load_setup(self, filename: str):
+        """
+        Loads a previously saved oscilloscope setup from the specified file.
+
+        Args:
+            filename (str): The file path of the setup to load.
+
+        Side Effects:
+            Loads the setup from the specified file on the oscilloscope.
+        """
+        logger.debug(f"[MSO5000] load_setup called with filename={filename}")
         self.__write(f":LOAD:SETup {filename}")
 
     # The :SEARch commands are used to set the relevant parameters of the search function.
@@ -1178,65 +2021,152 @@ class MSO5000(Device):
     # waveform generator. <n> can set to 1 or 2, which indicates the corresponding built in function/arbitrary
     # waveform generator channel. When <n> or :SOURce[<n>] is omitted, by default, the operations are
     # carried out on AWG GI.
+
+    # The [:SOURce [<n>]] commands are used to set the relevant parameters of the built in function arbitrary
+    # waveform generator. <n> can set to 1 or 2, which indicates the corresponding built in function/arbitrary
+    # waveform generator channel. When <n> or :SOURce[<n>] is omitted, by default, the operations are
+    # carried out on AWG GI.
+
     def function_generator_state(self, channel: int, state: bool):
+        """
+        Enables or disables the function generator output for the specified channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            state (bool): True to enable output, False to disable.
+
+        Raises:
+            AssertionError: If channel is not 1 or 2.
+
+        Side Effects:
+            Sends the output enable/disable command to the instrument.
+        """
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
-        self.__set_parameter(f"SOURce{channel}", f"OUTPut{channel}:STATe", state)
+        self.__set_parameter(f"SOURce{channel}", "OUTPut", state)
 
     def set_source_function(self, channel: int, function: SourceFunction):
+        """
+        Sets the waveform function type for the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            function (SourceFunction): The waveform function type to set.
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or function is not a valid SourceFunction.
+
+        Side Effects:
+            Sends the function type command to the instrument.
+        """
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
-        assert (
-            function in MSO5000.SourceFunction
-        ), "Function must be one of the Waveform enum values."
+        assert function in SourceFunction, "Function must be one of the SourceFunction enum values."
         self.__set_parameter(f"SOURce{channel}", "FUNCtion", function.value)
 
-    def set_source_type(self, channel: int, type_: SourceType):
-        assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
-        assert type in MSO5000.SourceType, "Type must be one of the Type enum values."
-        self.__set_parameter(f"SOURce{channel}", "TYPE", type_.value)
-
     def set_source_frequency(self, channel: int, frequency: float):
+        """
+        Sets the output frequency for the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            frequency (float): The output frequency in Hz.
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or frequency is not positive.
+
+        Side Effects:
+            Sends the frequency command to the instrument.
+        """
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
-        assert (
-            frequency > 0.01 and frequency < 25000000
-        ), "Frequency must be between 0.1 and 25000000 Hz."
+        assert frequency > 0, "Frequency must be positive."
         self.__set_parameter(f"SOURce{channel}", "FREQuency", frequency)
 
     def set_source_phase(self, channel: int, phase: float):
+        """
+        Sets the output phase for the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            phase (float): The output phase in degrees.
+
+        Raises:
+            AssertionError: If channel is not 1 or 2.
+
+        Side Effects:
+            Sends the phase command to the instrument.
+        """
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
-        assert phase >= 0 and phase <= 360, "Phase must be between 0 and 360 degrees."
         self.__set_parameter(f"SOURce{channel}", "PHASe", phase)
 
     def set_source_amplitude(self, channel: int, amplitude: float):
+        """
+        Sets the output amplitude for the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            amplitude (float): The output amplitude in volts.
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or amplitude is not positive.
+
+        Side Effects:
+            Sends the amplitude command to the instrument.
+        """
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
-        assert (
-            amplitude >= 0.02 and amplitude <= 5
-        ), "Amplitude must be between 0.02 and 5 Vpp."
-        self.__set_parameter(
-            f"SOURce{channel}", "VOLTage:LEVel:IMMediate:AMPLitude", amplitude
-        )
+        assert amplitude > 0, "Amplitude must be positive."
+        self.__set_parameter(f"SOURce{channel}", "AMPLitude", amplitude)
 
     def set_source_offset(self, channel: int, offset: float):
-        assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
-        assert (
-            offset >= -2.5 and offset <= 2.5
-        ), "Offset must be between -2.5 and 2.5 V."
-        self.__set_parameter(
-            f"SOURce{channel}", "VOLTage:LEVel:IMMediate:OFFSet", offset
-        )
+        """
+        Sets the output offset voltage for the function generator channel.
 
-    def phase_align(self, channel: int):
-        assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
-        self.__write(f"SOURce{channel}:PHASe:INITiate")
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            offset (float): The output offset voltage in volts.
 
-    def set_source_output_impedance(
-        self, channel: int, impedance: SourceOutputImpedance
-    ):
-        assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
-        assert (
-            impedance in MSO5000.SourceOutputImpedance
-        ), "Output impedance must be one of the OutputImpedance enum values."
-        self.__set_parameter(f"SOURce{channel}", "OUTPut:IMPedance", impedance.value)
+        Raises:
+            AssertionError: If channel is not 1 or 2.
 
+        Side Effects:
+            Sends the offset command to the instrument.
+        """
+        assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
+        self.__set_parameter(f"SOURce{channel}", "OFFSet", offset)
+
+    def set_source_output_impedance(self, channel: int, impedance: SourceOutputImpedance):
+        """
+        Sets the output impedance for the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            impedance (SourceOutputImpedance): The output impedance setting.
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or impedance is not a valid SourceOutputImpedance.
+
+        Side Effects:
+            Sends the output impedance command to the instrument.
+        """
+        assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
+        assert impedance in SourceOutputImpedance, "Impedance must be one of the SourceOutputImpedance enum values."
+        self.__set_parameter(f"SOURce{channel}", "IMPedance", impedance.value)
+
+    def set_source_type(self, channel: int, type_: SourceType):
+        """
+        Sets the source type (None, Modulated, Sweep, Burst) for the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            type_ (SourceType): The source type to set.
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or type_ is not a valid SourceType.
+
+        Side Effects:
+            Sends the source type command to the instrument.
+        """
+        assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
+        assert type_ in SourceType, "Type must be one of the SourceType enum values."
+        self.__set_parameter(f"SOURce{channel}", "TYPE", type_.value)
     # Function Generator Function: Sinusoid
 
     def function_generator_sinusoid(
@@ -1248,15 +2178,28 @@ class MSO5000(Device):
         offset: float = 0,
         output_impedance: SourceOutputImpedance = SourceOutputImpedance.Omeg,
     ):
+        """
+        Configures the function generator to output a sinusoidal waveform on the specified channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            frequency (float, optional): Output frequency in Hz. Defaults to 1000.
+            phase (float, optional): Output phase in degrees. Defaults to 0.
+            amplitude (float, optional): Output amplitude in volts. Defaults to 0.5.
+            offset (float, optional): Output offset voltage in volts. Defaults to 0.
+            output_impedance (SourceOutputImpedance, optional): Output impedance setting. Defaults to Omeg (high impedance).
+
+        Side Effects:
+            Disables output, sets waveform type, frequency, phase, amplitude, offset, and output impedance for the channel.
+        """
+        logger.debug(f"[MSO5000] function_generator_sinusoid called with channel={channel}, frequency={frequency}, phase={phase}, amplitude={amplitude}, offset={offset}, output_impedance={output_impedance}")
         self.function_generator_state(channel, False)
-        self.set_source_function(channel, MSO5000.SourceFunction.Sinusoid)
+        self.set_source_function(channel, SourceFunction.Sinusoid)
         self.set_source_frequency(channel, frequency)
         self.set_source_phase(channel, phase)
         self.set_source_amplitude(channel, amplitude)
         self.set_source_offset(channel, offset)
         self.set_source_output_impedance(channel, output_impedance)
-
-    # Function Generator Function: Square
 
     def function_generator_square(
         self,
@@ -1267,17 +2210,44 @@ class MSO5000(Device):
         offset: float = 0,
         output_impedance: SourceOutputImpedance = SourceOutputImpedance.Omeg,
     ):
+        """
+        Configures the function generator to output a square waveform on the specified channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            frequency (float, optional): Output frequency in Hz. Defaults to 1000.
+            phase (float, optional): Output phase in degrees. Defaults to 0.
+            amplitude (float, optional): Output amplitude in volts. Defaults to 0.5.
+            offset (float, optional): Output offset voltage in volts. Defaults to 0.
+            output_impedance (SourceOutputImpedance, optional): Output impedance setting. Defaults to Omeg (high impedance).
+
+        Side Effects:
+            Disables output, sets waveform type, frequency, phase, amplitude, offset, and output impedance for the channel.
+        """
+        logger.debug(f"[MSO5000] function_generator_square called with channel={channel}, frequency={frequency}, phase={phase}, amplitude={amplitude}, offset={offset}, output_impedance={output_impedance}")
         self.function_generator_state(channel, False)
-        self.set_source_function(channel, MSO5000.SourceFunction.Square)
+        self.set_source_function(channel, SourceFunction.Square)
         self.set_source_frequency(channel, frequency)
         self.set_source_phase(channel, phase)
         self.set_source_amplitude(channel, amplitude)
         self.set_source_offset(channel, offset)
         self.set_source_output_impedance(channel, output_impedance)
 
-    # Function Generator Function: RAMP
-
     def set_source_function_ramp_symmetry(self, channel: int, symmetry: float):
+        """
+        Sets the symmetry for the ramp waveform on the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            symmetry (float): Symmetry percentage (1-100).
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or symmetry is not in [1, 100].
+
+        Side Effects:
+            Updates the ramp symmetry setting for the channel.
+        """
+        logger.debug(f"[MSO5000] set_source_function_ramp_symmetry called with channel={channel}, symmetry={symmetry}")
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert symmetry >= 1 and symmetry <= 100, "Symmetry must be between 1 and 100%."
         self.__set_parameter(f"SOURce{channel}", "FUNCtion:RAMP:SYMMetry", symmetry)
@@ -1292,8 +2262,24 @@ class MSO5000(Device):
         offset: float = 0,
         output_impedance: SourceOutputImpedance = SourceOutputImpedance.Omeg,
     ):
+        """
+        Configures the function generator to output a ramp waveform on the specified channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            frequency (float, optional): Output frequency in Hz. Defaults to 1000.
+            phase (float, optional): Output phase in degrees. Defaults to 0.
+            symmetry (float, optional): Ramp symmetry percentage (1-100). Defaults to 50.
+            amplitude (float, optional): Output amplitude in volts. Defaults to 0.5.
+            offset (float, optional): Output offset voltage in volts. Defaults to 0.
+            output_impedance (SourceOutputImpedance, optional): Output impedance setting. Defaults to Omeg (high impedance).
+
+        Side Effects:
+            Disables output, sets waveform type, frequency, phase, symmetry, amplitude, offset, and output impedance for the channel.
+        """
+        logger.debug(f"[MSO5000] function_generator_ramp called with channel={channel}, frequency={frequency}, phase={phase}, symmetry={symmetry}, amplitude={amplitude}, offset={offset}, output_impedance={output_impedance}")
         self.function_generator_state(channel, False)
-        self.set_source_function(channel, MSO5000.SourceFunction.Ramp)
+        self.set_source_function(channel, SourceFunction.Ramp)
         self.set_source_frequency(channel, frequency)
         self.set_source_phase(channel, phase)
         self.set_source_function_ramp_symmetry(channel, symmetry)
@@ -1301,9 +2287,21 @@ class MSO5000(Device):
         self.set_source_offset(channel, offset)
         self.set_source_output_impedance(channel, output_impedance)
 
-    # Function Generator Function: PULSe
-
     def set_source_duty_cycle(self, channel: int, duty_cycle: float):
+        """
+        Sets the duty cycle for the pulse waveform on the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            duty_cycle (float): Duty cycle percentage (10-90).
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or duty_cycle is not in [10, 90].
+
+        Side Effects:
+            Updates the pulse duty cycle setting for the channel.
+        """
+        logger.debug(f"[MSO5000] set_source_duty_cycle called with channel={channel}, duty_cycle={duty_cycle}")
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
             duty_cycle >= 10 and duty_cycle <= 90
@@ -1320,16 +2318,30 @@ class MSO5000(Device):
         offset: float = 0,
         output_impedance: SourceOutputImpedance = SourceOutputImpedance.Omeg,
     ):
+        """
+        Configures the function generator to output a pulse waveform on the specified channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            frequency (float, optional): Output frequency in Hz. Defaults to 1000.
+            phase (float, optional): Output phase in degrees. Defaults to 0.
+            duty_cycle (float, optional): Duty cycle percentage (10-90). Defaults to 20.
+            amplitude (float, optional): Output amplitude in volts. Defaults to 0.5.
+            offset (float, optional): Output offset voltage in volts. Defaults to 0.
+            output_impedance (SourceOutputImpedance, optional): Output impedance setting. Defaults to Omeg (high impedance).
+
+        Side Effects:
+            Disables output, sets waveform type, frequency, phase, duty cycle, amplitude, offset, and output impedance for the channel.
+        """
+        logger.debug(f"[MSO5000] function_generator_pulse called with channel={channel}, frequency={frequency}, phase={phase}, duty_cycle={duty_cycle}, amplitude={amplitude}, offset={offset}, output_impedance={output_impedance}")
         self.function_generator_state(channel, False)
-        self.set_source_function(channel, MSO5000.SourceFunction.Pulse)
+        self.set_source_function(channel, SourceFunction.Pulse)
         self.set_source_frequency(channel, frequency)
         self.set_source_phase(channel, phase)
         self.set_source_duty_cycle(channel, duty_cycle)
         self.set_source_amplitude(channel, amplitude)
         self.set_source_offset(channel, offset)
         self.set_source_output_impedance(channel, output_impedance)
-
-    # Function Generator Function: NOISe
 
     def function_generator_noise(
         self,
@@ -1338,13 +2350,24 @@ class MSO5000(Device):
         offset: float = 0,
         output_impedance: SourceOutputImpedance = SourceOutputImpedance.Omeg,
     ):
+        """
+        Configures the function generator to output a noise waveform on the specified channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            amplitude (float, optional): Output amplitude in volts. Defaults to 0.5.
+            offset (float, optional): Output offset voltage in volts. Defaults to 0.
+            output_impedance (SourceOutputImpedance, optional): Output impedance setting. Defaults to Omeg (high impedance).
+
+        Side Effects:
+            Disables output, sets waveform type, amplitude, offset, and output impedance for the channel.
+        """
+        logger.debug(f"[MSO5000] function_generator_noise called with channel={channel}, amplitude={amplitude}, offset={offset}, output_impedance={output_impedance}")
         self.function_generator_state(channel, False)
-        self.set_source_function(channel, MSO5000.SourceFunction.Noise)
+        self.set_source_function(channel, SourceFunction.Noise)
         self.set_source_amplitude(channel, amplitude)
         self.set_source_offset(channel, offset)
         self.set_source_output_impedance(channel, output_impedance)
-
-    # Function Generator Function: DC
 
     def function_generator_dc(
         self,
@@ -1352,12 +2375,22 @@ class MSO5000(Device):
         offset: float = 0,
         output_impedance: SourceOutputImpedance = SourceOutputImpedance.Omeg,
     ):
+        """
+        Configures the function generator to output a DC waveform on the specified channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            offset (float, optional): Output offset voltage in volts. Defaults to 0.
+            output_impedance (SourceOutputImpedance, optional): Output impedance setting. Defaults to Omeg (high impedance).
+
+        Side Effects:
+            Disables output, sets waveform type, offset, and output impedance for the channel.
+        """
+        logger.debug(f"[MSO5000] function_generator_dc called with channel={channel}, offset={offset}, output_impedance={output_impedance}")
         self.function_generator_state(channel, False)
-        self.set_source_function(channel, MSO5000.SourceFunction.DC)
+        self.set_source_function(channel, SourceFunction.DC)
         self.set_source_offset(channel, offset)
         self.set_source_output_impedance(channel, output_impedance)
-
-    # Function Generator Function: SINC
 
     def function_generator_sinc(
         self,
@@ -1368,8 +2401,23 @@ class MSO5000(Device):
         offset: float = 0,
         output_impedance: SourceOutputImpedance = SourceOutputImpedance.Omeg,
     ):
+        """
+        Configures the function generator to output a sinc waveform on the specified channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            frequency (float, optional): Output frequency in Hz. Defaults to 1000.
+            phase (float, optional): Output phase in degrees. Defaults to 0.
+            amplitude (float, optional): Output amplitude in volts. Defaults to 0.5.
+            offset (float, optional): Output offset voltage in volts. Defaults to 0.
+            output_impedance (SourceOutputImpedance, optional): Output impedance setting. Defaults to Omeg (high impedance).
+
+        Side Effects:
+            Disables output, sets waveform type, frequency, phase, amplitude, offset, and output impedance for the channel.
+        """
+        logger.debug(f"[MSO5000] function_generator_sinc called with channel={channel}, frequency={frequency}, phase={phase}, amplitude={amplitude}, offset={offset}, output_impedance={output_impedance}")
         self.function_generator_state(channel, False)
-        self.set_source_function(channel, MSO5000.SourceFunction.Sinc)
+        self.set_source_function(channel, SourceFunction.Sinc)
         self.set_source_frequency(channel, frequency)
         self.set_source_phase(channel, phase)
         self.set_source_amplitude(channel, amplitude)
@@ -1386,19 +2434,57 @@ class MSO5000(Device):
     # Function Generator Type: None
 
     def function_generator_no_modulation(self, channel: int):
+        """
+        Disables modulation for the function generator on the specified channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+
+        Side Effects:
+            Disables output and sets the source type to None for the channel.
+        """
+        logger.debug(f"[MSO5000] function_generator_no_modulation called with channel={channel}")
         self.function_generator_state(channel, False)
-        self.set_source_type(channel, MSO5000.SourceType._None)
+        self.set_source_type(channel, SourceType._None)
 
     # Function Generator Type: Modulation
 
     def set_source_mod_type(self, channel: int, mod_type: SourceModulation):
+        """
+        Sets the modulation type for the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            mod_type (SourceModulation): The modulation type to set.
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or mod_type is not a valid SourceModulation.
+
+        Side Effects:
+            Sends the modulation type command to the instrument.
+        """
+        logger.debug(f"[MSO5000] set_source_mod_type called with channel={channel}, mod_type={mod_type}")
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
-            mod_type in MSO5000.SourceModulation
+            mod_type in SourceModulation
         ), "Modulation type must be one of the Modulation enum values."
         self.__set_parameter(f"SOURce{channel}", "MODulation:TYPE", mod_type.value)
 
     def set_source_mod_am_depth(self, channel: int, depth: float):
+        """
+        Sets the amplitude modulation depth for the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            depth (float): Modulation depth percentage (0-120).
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or depth is not in [0, 120].
+
+        Side Effects:
+            Updates the amplitude modulation depth for the channel.
+        """
+        logger.debug(f"[MSO5000] set_source_mod_am_depth called with channel={channel}, depth={depth}")
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
             depth >= 0 and depth <= 120
@@ -1406,6 +2492,20 @@ class MSO5000(Device):
         self.__set_parameter(f"SOURce{channel}", "MOD:DEPTh", depth)
 
     def set_source_mod_am_freq(self, channel: int, frequency: float):
+        """
+        Sets the amplitude modulation frequency for the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            frequency (float): Modulation frequency in Hz (1-50).
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or frequency is not in [1, 50].
+
+        Side Effects:
+            Updates the amplitude modulation frequency for the channel.
+        """
+        logger.debug(f"[MSO5000] set_source_mod_am_freq called with channel={channel}, frequency={frequency}")
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
             frequency >= 1 and frequency <= 50
@@ -1413,6 +2513,20 @@ class MSO5000(Device):
         self.__set_parameter(f"SOURce{channel}", "MOD:AM:INTernal:FREQuency", frequency)
 
     def set_source_mod_fm_freq(self, channel: int, frequency: float):
+        """
+        Sets the frequency modulation frequency for the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            frequency (float): Modulation frequency in Hz (1-50).
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or frequency is not in [1, 50].
+
+        Side Effects:
+            Updates the frequency modulation frequency for the channel.
+        """
+        logger.debug(f"[MSO5000] set_source_mod_fm_freq called with channel={channel}, frequency={frequency}")
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
             frequency >= 1 and frequency <= 50
@@ -1420,30 +2534,72 @@ class MSO5000(Device):
         self.__set_parameter(f"SOURce{channel}", "MOD:FM:INTernal:FREQuency", frequency)
 
     def set_source_mod_am_function(self, channel: int, function: SourceFunction):
+        """
+        Sets the internal function for amplitude modulation on the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            function (SourceFunction): The waveform function type for modulation.
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or function is not a valid modulation function.
+
+        Side Effects:
+            Updates the internal function for amplitude modulation.
+        """
+        logger.debug(f"[MSO5000] set_source_mod_am_function called with channel={channel}, function={function}")
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert function in [
-            MSO5000.SourceFunction.SINusoid,
-            MSO5000.SourceFunction.SQUare,
-            MSO5000.SourceFunction.RAMP,
-            MSO5000.SourceFunction.NOISe,
+            SourceFunction.SINusoid,
+            SourceFunction.SQUare,
+            SourceFunction.RAMP,
+            SourceFunction.NOISe,
         ], "Modulation function must be one of SINusoid, SQUare, RAMP, NOISe."
         self.__set_parameter(
             f"SOURce{channel}", "MOD:AM:INTernal:FUNCtion", function.value
         )
 
     def set_source_mod_fm_function(self, channel: int, function: SourceFunction):
+        """
+        Sets the internal function for frequency modulation on the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            function (SourceFunction): The waveform function type for modulation.
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or function is not a valid modulation function.
+
+        Side Effects:
+            Updates the internal function for frequency modulation.
+        """
+        logger.debug(f"[MSO5000] set_source_mod_fm_function called with channel={channel}, function={function}")
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert function in [
-            MSO5000.SourceFunction.SINusoid,
-            MSO5000.SourceFunction.SQUare,
-            MSO5000.SourceFunction.RAMP,
-            MSO5000.SourceFunction.NOISe,
+            SourceFunction.SINusoid,
+            SourceFunction.SQUare,
+            SourceFunction.RAMP,
+            SourceFunction.NOISe,
         ], "Modulation function must be one of SINusoid, SQUare, RAMP, NOISe."
         self.__set_parameter(
             f"SOURce{channel}", "MOD:FM:INTernal:FUNCtion", function.value
         )
 
     def set_source_mod_fm_deviation(self, channel: int, deviation: float):
+        """
+        Sets the frequency deviation for frequency modulation on the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            deviation (float): Frequency deviation in Hz (>= 0).
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or deviation is negative.
+
+        Side Effects:
+            Updates the frequency deviation for frequency modulation.
+        """
+        logger.debug(f"[MSO5000] set_source_mod_fm_deviation called with channel={channel}, deviation={deviation}")
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
             deviation >= 0
@@ -1459,14 +2615,29 @@ class MSO5000(Device):
         function: SourceFunction = SourceFunction.Sinusoid,
         fm_deviation: float = 1000,
     ):
+        """
+        Configures the function generator to output a modulated waveform on the specified channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            type_ (SourceModulation, optional): Modulation type (AM, FM, FSK). Defaults to AmplitudeModulation.
+            am_depth (float, optional): Amplitude modulation depth (0-120%). Defaults to 100.
+            frequency (float, optional): Modulation frequency in Hz. Defaults to 1000.
+            function (SourceFunction, optional): Modulation waveform function. Defaults to Sinusoid.
+            fm_deviation (float, optional): Frequency deviation for FM in Hz. Defaults to 1000.
+
+        Side Effects:
+            Disables output, sets modulation type, and configures modulation parameters for the channel.
+        """
+        logger.debug(f"[MSO5000] function_generator_modulation called with channel={channel}, type_={type_}, am_depth={am_depth}, frequency={frequency}, function={function}, fm_deviation={fm_deviation}")
         self.function_generator_state(channel, False)
-        self.set_source_type(channel, MSO5000.SourceType.Modulated)
+        self.set_source_type(channel, SourceType.Modulated)
         self.set_source_mod_type(channel, type_)
-        if type_ == MSO5000.SourceModulation.AM:
+        if type_ == SourceModulation.AM:
             self._set_source_am_depth(channel, am_depth)
             self.set_source_mod_am_freq(channel, frequency)
             self.set_source_mod_am_function(channel, function)
-        elif type_ == MSO5000.SourceModulation.FM:
+        elif type_ == SourceModulation.FM:
             self._set_source_mod_fm_frequency(channel, frequency)
             self.set_source_mod_fm_function(channel, function)
             self.set_source_mod_fm_deviation(channel, fm_deviation)
@@ -1474,13 +2645,41 @@ class MSO5000(Device):
     # Function Generator Type: Sweep
 
     def set_source_sweep_type(self, channel: int, type_: SourceSweepType):
+        """
+        Sets the sweep type for the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            type_ (SourceSweepType): The sweep type to set.
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or type_ is not a valid SourceSweepType.
+
+        Side Effects:
+            Updates the sweep type for the channel.
+        """
+        logger.debug(f"[MSO5000] set_source_sweep_type called with channel={channel}, type_={type_}")
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
-            type_ in MSO5000.SourceSweepType
+            type_ in SourceSweepType
         ), "Sweep type must be one of the SweepType enum values."
         self.__set_parameter(f"SOURce{channel}", "SWEep:TYPE", type_.value)
 
     def set_source_sweep_sweep_time(self, channel: int, time: int):
+        """
+        Sets the sweep time for the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            time (int): Sweep time in seconds (1-500).
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or time is not in [1, 500].
+
+        Side Effects:
+            Updates the sweep time for the channel.
+        """
+        logger.debug(f"[MSO5000] set_source_sweep_sweep_time called with channel={channel}, time={time}")
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
             time >= 1 and time <= 500
@@ -1488,6 +2687,20 @@ class MSO5000(Device):
         self.__set_parameter(f"SOURce{channel}", "SWEep:STIMe", time)
 
     def set_source_sweep_return_time(self, channel: int, time: int):
+        """
+        Sets the return time for the sweep function on the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            time (int): Return time in seconds (1-500).
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or time is not in [1, 500].
+
+        Side Effects:
+            Updates the return time for the channel.
+        """
+        logger.debug(f"[MSO5000] set_source_sweep_return_time called with channel={channel}, time={time}")
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
             time >= 1 and time <= 500
@@ -1501,8 +2714,21 @@ class MSO5000(Device):
         sweep_time: int = 1,
         return_time: int = 0,
     ):
+        """
+        Configures the function generator to output a sweep waveform on the specified channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            type_ (SourceSweepType, optional): Sweep type (Linear, Log, Step). Defaults to Linear.
+            sweep_time (int, optional): Sweep time in seconds (1-500). Defaults to 1.
+            return_time (int, optional): Return time in seconds (1-500). Defaults to 0.
+
+        Side Effects:
+            Disables output, sets sweep type, sweep time, and return time for the channel.
+        """
+        logger.debug(f"[MSO5000] function_generator_sweep called with channel={channel}, type_={type_}, sweep_time={sweep_time}, return_time={return_time}")
         self.function_generator_state(channel, False)
-        self.set_source_type(channel, MSO5000.SourceType.Sweep)
+        self.set_source_type(channel, SourceType.Sweep)
         self.set_source_sweep_type(channel, type_)
         self.set_source_sweep_sweep_time(channel, sweep_time)
         self.set_source_sweep_return_time(channel, return_time)
@@ -1510,13 +2736,41 @@ class MSO5000(Device):
     # Function Generator Type: Burst
 
     def set_source_burst_type(self, channel: int, type_: SourceBurstType):
+        """
+        Sets the burst type for the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            type_ (SourceBurstType): The burst type to set.
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or type_ is not a valid SourceBurstType.
+
+        Side Effects:
+            Updates the burst type for the channel.
+        """
+        logger.debug(f"[MSO5000] set_source_burst_type called with channel={channel}, type_={type_}")
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
-            type_ in MSO5000.SourceBurstType
+            type_ in SourceBurstType
         ), "Burst type must be one of the BurstType enum values."
         self.__set_parameter(f"SOURce{channel}", "BURSt:TYPE", type_.value)
 
     def set_source_burst_cycles(self, channel: int, cycles: int):
+        """
+        Sets the number of burst cycles for the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            cycles (int): Number of burst cycles (1-1000000).
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or cycles is not in [1, 1000000].
+
+        Side Effects:
+            Updates the burst cycles for the channel.
+        """
+        logger.debug(f"[MSO5000] set_source_burst_cycles called with channel={channel}, cycles={cycles}")
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
             cycles >= 1 and cycles <= 1000000
@@ -1524,6 +2778,20 @@ class MSO5000(Device):
         self.__set_parameter(f"SOURce{channel}", "BURSt:CYCLes", cycles)
 
     def set_source_burst_delay(self, channel: int, delay: int):
+        """
+        Sets the burst delay for the function generator channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            delay (int): Burst delay in microseconds (1-1000000).
+
+        Raises:
+            AssertionError: If channel is not 1 or 2, or delay is not in [1, 1000000].
+
+        Side Effects:
+            Updates the burst delay for the channel.
+        """
+        logger.debug(f"[MSO5000] set_source_burst_delay called with channel={channel}, delay={delay}")
         assert channel >= 1 and channel <= 2, "Channel must be between 1 and 2."
         assert (
             delay >= 1 and delay <= 1000000
@@ -1537,8 +2805,21 @@ class MSO5000(Device):
         cycles: int = 1,
         delay: int = 0,
     ):
+        """
+        Configures the function generator to output a burst waveform on the specified channel.
+
+        Args:
+            channel (int): The function generator channel (1 or 2).
+            type_ (SourceBurstType, optional): Burst type (Ncycle, Infinite). Defaults to Ncycle.
+            cycles (int, optional): Number of burst cycles (1-1000000). Defaults to 1.
+            delay (int, optional): Burst delay in microseconds (1-1000000). Defaults to 0.
+
+        Side Effects:
+            Disables output, sets burst type, cycles, and delay for the channel.
+        """
+        logger.debug(f"[MSO5000] function_generator_burst called with channel={channel}, type_={type_}, cycles={cycles}, delay={delay}")
         self.function_generator_state(channel, False)
-        self.set_source_type(channel, MSO5000.SourceType.Sweep)
+        self.set_source_type(channel, SourceType.Sweep)
         self.set_source_burst_type(channel, type_)
         self.set_source_burst_cycles(channel, cycles)
         self.set_source_burst_delay(channel, delay)
@@ -1546,51 +2827,181 @@ class MSO5000(Device):
     # The :SYSTem commands are used to set sound, language, and other relevant system settings.
 
     def get_system_error(self) -> str:
+        """
+        Retrieves the next system error message from the MSO5000 oscilloscope.
+
+        Returns:
+            str: The next error message from the system error queue, or an empty string if no error is present.
+
+        Side Effects:
+            - Logs the operation.
+            - Queries the device for the next error message.
+        """
+        logger.debug(f"[MSO5000] get_system_error called")
         return self.__get_parameter("SYSTem", "ERRor:NEXT")
 
-    # The :TIMebase commands are used to set the horizontal system. For example, enable the delayed sweep,
-    # set the horizontal time base mode, etc.
     def set_timebase_delay_enable(self, enable: bool):
+        """
+        Enables or disables the delayed sweep timebase on the MSO5000 oscilloscope.
+
+        Args:
+            enable (bool): True to enable delayed sweep, False to disable.
+
+        Side Effects:
+            - Logs the operation.
+            - Sets the delayed sweep enable parameter on the device.
+        """
+        logger.debug(f"[MSO5000] set_timebase_delay_enable called with enable={enable}")
         self.__set_parameter("TIMebase", "DELay:ENABle", enable)
 
     def set_timebase_delay_offset(self, offset: float):
+        """
+        Sets the delay offset for the timebase on the MSO5000 oscilloscope.
+
+        Args:
+            offset (float): The delay offset value in seconds.
+
+        Side Effects:
+            - Logs the operation.
+            - Sets the delay offset parameter on the device.
+        """
+        logger.debug(f"[MSO5000] set_timebase_delay_offset called with offset={offset}")
         self.__set_parameter("TIMebase", "DELay:OFFSet", offset)
 
     def set_timebase_delay_scale(self, scale: float):
+        """
+        Sets the delay scale for the timebase on the MSO5000 oscilloscope.
+
+        Args:
+            scale (float): The delay scale value in seconds/div.
+
+        Side Effects:
+            - Logs the operation.
+            - Sets the delay scale parameter on the device.
+        """
+        logger.debug(f"[MSO5000] set_timebase_delay_scale called with scale={scale}")
         self.__set_parameter("TIMebase", "DELay:SCALe", scale)
 
     def timebase_delay(
         self, enable: bool = False, offset: float = 0, scale: float = 500e-9
     ):
+        """
+        Configures the delayed sweep timebase settings on the MSO5000 oscilloscope.
+
+        Args:
+            enable (bool, optional): Enable or disable delayed sweep. Defaults to False.
+            offset (float, optional): Delay offset in seconds. Defaults to 0.
+            scale (float, optional): Delay scale in seconds/div. Defaults to 500e-9.
+
+        Side Effects:
+            - Logs the operation.
+            - Applies the delayed sweep settings to the device.
+        """
+        logger.debug(f"[MSO5000] timebase_delay called with enable={enable}, offset={offset}, scale={scale}")
         self.set_timebase_delay_enable(enable)
         self.set_timebase_delay_offset(offset)
         self.set_timebase_delay_scale(scale)
 
     def set_timebase_offset(self, offset: float):
+        """
+        Sets the main timebase horizontal offset on the MSO5000 oscilloscope.
+
+        Args:
+            offset (float): The horizontal offset value in seconds.
+
+        Side Effects:
+            - Logs the operation.
+            - Sets the main timebase offset parameter on the device.
+        """
+        logger.debug(f"[MSO5000] set_timebase_offset called with offset={offset}")
         self.__set_parameter("TIMebase", "MAIN:OFFSet", offset)
 
     def set_timebase_scale(self, scale: float):
+        """
+        Sets the main timebase scale on the MSO5000 oscilloscope.
+
+        Args:
+            scale (float): The timebase scale value in seconds/div.
+
+        Side Effects:
+            - Logs the operation.
+            - Sets the main timebase scale parameter on the device.
+        """
+        logger.debug(f"[MSO5000] set_timebase_scale called with scale={scale}")
         self.__set_parameter("TIMebase", "MAIN:SCALe", scale)
 
     def set_timebase_mode(self, mode: TimebaseMode):
+        """
+        Sets the horizontal timebase mode on the MSO5000 oscilloscope.
+
+        Args:
+            mode (TimebaseMode): The desired timebase mode (Main, Xy, Roll).
+
+        Raises:
+            AssertionError: If mode is not a valid TimebaseMode enum value.
+
+        Side Effects:
+            - Logs the operation.
+            - Sets the timebase mode parameter on the device.
+        """
+        logger.debug(f"[MSO5000] set_timebase_mode called with mode={mode}")
         assert (
-            mode in MSO5000.TimebaseMode
+            mode in TimebaseMode
         ), "Timebase mode must be one of the TimebaseMode enum values."
         self.__set_parameter("TIMebase", "MODE", mode.value)
 
     def set_timebase_href_mode(self, mode: HrefMode):
+        """
+        Sets the horizontal reference mode for the timebase on the MSO5000 oscilloscope.
+
+        Args:
+            mode (HrefMode): The desired horizontal reference mode.
+
+        Raises:
+            AssertionError: If mode is not a valid HrefMode enum value.
+
+        Side Effects:
+            - Logs the operation.
+            - Sets the horizontal reference mode parameter on the device.
+        """
+        logger.debug(f"[MSO5000] set_timebase_href_mode called with mode={mode}")
         assert (
-            mode in MSO5000.HrefMode
+            mode in HrefMode
         ), "Href mode must be one of the HrefMode enum values."
         self.__set_parameter("TIMebase", "HREFerence:MODE", mode.value)
 
     def set_timebase_position(self, position: int):
+        """
+        Sets the horizontal reference position for the timebase on the MSO5000 oscilloscope.
+
+        Args:
+            position (int): The reference position value, must be between -500 and 500.
+
+        Raises:
+            AssertionError: If position is not within the valid range.
+
+        Side Effects:
+            - Logs the operation.
+            - Sets the horizontal reference position parameter on the device.
+        """
+        logger.debug(f"[MSO5000] set_timebase_position called with position={position}")
         assert (
             position >= -500 and position <= 500
         ), "Horizontal reference position must be between -500 to 500."
         self.__set_parameter("TIMebase", "HREFerence:POSition", position)
 
     def set_timebase_vernier(self, vernier: bool):
+        """
+        Enables or disables vernier mode for the timebase on the MSO5000 oscilloscope.
+
+        Args:
+            vernier (bool): True to enable vernier mode, False to disable.
+
+        Side Effects:
+            - Logs the operation.
+            - Sets the vernier mode parameter on the device.
+        """
+        logger.debug(f"[MSO5000] set_timebase_vernier called with vernier={vernier}")
         self.__set_parameter("TIMebase", "VERNier", vernier)
 
     def timebase_settings(
@@ -1602,6 +3013,22 @@ class MSO5000(Device):
         position: float = 0,
         vernier: bool = False,
     ):
+        """
+        Applies a set of horizontal timebase settings to the MSO5000 oscilloscope.
+
+        Args:
+            offset (float, optional): Horizontal offset in seconds. Defaults to 0.
+            scale (float, optional): Timebase scale in seconds/div. Defaults to 1e-6.
+            mode (TimebaseMode, optional): Timebase mode. Defaults to Main.
+            href_mode (HrefMode, optional): Horizontal reference mode. Defaults to Center.
+            position (float, optional): Reference position. Defaults to 0.
+            vernier (bool, optional): Enable vernier mode. Defaults to False.
+
+        Side Effects:
+            - Logs the operation.
+            - Applies all specified timebase settings to the device.
+        """
+        logger.debug(f"[MSO5000] timebase_settings called with offset={offset}, scale={scale}, mode={mode}, href_mode={href_mode}, position={position}, vernier={vernier}")
         self.set_timebase_mode(mode)
         self.set_timebase_scale(scale)
         self.set_timebase_offset(offset)
@@ -1614,152 +3041,21 @@ class MSO5000(Device):
     # or :TRACe[<n>] is omitted, the operation will be applied to source 1 by default.
 
     # The :TRIGger commands are used to set the trigger system of the oscilloscope.
-    class TriggerMode(StrEnum):
-        Edge = "EDGE"
-        Pulse = "PULS"
-        Slope = "SLOP"
-        Video = "VID"
-        Pattern = "PATT"
-        Duration = "DUR"
-        Timeout = "TIM"
-        Runt = "RUNT"
-        Window = "WIND"
-        Delay = "DEL"
-        Setup = "SET"
-        Nedge = "NEDG"
-        RS232 = "RS232"
-        IIC = "IIC"
-        SPI = "SPI"
-        CAN = "CAN"
-        Flexray = "FLEX"
-        LIN = "LIN"
-        IIS = "IIS"
-        M1553 = "M1553"
-
-    class TriggerCoupling(StrEnum):
-        AC = "AC"
-        DC = "DC"
-        LfReject = "LFR"
-        HfReject = "HFR"
-
-    class TriggerStatus(StrEnum):
-        """
-        Enumeration representing the possible trigger statuses for the device.
-
-        Attributes:
-            TD: Triggered and data acquisition is complete.
-            Wait: Waiting for a trigger event.
-            Run: Actively running and acquiring data.
-            Auto: Automatically triggering when no trigger event occurs.
-            Stop: Stopped, no data acquisition in progress.
-        """
-
-        TD = "TD"
-        Wait = "WAIT"
-        Run = "RUN"
-        Auto = "AUTO"
-        Stop = "STOP"
-
-    class TriggerSweep(StrEnum):
-        """
-        Enumeration representing the available trigger sweep modes for the device.
-
-        Attributes:
-            Auto:   Automatic sweep mode ("AUTO"). The device continuously acquires data, even if no trigger event occurs.
-            Normal: Normal sweep mode ("NORM"). The device acquires data only when a trigger event occurs.
-            Single: Single sweep mode ("SING"). The device acquires data for a single trigger event and then stops.
-        """
-
-        Auto = "AUTO"
-        Normal = "NORM"
-        Single = "SING"
-
-    class TriggerSource(StrEnum):
-        """
-        Enumeration of possible trigger sources for the MSO5000 device.
-
-        Attributes:
-            D0-D15: Digital channels 0 through 15.
-            Channel1-Channel4: Analog channels 1 through 4 (represented as "CHAN1" to "CHAN4").
-            AcLine: AC line trigger source ("ACL").
-        """
-
-        D0 = "D0"
-        D1 = "D1"
-        D2 = "D2"
-        D3 = "D3"
-        D4 = "D4"
-        D5 = "D5"
-        D6 = "D6"
-        D7 = "D7"
-        D8 = "D8"
-        D9 = "D9"
-        D10 = "D10"
-        D11 = "D11"
-        D12 = "D12"
-        D13 = "D13"
-        D14 = "D14"
-        D15 = "D15"
-        Channel1 = "CHAN1"
-        Channel2 = "CHAN2"
-        Channel3 = "CHAN3"
-        Channel4 = "CHAN4"
-        AcLine = "ACL"
-
-    class TriggerSlope(StrEnum):
-        """
-        Enumeration representing the possible trigger slope types for the device.
-
-        Attributes:
-            Positive: Trigger on a positive slope ("POS").
-            Negative: Trigger on a negative slope ("NEG").
-            RFall: Trigger on a rapid falling edge ("RFAL").
-        """
-
-        Positive = "POS"
-        Negative = "NEG"
-        RFall = "RFAL"
-
-    class TriggerWhen(StrEnum):
-        """
-        Enumeration representing trigger conditions for a device.
-
-        Attributes:
-            Greater: Trigger when the value is greater than a specified threshold ("GRE").
-            Less: Trigger when the value is less than a specified threshold ("LESS").
-            Gless: Trigger when the value is greater or less than a specified threshold ("GLES").
-        """
-
-        Greater = "GRE"
-        Less = "LESS"
-        Gless = "GLES"
-
-    class TriggerWindow(StrEnum):
-        """
-        Enumeration representing the available trigger windows for the device.
-
-        Attributes:
-            TA: Trigger window A.
-            TB: Trigger window B.
-            TAB: Trigger window A and B combined.
-        """
-
-        TA = "TA"
-        TB = "TB"
-        TAB = "TAB"
 
     def get_trigger_status(self):
         """
         Retrieves the current trigger status from the device.
 
         Returns:
-            MSO5000.TriggerStatus: An enumeration value representing the current trigger status.
+            TriggerStatus: An enumeration value representing the current trigger status.
 
         Raises:
             ValueError: If the returned status string cannot be converted to a TriggerStatus enum.
         """
+        logger.debug(f"[MSO5000] get_trigger_status called")
         _status = self.__get_parameter("TRIGger", "STATus")
-        return MSO5000.TriggerStatus(_status)
+        logger.debug(f"[MSO5000] Trigger status response: {_status}")
+        return TriggerStatus(_status)
 
     def set_trigger_mode(self, mode: TriggerMode):
         """
@@ -1774,8 +3070,9 @@ class MSO5000(Device):
         Side Effects:
             Updates the trigger mode parameter on the device via the __set_parameter_str method.
         """
+        logger.debug(f"[MSO5000] set_trigger_mode called with mode={mode}")
         assert (
-            mode in MSO5000.TriggerMode
+            mode in TriggerMode
         ), "Trigger mode must be one of the TriggerMode enum values."
         self.__set_parameter("TRIGger", "MODE", mode.value)
 
@@ -1784,14 +3081,15 @@ class MSO5000(Device):
         Sets the trigger coupling mode for the device.
 
         Args:
-            coupling (TriggerCoupling): The desired trigger coupling mode. Must be a member of the MSO5000.TriggerCoupling enum.
+            coupling (TriggerCoupling): The desired trigger coupling mode. Must be a member of the TriggerCoupling enum.
 
         Raises:
             AssertionError: If the provided coupling is not a valid TriggerCoupling enum value.
 
         """
+        logger.debug(f"[MSO5000] set_trigger_coupling called with coupling={coupling}")
         assert (
-            coupling in MSO5000.TriggerCoupling
+            coupling in TriggerCoupling
         ), "Trigger coupling must be one of the TriggerCoupling enum values."
         self.__set_parameter("TRIGger", "COUPling", coupling.value)
 
@@ -1811,8 +3109,9 @@ class MSO5000(Device):
         Example:
             set_trigger_sweep(TriggerSweep.AUTO)
         """
+        logger.debug(f"[MSO5000] set_trigger_sweep called with sweep={sweep}")
         assert (
-            sweep in MSO5000.TriggerSweep
+            sweep in TriggerSweep
         ), "Trigger sweep must be one of the TriggerSweep enum values."
         self.__set_parameter("TRIGger", "SWEep", sweep.value)
 
@@ -1829,6 +3128,7 @@ class MSO5000(Device):
         Raises:
             AssertionError: If the holdoff value is outside the allowed range.
         """
+        logger.debug(f"[MSO5000] set_trigger_holdoff called with holdoff={holdoff}")
         assert (
             holdoff >= 8e-9 and holdoff <= 10
         ), "Trigger holdoff must be between 8ns and 10s."
@@ -1847,6 +3147,7 @@ class MSO5000(Device):
         Note:
             Noise rejection helps to prevent false triggering caused by noise on the input signal.
         """
+        logger.debug(f"[MSO5000] set_trigger_noise_reject called with status={status}")
         self.__set_parameter("TRIGger", "NREJect", status)
 
     # Trigger mode: Edge
@@ -1856,15 +3157,16 @@ class MSO5000(Device):
         Set the trigger edge source for the oscilloscope.
 
         Args:
-            source (TriggerSource): The trigger source to set. Must be a member of the MSO5000.TriggerSource enum.
+            source (TriggerSource): The trigger source to set. Must be a member of the TriggerSource enum.
 
         Raises:
             AssertionError: If the provided source is not a valid TriggerSource enum value.
 
         This method configures the oscilloscope to use the specified trigger edge source.
         """
+        logger.debug(f"[MSO5000] set_trigger_edge_source called with source={source}")
         assert (
-            source in MSO5000.TriggerSource
+            source in TriggerSource
         ), "Trigger edge source must be one of the TriggerSource enum values."
         self.__set_parameter("TRIGger", "EDGE:SOURce", source.value)
 
@@ -1873,7 +3175,7 @@ class MSO5000(Device):
         Sets the trigger edge slope for the oscilloscope.
 
         Args:
-            slope (TriggerSlope): The desired trigger edge slope. Must be a member of MSO5000.TriggerSlope.
+            slope (TriggerSlope): The desired trigger edge slope. Must be a member of TriggerSlope.
 
         Raises:
             AssertionError: If the provided slope is not a valid TriggerSlope enum value.
@@ -1881,8 +3183,9 @@ class MSO5000(Device):
         Side Effects:
             Updates the oscilloscope's trigger edge slope setting via the __set_parameter_str method.
         """
+        logger.debug(f"[MSO5000] set_trigger_edge_slope called with slope={slope}")
         assert (
-            slope in MSO5000.TriggerSlope
+            slope in TriggerSlope
         ), "Trigger edge slope must be one of the TriggerEdgeSlope enum values."
         self.__set_parameter("TRIGger", "EDGE:SLOPe", slope.value)
 
@@ -1898,6 +3201,7 @@ class MSO5000(Device):
             AssertionError: If the provided level is outside the valid range [-15, 15].
 
         """
+        logger.debug(f"[MSO5000] set_trigger_edge_level called with level={level}")
         assert (
             level >= -15 and level <= 15
         ), "Trigger edge level must be between -15 and 15 V."
@@ -1928,7 +3232,8 @@ class MSO5000(Device):
         Returns:
             None
         """
-        self.set_trigger_mode(MSO5000.TriggerMode.Edge)
+        logger.debug(f"[MSO5000] trigger_edge called with coupling={coupling}, sweep={sweep}, holdoff={holdoff}, nreject={nreject}, edge_source={edge_source}, edge_slope={edge_slope}, edge_level={edge_level}")
+        self.set_trigger_mode(TriggerMode.Edge)
         self.set_trigger_coupling(coupling)
         self.set_trigger_sweep(sweep)
         self.set_trigger_holdoff(holdoff)
@@ -1944,32 +3249,33 @@ class MSO5000(Device):
         Sets the trigger pulse source for the oscilloscope.
 
         Args:
-            source (TriggerSource): The trigger source to set. Must be a member of the MSO5000.TriggerSource enum.
+            source (TriggerSource): The trigger source to set. Must be a member of the TriggerSource enum.
 
         Raises:
             AssertionError: If the provided source is not a valid TriggerSource enum value.
 
         """
+        logger.debug(f"[MSO5000] set_trigger_pulse_source called with source={source}")
         assert (
-            source in MSO5000.TriggerSource
+            source in TriggerSource
         ), "Trigger pulse source must be one of the TriggerSource enum values."
         self.__set_parameter("TRIGger", "PULSe:SOURce", source.value)
 
     def set_trigger_pulse_when(self, when: TriggerWhen):
         """
-        Sets the trigger condition for pulse width triggering on the device.
+        Sets the trigger pulse condition for the oscilloscope.
 
         Args:
-            when (TriggerWhen): The trigger condition, must be a value from the MSO5000.TriggerWhen enum.
+            when (TriggerWhen): The trigger condition to set. Must be a value from the TriggerWhen enum.
 
         Raises:
             AssertionError: If the provided when is not a valid TriggerWhen enum value.
 
-        This method configures the oscilloscope to trigger when the pulse width condition specified by 'when' is met.
         """
+        logger.debug(f"[MSO5000] set_trigger_pulse_when called with when={when}")
         assert (
-            when in MSO5000.TriggerWhen
-        ), "Trigger pulse when must be one of the TriggerWhen enum values."
+            when in TriggerWhen
+        ), "Trigger when must be one of the TriggerWhen enum values."
         self.__set_parameter("TRIGger", "PULSe:WHEN", when.value)
 
     def set_trigger_pulse_upper_width(self, width: float):
@@ -1982,8 +3288,8 @@ class MSO5000(Device):
         Raises:
             AssertionError: If the specified width is greater than 10 seconds.
 
-        This method configures the trigger system to use the specified upper width for pulse detection.
         """
+        logger.debug(f"[MSO5000] set_trigger_pulse_upper_width called with width={width}")
         assert width <= 10, "Trigger pulse upper width must be less than 10s."
         self.__set_parameter("TRIGger", "PULSe:UWIDth", width)
 
@@ -1999,6 +3305,7 @@ class MSO5000(Device):
             AssertionError: If the specified width is less than 8 picoseconds.
 
         """
+        logger.debug(f"[MSO5000] set_trigger_pulse_lower_width called with width={width}")
         assert width >= 8e-12, "Trigger pulse lower width must be greater than 8 ps."
         self.__set_parameter("TRIGger", "PULSe:LWIDth", width)
 
@@ -2013,9 +3320,10 @@ class MSO5000(Device):
             AssertionError: If the specified level is not within the range -15 to 15 volts.
 
         """
+        logger.debug(f"[MSO5000] set_trigger_pulse_level called with level={level}")
         assert (
             level >= -15 and level <= 15
-        ), "Trigger pulse level must be between -15 and 15 V."
+        ), "Trigger pulse level must be between -15V and 15V."
         self.__set_parameter("TRIGger", "PULSe:LEVel", level)
 
     def trigger_pulse(
@@ -2047,7 +3355,8 @@ class MSO5000(Device):
         Returns:
             None
         """
-        self.set_trigger_mode(MSO5000.TriggerMode.Edge)
+        logger.debug(f"[MSO5000] trigger_pulse called with coupling={coupling}, sweep={sweep}, holdoff={holdoff}, nreject={nreject}, pulse_source={pulse_source}, pulse_when={pulse_when}, pulse_upper_width={pulse_upper_width}, pulse_lower_width={pulse_lower_width}, pulse_level={pulse_level}")
+        self.set_trigger_mode(TriggerMode.Edge)
         self.set_trigger_coupling(coupling)
         self.set_trigger_sweep(sweep)
         self.set_trigger_holdoff(holdoff)
@@ -2066,18 +3375,19 @@ class MSO5000(Device):
 
         Args:
             source (TriggerSource): The trigger source to set. Must be one of
-                MSO5000.TriggerSource.CHANnel1, MSO5000.TriggerSource.CHANnel2,
-                MSO5000.TriggerSource.CHANnel3, or MSO5000.TriggerSource.CHANnel4.
+                TriggerSource.CHANnel1, TriggerSource.CHANnel2,
+                TriggerSource.CHANnel3, or TriggerSource.CHANnel4.
 
         Raises:
             AssertionError: If the provided source is not a valid channel trigger source.
 
         """
+        logger.debug(f"[MSO5000] set_trigger_slope_source called with source={source}")
         assert source in [
-            MSO5000.TriggerSource.Channel1,
-            MSO5000.TriggerSource.Channel2,
-            MSO5000.TriggerSource.Channel3,
-            MSO5000.TriggerSource.Channel4,
+            TriggerSource.Channel1,
+            TriggerSource.Channel2,
+            TriggerSource.Channel3,
+            TriggerSource.Channel4,
         ], "Trigger source must be one of Channel 1, Channel 2, Channel 3 or Channel 4."
         self.__set_parameter("TRIGger", "SLOPe:SOURce", source.value)
 
@@ -2092,8 +3402,9 @@ class MSO5000(Device):
             AssertionError: If the provided when is not a valid TriggerWhen enum value.
 
         """
+        logger.debug(f"[MSO5000] set_trigger_slope_when called with when={when}")
         assert (
-            when in MSO5000.TriggerWhen
+            when in TriggerWhen
         ), "Trigger when must be one of the TriggerWhen enum values."
         self.__set_parameter("TRIGger", "SLOPe:WHEN", when.value)
 
@@ -2108,6 +3419,7 @@ class MSO5000(Device):
             AssertionError: If the specified time is greater than 10 seconds.
 
         """
+        logger.debug(f"[MSO5000] set_trigger_slope_time_upper called with time={time}")
         assert time <= 10, "Upper time limit must be less than 10 s."
         self.__set_parameter("TRIGger", "SLOPe:TUPPer", time)
 
@@ -2123,6 +3435,7 @@ class MSO5000(Device):
 
         This method configures the oscilloscope to use the specified lower time limit for the trigger slope, ensuring precise triggering based on signal slope duration.
         """
+        logger.debug(f"[MSO5000] set_trigger_slope_time_lower called with time={time}")
         assert time >= 800e-12, "Lower time limit must be greater than 800 ps."
         self.__set_parameter("TRIGger", "SLOPe:TLOWer", time)
 
@@ -2131,15 +3444,16 @@ class MSO5000(Device):
         Sets the trigger slope window of the oscilloscope.
 
         Args:
-            window (TriggerWindow): The trigger slope window to set. Must be a value from the MSO5000.TriggerWindow enum.
+            window (TriggerWindow): The trigger slope window to set. Must be a value from the TriggerWindow enum.
 
         Raises:
             AssertionError: If the provided window is not a valid TriggerWindow enum value.
 
         This method configures the oscilloscope to use the specified trigger slope window by sending the appropriate command.
         """
+        logger.debug(f"[MSO5000] set_trigger_slope_window called with window={window}")
         assert (
-            window in MSO5000.TriggerWindow
+            window in TriggerWindow
         ), "Trigger window must be one of the TriggerWindow enum values."
         self.__set_parameter("TRIGger", "SLOPe:WINDow", window.value)
 
@@ -2153,6 +3467,7 @@ class MSO5000(Device):
         Raises:
             ValueError: If the provided amplitude is out of the valid range for the oscilloscope.
         """
+        logger.debug(f"[MSO5000] set_trigger_slope_amplitude_upper called with amplitude={amplitude}")
         self.__set_parameter("TRIGger", "SLOPe:ALEVel", amplitude)
 
     def set_trigger_slope_amplitude_lower(self, amplitude: float):
@@ -2169,6 +3484,7 @@ class MSO5000(Device):
             This method configures the oscilloscope's trigger system to only respond to signals
             exceeding the specified lower amplitude limit on the slope.
         """
+        logger.debug(f"[MSO5000] set_trigger_slope_amplitude_lower called with amplitude={amplitude}")
         self.__set_parameter("TRIGger", "SLOPe:BLEVel", amplitude)
 
     def trigger_slope(
@@ -2189,21 +3505,22 @@ class MSO5000(Device):
         Configures the slope trigger settings for the oscilloscope.
 
         Parameters:
-            coupling (TriggerCoupling): The trigger coupling mode (e.g., DC, AC).
-            sweep (TriggerSweep): The trigger sweep mode (e.g., Auto, Normal).
-            holdoff (float): The trigger holdoff time in seconds.
-            nreject (bool): Enable or disable trigger noise rejection.
-            source (TriggerSource): The trigger source channel.
-            when (TriggerWhen): The trigger condition (e.g., Greater, Less).
-            time_upper (float): The upper time threshold for the slope trigger in seconds.
-            time_lower (float): The lower time threshold for the slope trigger in seconds.
-            window (TriggerWindow): The trigger window type.
-            amplitude_upper (float): The upper amplitude threshold for the slope trigger.
-            amplitude_lower (float): The lower amplitude threshold for the slope trigger.
+            coupling (TriggerCoupling, optional): The trigger coupling mode (e.g., DC, AC).
+            sweep (TriggerSweep, optional): The trigger sweep mode (e.g., Auto, Normal).
+            holdoff (float, optional): The trigger holdoff time in seconds.
+            nreject (bool, optional): Whether to enable noise rejection.
+            source (TriggerSource, optional): The trigger source channel.
+            when (TriggerWhen, optional): The trigger condition (e.g., Greater, Less).
+            time_upper (float, optional): The upper time threshold for the slope trigger in seconds.
+            time_lower (float, optional): The lower time threshold for the slope trigger in seconds.
+            window (TriggerWindow, optional): The trigger window type.
+            amplitude_upper (float, optional): The upper amplitude threshold for the slope trigger.
+            amplitude_lower (float, optional): The lower amplitude threshold for the slope trigger.
 
         Sets the oscilloscope to slope trigger mode and applies the specified trigger parameters.
         """
-        self.set_trigger_mode(MSO5000.TriggerMode.Slope)
+        logger.debug(f"[MSO5000] trigger_slope called with coupling={coupling}, sweep={sweep}, holdoff={holdoff}, nreject={nreject}, source={source}, when={when}, time_upper={time_upper}, time_lower={time_lower}, window={window}, amplitude_upper={amplitude_upper}, amplitude_lower={amplitude_lower}")
+        self.set_trigger_mode(TriggerMode.Slope)
         self.set_trigger_coupling(coupling)
         self.set_trigger_sweep(sweep)
         self.set_trigger_holdoff(holdoff)
@@ -2232,8 +3549,9 @@ class MSO5000(Device):
             AssertionError: If the provided source is `TriggerSource.AcLine`.
 
         """
+        logger.debug(f"[MSO5000] set_trigger_timeout_source called with source={source}")
         assert (
-            source is not MSO5000.TriggerSource.AcLine
+            source is not TriggerSource.AcLine
         ), "Trigger source cannot be ACLine."
         self.__set_parameter("TRIGger", "TIMeout:SOURce", source.value)
 
@@ -2242,14 +3560,15 @@ class MSO5000(Device):
         Sets the trigger timeout slope for the device.
 
         Args:
-            slope (TriggerSlope): The desired trigger slope. Must be a member of the MSO5000.TriggerSlope enum.
+            slope (TriggerSlope): The desired trigger slope. Must be a member of the TriggerSlope enum.
 
         Raises:
             AssertionError: If the provided slope is not a valid TriggerSlope enum value.
 
         """
+        logger.debug(f"[MSO5000] set_trigger_timeout_slope called with slope={slope}")
         assert (
-            slope in MSO5000.TriggerSlope
+            slope in TriggerSlope
         ), "Trigger slope must be one of the TriggerSlope enum values."
         self.__set_parameter("TRIGger", "TIMeout:SLOPe", slope.value)
 
@@ -2265,6 +3584,7 @@ class MSO5000(Device):
         Raises:
             AssertionError: If the provided time is not within the valid range [16e-9, 10].
         """
+        logger.debug(f"[MSO5000] set_trigger_timeout_time called with time={time}")
         assert (
             time >= 16e-9 and time <= 10
         ), "Trigger time must be between 16ns and 10s."
@@ -2283,6 +3603,7 @@ class MSO5000(Device):
         Raises:
             AssertionError: If the provided level is not within the range -15V to 15V.
         """
+        logger.debug(f"[MSO5000] set_trigger_timeout_level called with level={level}")
         assert (
             level >= -15 and level <= 15
         ), "Trigger level must be between -15V and 15V."
@@ -2314,7 +3635,8 @@ class MSO5000(Device):
 
         This method sets the oscilloscope to use the timeout trigger mode and applies the specified settings.
         """
-        self.set_trigger_mode(MSO5000.TriggerMode.Slope)
+        logger.debug(f"[MSO5000] trigger_timeout called with coupling={coupling}, sweep={sweep}, holdoff={holdoff}, nreject={nreject}, source={source}, slope={slope}, time={time}, level={level}")
+        self.set_trigger_mode(TriggerMode.Slope)
         self.set_trigger_coupling(coupling)
         self.set_trigger_sweep(sweep)
         self.set_trigger_holdoff(holdoff)
@@ -2346,14 +3668,15 @@ class MSO5000(Device):
         Sets the waveform source for the device.
 
         Args:
-            source (Source): The source to set for waveform acquisition. Must be a member of the MSO5000.Source enum.
+            source (Source): The source to set for waveform acquisition. Must be a member of the Source enum.
 
         Raises:
-            AssertionError: If the provided source is not a valid member of MSO5000.Source.
+            AssertionError: If the provided source is not a valid member of Source.
 
         """
+        logger.debug(f"[MSO5000] set_waveform_source called with source={source}")
         assert (
-            source in MSO5000.Source
+            source in Source
         ), "Waveform source must be one of the WaveformSource enum values."
         self.__set_parameter("WAVeform", "SOURce", source.value)
 
@@ -2370,8 +3693,9 @@ class MSO5000(Device):
         Side Effects:
             Updates the device's waveform mode parameter via the __set_parameter_str method.
         """
+        logger.debug(f"[MSO5000] set_waveform_mode called with mode={mode}")
         assert (
-            mode in MSO5000.WaveformMode
+            mode in WaveformMode
         ), "Waveform mode must be one of the WaveformMode enum values."
         self.__set_parameter("WAVeform", "MODE", mode.value)
 
@@ -2386,8 +3710,9 @@ class MSO5000(Device):
             AssertionError: If the provided format_ is not a valid WaveformFormat enum value.
 
         """
+        logger.debug(f"[MSO5000] set_waveform_format called with format_={format_}")
         assert (
-            format_ in MSO5000.WaveformFormat
+            format_ in WaveformFormat
         ), "Waveform format must be one of the WaveformFormat enum values."
         self.__set_parameter("WAVeform", "FORMat", format_.value)
 
@@ -2401,6 +3726,7 @@ class MSO5000(Device):
         Raises:
             AssertionError: If points is less than 1.
         """
+        logger.debug(f"[MSO5000] set_waveform_points called with points={points}")
         assert points >= 1, "Waveform points must be greater than 1."
         self.__set_parameter("WAVeform", "POINts", points)
 
@@ -2428,6 +3754,7 @@ class MSO5000(Device):
         Raises:
             AssertionError: If start < 1, stop <= start, or if the oscilloscope response is malformed.
         """
+        logger.debug(f"[MSO5000] get_waveform called with source={source}, format_={format_}, mode={mode}, start={start}, stop={stop}")
         assert start >= 1, "Waveform start must be greater than 1."
         assert stop > start, "Waveform stop must be greater than start."
         self.set_waveform_source(source)
@@ -2437,6 +3764,7 @@ class MSO5000(Device):
         _stop = min(start + 100, stop)
         _data = [0] * (stop - start + 1)
         while _start < stop:
+            logger.debug(f"[MSO5000] Reading waveform chunk: start={_start}, stop={_stop}")
             self.set_waveform_start(_start)
             self.set_waveform_stop(_stop)
             self.__write(":WAVeform:DATA?")
@@ -2450,11 +3778,11 @@ class MSO5000(Device):
             _response = _response[
                 2 + _header_length : 2 + _header_length + _data_length
             ]
-            if format_ == MSO5000.WaveformFormat.Ascii:
+            if format_ == WaveformFormat.Ascii:
                 _points = "".join([chr(x) for x in _response]).split(",")
                 for _index in range(_start, _stop):
                     _data[_index - start] = float(_points[_index - _start])
-            elif format_ == MSO5000.WaveformFormat.Word:
+            elif format_ == WaveformFormat.Word:
                 for _index in range(_start, _stop):
                     _rind = _index - _start
                     _byte1 = _response[_rind * 2]
@@ -2465,6 +3793,7 @@ class MSO5000(Device):
                     _data[_index - start] = _response[_index - _start]
             _start = _stop
             _stop = min(_start + 100, stop)
+        logger.debug(f"[MSO5000] get_waveform finished, returning {len(_data)} points")
         return _data
 
     def get_waveform_xincrement(self) -> float:
@@ -2474,6 +3803,7 @@ class MSO5000(Device):
         Returns:
             float: The time interval between consecutive data points in the waveform.
         """
+        logger.debug(f"[MSO5000] get_waveform_xincrement called")
         return self.__get_parameter("WAVeform", "XINCrement")
 
     def get_waveform_xorigin(self) -> float:
@@ -2483,6 +3813,7 @@ class MSO5000(Device):
         Returns:
             float: The X origin of the waveform, typically representing the starting point on the X-axis (time axis) in waveform data.
         """
+        logger.debug(f"[MSO5000] get_waveform_xorigin called")
         return self.__get_parameter("WAVeform", "XORigin")
 
     def get_waveform_xreference(self) -> float:
@@ -2492,15 +3823,17 @@ class MSO5000(Device):
         Returns:
             float: The X reference value of the waveform, typically representing the horizontal offset or reference point on the X-axis.
         """
+        logger.debug(f"[MSO5000] get_waveform_xreference called")
         return self.__get_parameter("WAVeform", "XREFerence")
 
     def get_waveform_yincrement(self) -> float:
         """
-        Retrieves the vertical increment (Y increment) value of the current waveform.
+        Retrieves the vertical increment (Y-axis increment) value of the current waveform.
 
         Returns:
             float: The Y increment value, representing the voltage difference between adjacent data points in the waveform.
         """
+        logger.debug(f"[MSO5000] get_waveform_yincrement called")
         return self.__get_parameter("WAVeform", "YINCrement")
 
     def get_waveform_yorigin(self) -> float:
@@ -2510,6 +3843,7 @@ class MSO5000(Device):
         Returns:
             float: The Y origin of the waveform as a floating-point number.
         """
+        logger.debug(f"[MSO5000] get_waveform_yorigin called")
         return self.__get_parameter("WAVeform", "YORigin")
 
     def get_waveform_yreference(self) -> float:
@@ -2519,6 +3853,7 @@ class MSO5000(Device):
         Returns:
             float: The Y reference value used for scaling the waveform data.
         """
+        logger.debug(f"[MSO5000] get_waveform_yreference called")
         return self.__get_parameter("WAVeform", "YREFerence")
 
     def set_waveform_start(self, start: int):
@@ -2531,6 +3866,7 @@ class MSO5000(Device):
         Raises:
             AssertionError: If 'start' is less than 1.
         """
+        logger.debug(f"[MSO5000] set_waveform_start called with start={start}")
         assert start >= 1, "Waveform start must be greater than 1."
         self.__set_parameter("WAVeform", "STARt", start)
 
@@ -2544,6 +3880,7 @@ class MSO5000(Device):
         Raises:
             AssertionError: If 'stop' is less than 1.
         """
+        logger.debug(f"[MSO5000] set_waveform_stop called with stop={stop}")
         assert stop >= 1, "Waveform stop must be greater than 1."
         self.__set_parameter("WAVeform", "STOP", stop)
 
@@ -2554,4 +3891,5 @@ class MSO5000(Device):
         Returns:
             str: The waveform preamble as a string, typically containing information about the waveform format, such as scaling, offset, and other acquisition parameters.
         """
+        logger.debug(f"[MSO5000] get_waveform_preamble called")
         return self.__get_parameter("WAVeform", "PREamble")

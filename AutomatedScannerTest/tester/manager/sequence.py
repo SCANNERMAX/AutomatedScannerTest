@@ -30,11 +30,11 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         Raises:
             RuntimeError: If there is no running QCoreApplication instance.
         """
-        logger.debug(f"__init__ called with cancel={cancel}, devices={devices}")
+        logger.debug(f"[TestSequenceModel] __init__ called with cancel={cancel}, devices={devices}")
         super().__init__()
         app_instance = QtCore.QCoreApplication.instance()
-        if app_instance is None or app_instance.__class__.__name__ != "TesterApp":
-            logger.critical("TesterApp instance not found. Ensure the application is initialized correctly.")
+        if app_instance is None or not hasattr(app_instance, "get_settings"):
+            logger.critical(f"[TestSequenceModel] TesterApp instance not found. Ensure the application is initialized correctly.")
             raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
         self.__settings = app_instance.get_settings()
         self.__settings.settingsModified.connect(self.onSettingsModified)
@@ -43,227 +43,408 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         self.__header = ("Test", "Status")
         self.__cancel = cancel
         self.__devices = devices
-        self.__tests = []
-        for test in _test_list():
-            logger.debug(f"Adding test: {test}")
-            self.__tests.append(test(self.__cancel, self.__devices))
-        logger.debug("Initialization complete.")
+        # Use list comprehension for faster test instantiation
+        self.__tests = [test(self.__cancel, self.__devices) for test in _test_list()]
 
-    # Qt Properties for the sequence parameters (using Qt types where possible)
     @QtCore.Property(str)
     def ComputerName(self):
-        logger.debug("ComputerName getter called")
+        """
+        Get the computer name parameter.
+
+        Returns:
+            str: The computer name.
+        """
+        logger.debug(f"[TestSequenceModel] ComputerName getter called")
         return self.__parameters.get("ComputerName", "")
 
     @ComputerName.setter
     def ComputerName(self, value):
-        logger.debug(f"ComputerName setter called with value={value}")
+        """
+        Set the computer name parameter.
+
+        Args:
+            value (str): The computer name.
+        """
+        logger.debug(f"[TestSequenceModel] ComputerName setter called with value={value}")
         self.__parameters["ComputerName"] = value
 
     @QtCore.Property(float)
     def Duration(self):
-        logger.debug("Duration getter called")
+        """
+        Get the duration parameter.
+
+        Returns:
+            float: The duration value.
+        """
+        logger.debug(f"[TestSequenceModel] Duration getter called")
         return self.__parameters.get("Duration", 0.0)
 
     @Duration.setter
     def Duration(self, value):
-        logger.debug(f"Duration setter called with value={value}")
+        """
+        Set the duration parameter.
+
+        Args:
+            value (float): The duration value.
+        """
+        logger.debug(f"[TestSequenceModel] Duration setter called with value={value}")
         self.__parameters["Duration"] = value
 
     @QtCore.Property(QtCore.QDateTime)
     def EndTime(self):
-        logger.debug("EndTime getter called")
+        """
+        Get the end time parameter.
+
+        Returns:
+            QtCore.QDateTime: The end time.
+        """
+        logger.debug(f"[TestSequenceModel] EndTime getter called")
         val = self.__parameters.get("EndTime", None)
-        if isinstance(val, QtCore.QDateTime):
-            return val
-        return QtCore.QDateTime()
+        return val if isinstance(val, QtCore.QDateTime) else QtCore.QDateTime()
 
     @EndTime.setter
     def EndTime(self, value):
-        logger.debug(f"EndTime setter called with value={value}")
+        """
+        Set the end time parameter.
+
+        Args:
+            value (QtCore.QDateTime): The end time.
+        """
+        logger.debug(f"[TestSequenceModel] EndTime setter called with value={value}")
         self.__parameters["EndTime"] = value if isinstance(value, QtCore.QDateTime) else QtCore.QDateTime()
 
     @QtCore.Property(str)
     def ModelName(self):
-        logger.debug("ModelName getter called")
+        """
+        Get the model name parameter.
+
+        Returns:
+            str: The model name.
+        """
+        logger.debug(f"[TestSequenceModel] ModelName getter called")
         return self.__parameters.get("ModelName", "")
 
     @ModelName.setter
     def ModelName(self, value):
-        logger.debug(f"ModelName setter called with value={value}")
+        """
+        Set the model name parameter and propagate to all tests.
+
+        Args:
+            value (str): The model name.
+        """
+        logger.debug(f"[TestSequenceModel] ModelName setter called with value={value}")
         self.__parameters["ModelName"] = value
+        # Use for loop without logging for performance
         for _test in self.__tests:
-            logger.debug(f"Setting ModelName for test: {_test}")
             _test.ModelName = value
 
     @QtCore.Property(str)
     def SerialNumber(self):
-        logger.debug("SerialNumber getter called")
+        """
+        Get the serial number parameter.
+
+        Returns:
+            str: The serial number.
+        """
+        logger.debug(f"[TestSequenceModel] SerialNumber getter called")
         return self.__parameters.get("SerialNumber", "")
 
     @SerialNumber.setter
     def SerialNumber(self, value):
-        logger.debug(f"SerialNumber setter called with value={value}")
+        """
+        Set the serial number parameter and propagate to all tests.
+
+        Args:
+            value (str): The serial number.
+        """
+        logger.debug(f"[TestSequenceModel] SerialNumber setter called with value={value}")
         self.__parameters["SerialNumber"] = value
         for _test in self.__tests:
-            logger.debug(f"Setting SerialNumber for test: {_test}")
             _test.SerialNumber = value
 
     @QtCore.Property(QtCore.QDateTime)
     def StartTime(self):
-        logger.debug("StartTime getter called")
+        """
+        Get the start time parameter.
+
+        Returns:
+            QtCore.QDateTime: The start time.
+        """
+        logger.debug(f"[TestSequenceModel] StartTime getter called")
         val = self.__parameters.get("StartTime", None)
-        if isinstance(val, QtCore.QDateTime):
-            return val
-        return QtCore.QDateTime()
+        return val if isinstance(val, QtCore.QDateTime) else QtCore.QDateTime()
 
     @StartTime.setter
     def StartTime(self, value):
-        logger.debug(f"StartTime setter called with value={value}")
+        """
+        Set the start time parameter.
+
+        Args:
+            value (QtCore.QDateTime): The start time.
+        """
+        logger.debug(f"[TestSequenceModel] StartTime setter called with value={value}")
         self.__parameters["StartTime"] = value if isinstance(value, QtCore.QDateTime) else QtCore.QDateTime()
 
     @QtCore.Property(str)
     def Status(self):
-        logger.debug("Status getter called")
+        """
+        Get the status parameter.
+
+        Returns:
+            str: The status.
+        """
+        logger.debug(f"[TestSequenceModel] Status getter called")
         return self.__parameters.get("Status", "Idle")
 
     @Status.setter
     def Status(self, value):
-        logger.debug(f"Status setter called with value={value}")
+        """
+        Set the status parameter.
+
+        Args:
+            value (str): The status.
+        """
+        logger.debug(f"[TestSequenceModel] Status setter called with value={value}")
         self.__parameters["Status"] = value
 
     @QtCore.Property(str)
     def TesterName(self):
-        logger.debug("TesterName getter called")
+        """
+        Get the tester name parameter.
+
+        Returns:
+            str: The tester name.
+        """
+        logger.debug(f"[TestSequenceModel] TesterName getter called")
         return self.__parameters.get("TesterName", "")
 
     @TesterName.setter
     def TesterName(self, value):
-        logger.debug(f"TesterName setter called with value={value}")
+        """
+        Set the tester name parameter.
+
+        Args:
+            value (str): The tester name.
+        """
+        logger.debug(f"[TestSequenceModel] TesterName setter called with value={value}")
         self.__parameters["TesterName"] = value
 
     # QtCore methods for the model
     def rowCount(self, parent=QtCore.QModelIndex()):
-        logger.debug("rowCount called")
+        """
+        Get the number of rows in the model.
+
+        Args:
+            parent (QtCore.QModelIndex): The parent index.
+
+        Returns:
+            int: Number of rows.
+        """
+        logger.debug(f"[TestSequenceModel] rowCount called")
         return len(self.__tests)
 
     def columnCount(self, parent=QtCore.QModelIndex()):
-        logger.debug("columnCount called")
+        """
+        Get the number of columns in the model.
+
+        Args:
+            parent (QtCore.QModelIndex): The parent index.
+
+        Returns:
+            int: Number of columns.
+        """
+        logger.debug(f"[TestSequenceModel] columnCount called")
         return len(self.__header)
 
     def data(self, index, role=QtCore.Qt.DisplayRole):
-        logger.debug(f"data called with index={index}, role={role}")
+        """
+        Get the data for a given index and role.
+
+        Args:
+            index (QtCore.QModelIndex): The index.
+            role (int): The role.
+
+        Returns:
+            Any: The data for the index and role.
+        """
+        logger.debug(f"[TestSequenceModel] data called with index={index}, role={role}")
         if not index.isValid():
-            logger.warning("data: Invalid index")
+            logger.warning(f"[TestSequenceModel] data: Invalid index")
             return None
         row, col = index.row(), index.column()
         if row >= len(self.__tests) or col >= len(self.__header):
-            logger.warning("data: Index out of range")
+            logger.warning(f"[TestSequenceModel] data: Index out of range")
             return None
         test = self.__tests[row]
         if role == QtCore.Qt.DisplayRole:
-            logger.debug(f"data: Returning display value for row={row}, col={col}")
+            logger.debug(f"[TestSequenceModel] data: Returning display value for row={row}, col={col}")
             return test.Name if col == 0 else test.Status
         if role == QtCore.Qt.UserRole:
-            logger.debug(f"data: Returning user role value for row={row}")
+            logger.debug(f"[TestSequenceModel] data: Returning user role value for row={row}")
             return test
         return None
 
     def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
-        logger.debug(f"headerData called with section={section}, orientation={orientation}, role={role}")
+        """
+        Get the header data for a given section, orientation, and role.
+
+        Args:
+            section (int): The section.
+            orientation (QtCore.Qt.Orientation): The orientation.
+            role (int): The role.
+
+        Returns:
+            Any: The header data.
+        """
+        logger.debug(f"[TestSequenceModel] headerData called with section={section}, orientation={orientation}, role={role}")
         if role == QtCore.Qt.DisplayRole and orientation == QtCore.Qt.Horizontal:
             return self.__header[section] if section < len(self.__header) else None
         return super().headerData(section, orientation, role)
 
     # Methods for managing the test sequence
     def extend(self, tests: list):
-        logger.debug(f"extend called with tests={tests}")
+        """
+        Extend the test list with additional tests.
+
+        Args:
+            tests (list): List of test objects to add.
+
+        Raises:
+            TypeError: If tests is not a list.
+        """
+        logger.debug(f"[TestSequenceModel] extend called with tests={tests}")
         if not isinstance(tests, list):
-            logger.critical("Argument to extend is not a list")
+            logger.critical(f"[TestSequenceModel] Argument to extend is not a list")
             raise TypeError("tests must be a list")
+        self.beginResetModel()
         self.__tests.extend(tests)
-        self.layoutChanged.emit()
-        logger.debug(f"Test list extended by {len(tests)} items.")
+        self.endResetModel()
+        logger.debug(f"[TestSequenceModel] Test list extended by {len(tests)} items.")
 
     def cliPrintTestList(self):
-        logger.debug("cliPrintTestList called")
+        """
+        Print the list of available tests to the command line.
+        """
+        logger.debug(f"[TestSequenceModel] cliPrintTestList called")
         print("Available tests:")
         for test in self.__tests:
-            logger.debug(f"Printing test: {test}")
             test.cliPrintTest()
             print("\n")
 
     def onGenerateReport(self, report):
-        logger.debug(f"onGenerateReport called with report={report}")
+        """
+        Generate a report for all non-skipped tests.
+
+        Args:
+            report: The report object to populate.
+        """
+        logger.debug(f"[TestSequenceModel] onGenerateReport called with report={report}")
         for _test in self.__tests:
             if getattr(_test, "Status", None) != "Skipped":
-                logger.debug(f"Generating report for test: {_test}")
+                logger.debug(f"[TestSequenceModel] Generating report for test: {_test}")
                 _test.onGenerateReport(report)
 
     def onLoadData(self, tests_data):
-        logger.debug(f"onLoadData called with tests_data={tests_data}")
+        """
+        Load test data into the model.
+
+        Args:
+            tests_data (dict): Dictionary of test data keyed by test name.
+        """
+        logger.debug(f"[TestSequenceModel] onLoadData called with tests_data={tests_data}")
         if tests_data:
             _name_to_test = {t.Name: t for t in self.__tests}
             for _test_name, _test_data in tests_data.items():
                 _test_obj = _name_to_test.get(_test_name)
                 if _test_obj:
-                    logger.debug(f"Loading data for test: {_test_name}")
+                    logger.debug(f"[TestSequenceModel] Loading data for test: {_test_name}")
                     _test_obj.onLoadData(_test_data)
 
     def onSaveData(self) -> dict:
-        logger.debug("onSaveData called")
+        """
+        Save the current model data.
+
+        Returns:
+            dict: Dictionary containing parameters and test data.
+        """
+        logger.debug(f"[TestSequenceModel] onSaveData called")
         _data = self.__parameters.copy()
         _data["Tests"] = {t.Name: t.onSaveData() for t in self.__tests}
-        logger.debug(f"onSaveData returning: {_data}")
+        logger.debug(f"[TestSequenceModel] onSaveData returning: {_data}")
         return _data
 
     @QtCore.Slot()
     def onSettingsModified(self):
-        logger.debug("onSettingsModified called")
+        """
+        Slot called when settings are modified.
+        """
+        logger.debug(f"[TestSequenceModel] onSettingsModified called")
 
     def onStartTest(self, data_directory, test=None):
-        logger.debug(f"onStartTest called with data_directory={data_directory}, test={test}")
+        """
+        Start the test sequence, optionally for a specific test.
+
+        Args:
+            data_directory (str): Directory to store test data.
+            test (str, optional): Name of a specific test to run.
+
+        Returns:
+            bool or None: True if all tests succeeded, False if any failed, None if cancelled or no tests run.
+        """
+        logger.debug(f"[TestSequenceModel] onStartTest called with data_directory={data_directory}, test={test}")
         statuses = []
+        cancel = getattr(self.__cancel, "cancelled", False)
         for index, _test in enumerate(self.__tests):
-            logger.info(f"Starting {_test.Name} (index={index})")
+            logger.info(f"[TestSequenceModel] Starting {_test.Name} (index={index})")
             self.startedTest.emit(index, _test.Name)
-            if getattr(self.__cancel, "cancelled", False):
-                logger.warning(f"Testing cancelled before starting {_test.Name}")
+            if cancel:
+                logger.warning(f"[TestSequenceModel] Testing cancelled before starting {_test.Name}")
                 _test.Status = "Skipped"
                 continue
             if test and _test.Name != test:
-                logger.info(f"Skipping {_test.Name}")
                 _test.Status = "Skipped"
                 continue
             result = _test.onStartTest(data_directory)
-            logger.info(f"{_test.Name} finished: result={result}")
+            logger.info(f"[TestSequenceModel] {_test.Name} finished: result={result}")
             statuses.append(result)
             self.finishedTest.emit(index, _test.Name, result)
-        if self.__cancel.cancelled:
-            logger.warning("Test sequence was cancelled.")
+        if getattr(self.__cancel, "cancelled", False):
+            logger.warning(f"[TestSequenceModel] Test sequence was cancelled.")
             return None
-        elif len(statuses) == 0:
-            logger.warning("No tests were executed.")
+        elif not statuses:
+            logger.warning(f"[TestSequenceModel] No tests were executed.")
             return None
         else:
-            logger.info(f"All tests finished. Success={all(statuses) if statuses else False}")
-            return all(statuses) if statuses else False
+            logger.info(f"[TestSequenceModel] All tests finished. Success={all(statuses)}")
+            return all(statuses)
 
     def resetTestData(self):
-        logger.debug("resetTestData called")
+        """
+        Reset parameters for all tests in the sequence.
+        """
+        logger.debug(f"[TestSequenceModel] resetTestData called")
         for test in self.__tests:
-            logger.debug(f"Resetting parameters for test: {test}")
+            logger.debug(f"[TestSequenceModel] Resetting parameters for test: {test}")
             test.resetParameters()
-        logger.debug("All test parameters reset")
+        logger.debug(f"[TestSequenceModel] All test parameters reset")
 
     def setupUi(self, parent=None):
-        logger.debug(f"setupUi called with parent={parent}")
+        """
+        Set up the UI for the test sequence in the given parent widget.
+
+        Args:
+            parent (QtWidgets.QStackedWidget, optional): The parent widget to set up.
+        """
+        logger.debug(f"[TestSequenceModel] setupUi called with parent={parent}")
         if isinstance(parent, QtWidgets.QStackedWidget):
-            logger.debug("Clearing parent QStackedWidget")
-            parent.clear()
+            # Remove widgets efficiently
+            for i in reversed(range(parent.count())):
+                widget = parent.widget(i)
+                parent.removeWidget(widget)
+                widget.deleteLater()
             for test in self.__tests:
-                logger.debug(f"Adding widget for test: {test}")
+                logger.debug(f"[TestSequenceModel] Adding widget for test: {test}")
                 widget = QtWidgets.QWidget()
                 parent.addWidget(widget)
                 test.setupUi(widget)
-        logger.debug("UI setup complete")
+        logger.debug(f"[TestSequenceModel] UI setup complete")
