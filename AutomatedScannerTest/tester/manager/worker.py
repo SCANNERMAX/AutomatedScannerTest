@@ -448,7 +448,7 @@ class TestWorker(QtCore.QObject):
                 return obj.toString(QtCore.Qt.ISODate)
             return obj
 
-        qjson_obj = QtCore.QJsonObject.fromVariantMap(_to_qvariant(_data))
+        qjson_obj = QtCore.QJsonDocument.fromVariant(_to_qvariant(_data))
         doc = QtCore.QJsonDocument(qjson_obj)
 
         file_obj = QtCore.QFile(_path)

@@ -656,22 +656,22 @@ class MSO5000(Device):
         """
         _message = message.strip()
         assert _message, "Message cannot be empty."
-        logger.debug(f"[MSO5000] Sending query: "{_message}"")
+        logger.debug(f"[MSO5000] Sending query: \"{_message}\"")
         for attempt in range(5):
             try:
-                logger.debug(f"[MSO5000] Attempt {attempt+1}: Querying instrument with "{_message}"")
+                logger.debug(f"[MSO5000] Attempt {attempt+1}: Querying instrument with \"{_message}\"")
                 _response = self.__instrument.query(_message)
-                logger.debug(f"[MSO5000] Received response: "{_response}"")
+                logger.debug(f"[MSO5000] Received response: \"{_response}\"")
                 if _response:
-                    logger.debug(f"[MSO5000] Query successful: "{_message}" -> "{_response.rstrip()}"")
+                    logger.debug(f"[MSO5000] Query successful: \"{_message}\" -> \"{_response.rstrip()}\"")
                     return _response.rstrip()
                 else:
-                    logger.warning(f"[MSO5000] Empty response for query "{_message}" on attempt {attempt+1}")
+                    logger.warning(f"[MSO5000] Empty response for query \"{_message}\" on attempt {attempt+1}")
             except pyvisa.errors.VisaIOError as e:
-                logger.error(f"[MSO5000] VISA IO Error on query "{_message}" (attempt {attempt+1}): {e}")
+                logger.error(f"[MSO5000] VISA IO Error on query \"{_message}\" (attempt {attempt+1}): {e}")
                 logging.debug("retrying...")
                 time.sleep(0.1)
-        msg = f'Failed to get response for query "{_message}" after 5 attempts'
+        msg = f'Failed to get response for query \"{_message}\" after 5 attempts'
         logger.critical(f"[MSO5000] {msg}")
         raise AssertionError(msg)
 
@@ -697,22 +697,22 @@ class MSO5000(Device):
         """
         _message = message.strip()
         assert _message, "Message cannot be empty."
-        logger.debug(f"[MSO5000] Preparing to send command: "{_message}"")
+        logger.debug(f"[MSO5000] Preparing to send command: \"{_message}\"")
         for attempt in range(5):
             try:
                 if attempt == 0:
-                    logger.debug(f"[MSO5000] Sending command (attempt {attempt+1}): "{_message}"")
+                    logger.debug(f"[MSO5000] Sending command (attempt {attempt+1}): \"{_message}\"")
                 else:
-                    logger.warning(f"[MSO5000] Retrying command (attempt {attempt+1}): "{_message}"")
+                    logger.warning(f"[MSO5000] Retrying command (attempt {attempt+1}): \"{_message}\"")
                 self.__instrument.write(_message)
-                logger.debug(f"[MSO5000] Command sent successfully: "{_message}"")
+                logger.debug(f"[MSO5000] Command sent successfully: \"{_message}\"")
                 return
             except pyvisa.errors.VisaIOError as e:
-                logger.error(f"[MSO5000] VISA IO Error on write "{_message}" (attempt {attempt+1}): {e}")
+                logger.error(f"[MSO5000] VISA IO Error on write \"{_message}\" (attempt {attempt+1}): {e}")
                 if attempt < 4:
-                    logger.debug(f"[MSO5000] Waiting 0.1s before retrying command: "{_message}"")
+                    logger.debug(f"[MSO5000] Waiting 0.1s before retrying command: \"{_message}\"")
                     time.sleep(0.1)
-        msg = f'Failed to send command "{_message}" after 5 attempts'
+        msg = f'Failed to send command \"{_message}\" after 5 attempts'
         logger.critical(f"[MSO5000] {msg}")
         raise AssertionError(msg)
 
