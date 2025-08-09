@@ -131,7 +131,7 @@ class Test(QtCore.QObject):
             float: The duration of the test in seconds.
         """
         value = self._parameters.get("Duration", 0.0)
-        logger.debug(f"[Test {self.Name}] Accessed Duration property: {value}")
+        logger.debug(f"[{self.__class__.__name__}] Accessed Duration property: {value}")
         return value
 
     @Duration.setter
@@ -144,7 +144,7 @@ class Test(QtCore.QObject):
         """
         old = self._parameters.get("Duration", None)
         self._parameters["Duration"] = value
-        logger.debug(f"[Test {self.Name}] Duration changed from {old} to {value}.")
+        logger.debug(f"[{self.__class__.__name__}] Duration changed from {old} to {value}.")
         self.durationChanged.emit(f"{value} sec")
 
     @QtCore.Property(QtCore.QDateTime, notify=endTimeChanged)
@@ -171,7 +171,7 @@ class Test(QtCore.QObject):
         """
         old = self._parameters.get("EndTime", None)
         self._parameters["EndTime"] = value
-        logger.debug(f"[Test {self.Name}] EndTime changed from {old} to {value}.")
+        logger.debug(f"[{self.__class__.__name__}] EndTime changed from {old} to {value}.")
         self.endTimeChanged.emit(
             value.toString("HH:mm:ss") if value and value.isValid() else ""
         )
@@ -195,7 +195,7 @@ class Test(QtCore.QObject):
         Args:
             value (str): The test name.
         """
-        logger.debug(f"[Test {self.Name}] Setting Name property to: {value}")
+        logger.debug(f"[{self.__class__.__name__}] Setting Name property to: {value}")
         self.setParameter("Name", value)
         self.nameChanged.emit(value)
 
@@ -208,7 +208,7 @@ class Test(QtCore.QObject):
             str: The serial number.
         """
         value = self._parameters.get("SerialNumber", "")
-        logger.debug(f"[Test {self.Name}] Accessed SerialNumber property: {value}")
+        logger.debug(f"[{self.__class__.__name__}] Accessed SerialNumber property: {value}")
         return value
 
     @SerialNumber.setter
@@ -219,7 +219,7 @@ class Test(QtCore.QObject):
         Args:
             value (str): The serial number.
         """
-        logger.debug(f"[Test {self.Name}] Setting SerialNumber property to: {value}")
+        logger.debug(f"[{self.__class__.__name__}] Setting SerialNumber property to: {value}")
         self.setParameter("SerialNumber", value)
         self.serialNumberChanged.emit(value)
 
@@ -246,7 +246,7 @@ class Test(QtCore.QObject):
             value (QDateTime): The start time.
         """
         text = value.toString("HH:mm:ss") if value and value.isValid() else ""
-        logger.debug(f"[Test {self.Name}] Setting StartTime property to: {text}")
+        logger.debug(f"[{self.__class__.__name__}] Setting StartTime property to: {text}")
         self.setParameter("StartTime", value)
         self.startTimeChanged.emit(text)
 
@@ -259,7 +259,7 @@ class Test(QtCore.QObject):
             str: The test status.
         """
         value = self._parameters.get("Status", "")
-        logger.debug(f"[Test {self.Name}] Accessed Status property: {value}")
+        logger.debug(f"[{self.__class__.__name__}] Accessed Status property: {value}")
         return value
 
     @Status.setter
@@ -270,7 +270,7 @@ class Test(QtCore.QObject):
         Args:
             value (str): The test status.
         """
-        logger.debug(f"[Test {self.Name}] Setting Status property to: {value}")
+        logger.debug(f"[{self.__class__.__name__}] Setting Status property to: {value}")
         self.setParameter("Status", value)
         self.statusChanged.emit(value)
 
@@ -285,8 +285,8 @@ class Test(QtCore.QObject):
         Returns:
             any: The setting value.
         """
-        value = self._settings.getSetting(f"Tests/{self.Name}", key, default)
-        logger.debug(f"[Test {self.Name}] Retrieved setting \"{key}\": {value}")
+        value = self._settings.getSetting(self.__class__.__name__, key, default)
+        logger.debug(f"[{self.__class__.__name__}] Retrieved setting \"{key}\": {value}")
         return value
 
     def setSetting(self, key: str, value):
@@ -297,14 +297,14 @@ class Test(QtCore.QObject):
             key (str): The setting key.
             value (any): The value to set.
         """
-        logger.debug(f"[Test {self.Name}] Setting \"{key}\" to: {value}")
-        self._settings.setSetting(f"Tests/{self.Name}", key, value)
+        logger.debug(f"[{self.__class__.__name__}] Setting \"{key}\" to: {value}")
+        self._settings.setSetting(self.__class__.__name__, key, value)
 
     def onSettingsModified(self):
         """
         Handle settings modifications by updating the test as needed.
         """
-        logger.debug(f"[Test {self.Name}] Settings modified.")
+        logger.debug(f"[{self.__class__.__name__}] Settings modified.")
 
     def getParameter(self, key: str, default):
         """
@@ -328,7 +328,7 @@ class Test(QtCore.QObject):
             key (str): The parameter key.
             value (any): The value to set.
         """
-        logger.debug(f"[Test {self.Name}] Setting parameter \"{key}\" to: {value}")
+        logger.debug(f"[{self.__class__.__name__}] Setting parameter \"{key}\" to: {value}")
         self._parameters[key] = value
         self.parameterChanged.emit(key, value)
 
@@ -349,7 +349,7 @@ class Test(QtCore.QObject):
         """
         Print the test name and docstring to the console.
         """
-        logger.debug(f"[Test {self.Name}] cliPrintTest called")
+        logger.debug(f"[{self.__class__.__name__}] cliPrintTest called")
         print(f"- {self.Name}:")
         if self.__doc__:
             print(
@@ -365,7 +365,7 @@ class Test(QtCore.QObject):
         Args:
             parent (QtWidgets.QWidget): The parent widget for the test UI.
         """
-        logger.debug(f"[Test {self.Name}] Loading UI.")
+        logger.debug(f"[{self.__class__.__name__}] Loading UI.")
         self.widgetTestMain = parent
 
         layoutTestMain = QtWidgets.QHBoxLayout(parent)
@@ -430,7 +430,7 @@ class Test(QtCore.QObject):
         Args:
             report (TestReport): The report object to which the test results are added.
         """
-        logger.debug(f"[Test {self.Name}] Generating report")
+        logger.debug(f"[{self.__class__.__name__}] Generating report")
         report.startTest(
             self.Name,
             self.SerialNumber,
@@ -455,13 +455,13 @@ class Test(QtCore.QObject):
         Args:
             data (dict): The parameter dictionary to load.
         """
-        logger.debug(f"[Test {self.Name}] Loading data: {data}")
+        logger.debug(f"[{self.__class__.__name__}] Loading data: {data}")
         for key, value in data.items():
             try:
                 setattr(self, key, value)
-                logger.debug(f"[Test {self.Name}] Set attribute \"{key}\" to \"{value}\"")
+                logger.debug(f"[{self.__class__.__name__}] Set attribute \"{key}\" to \"{value}\"")
             except AttributeError:
-                logger.warning(f"[Test {self.Name}] Attribute \"{key}\" not found")
+                logger.warning(f"[{self.__class__.__name__}] Attribute \"{key}\" not found")
 
     def onSaveData(self) -> dict:
         """
@@ -470,7 +470,7 @@ class Test(QtCore.QObject):
         Returns:
             dict: The current parameters.
         """
-        logger.debug(f"[Test {self.Name}] Saving parameters: {self._parameters}")
+        logger.debug(f"[{self.__class__.__name__}] Saving parameters: {self._parameters}")
         return dict(self._parameters)
 
     def onStartTest(self, data_directory: str) -> bool:
@@ -480,33 +480,33 @@ class Test(QtCore.QObject):
         Returns:
             bool: True if the test and analysis succeed, False otherwise.
         """
-        logger.debug(f"[Test {self.Name}] Starting in directory \"{data_directory}\"")
+        logger.debug(f"[{self.__class__.__name__}] Starting in directory \"{data_directory}\"")
         try:
             self.setDataDirectory(data_directory)
             self.StartTime = self.getCurrentTime()
             self.checkCancelled()
-            logger.info(f"[Test {self.Name}] Beginning device setup for test \"{self.Name}\"")
+            logger.info(f"[{self.__class__.__name__}] Beginning device setup for test \"{self.Name}\"")
             self.setup()
             self.checkCancelled()
-            logger.info(f"[Test {self.Name}] Beginning execution for test \"{self.Name}\"")
+            logger.info(f"[{self.__class__.__name__}] Beginning execution for test \"{self.Name}\"")
             self.run()
             self.checkCancelled()
-            logger.info(f"[Test {self.Name}] Analyzing collected data for test \"{self.Name}\"")
+            logger.info(f"[{self.__class__.__name__}] Analyzing collected data for test \"{self.Name}\"")
             result = self.analyzeResults()
             self.checkCancelled()
             self.Status = "Pass" if result else "Fail"
-            logger.info(f"[Test {self.Name}] Test \"{self.Name}\" completed with status: {self.Status}")
+            logger.info(f"[{self.__class__.__name__}] Test \"{self.Name}\" completed with status: {self.Status}")
             return result
         except CancelledError:
             self.Status = "Cancelled"
-            logger.warning(f"[Test {self.Name}] Test \"{self.Name}\" was cancelled.")
+            logger.warning(f"[{self.__class__.__name__}] Test \"{self.Name}\" was cancelled.")
             return False
         except Exception as e:
             self.Status = "Error"
-            logger.critical(f"[Test {self.Name}] Exception in test \"{self.Name}\": {e}")
+            logger.critical(f"[{self.__class__.__name__}] Exception in test \"{self.Name}\": {e}")
             return False
         finally:
-            logger.info(f"[Test {self.Name}] Beginning teardown for test \"{self.Name}\"")
+            logger.info(f"[{self.__class__.__name__}] Beginning teardown for test \"{self.Name}\"")
             self.teardown()
             self.EndTime = self.getCurrentTime()
 
@@ -514,7 +514,7 @@ class Test(QtCore.QObject):
         """
         Reset the test state and parameters to their initial values.
         """
-        logger.debug(f"[Test {self.Name}] Resetting parameters")
+        logger.debug(f"[{self.__class__.__name__}] Resetting parameters")
         self._parameters.clear()
         self.StartTime = QtCore.QDateTime()
         self.EndTime = QtCore.QDateTime()
@@ -528,7 +528,7 @@ class Test(QtCore.QObject):
             CancelledError: If the test has been cancelled.
         """
         if hasattr(self.cancel, "isCancelled") and self.cancel.isCancelled():
-            logger.warning(f"[Test {self.Name}] Detected cancellation.")
+            logger.warning(f"[{self.__class__.__name__}] Detected cancellation.")
             raise CancelledError(f"Test \"{self.Name}\" was cancelled.")
 
     def setDataDirectory(self, data_directory: str):
@@ -538,7 +538,7 @@ class Test(QtCore.QObject):
         Args:
             data_directory (str): The path to the data directory.
         """
-        logger.debug(f"[Test {self.Name}] Setting data directory to \"{data_directory}\"")
+        logger.debug(f"[{self.__class__.__name__}] Setting data directory to \"{data_directory}\"")
         dir_obj = QtCore.QDir(data_directory)
         test_dir_path = dir_obj.filePath(self.Name)
         test_dir = QtCore.QDir(test_dir_path)
@@ -553,7 +553,7 @@ class Test(QtCore.QObject):
         """
         Perform setup actions before running the test.
         """
-        logger.debug(f"[Test {self.Name}] Running setup")
+        logger.debug(f"[{self.__class__.__name__}] Running setup")
         if hasattr(self.devices, "test_setup"):
             self.devices.test_setup()
 
@@ -561,7 +561,7 @@ class Test(QtCore.QObject):
         """
         Execute the main test logic. Should be overridden by subclasses.
         """
-        logger.debug(f"[Test {self.Name}] Running main test logic")
+        logger.debug(f"[{self.__class__.__name__}] Running main test logic")
         pass
 
     def analyzeResults(self) -> bool:
@@ -571,13 +571,13 @@ class Test(QtCore.QObject):
         Returns:
             bool: True if analysis is successful.
         """
-        logger.debug(f"[Test {self.Name}] Analyzing results")
+        logger.debug(f"[{self.__class__.__name__}] Analyzing results")
         return True
 
     def teardown(self):
         """
         Perform teardown actions after running the test.
         """
-        logger.debug(f"[Test {self.Name}] Running teardown")
+        logger.debug(f"[{self.__class__.__name__}] Running teardown")
         if hasattr(self.devices, "test_teardown"):
             self.devices.test_teardown()

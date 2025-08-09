@@ -88,9 +88,10 @@ class TestReport:
             s.getSetting(_class, "FooterHeight", 0.33)
         )
         logger.debug(
-            f"Settings: size={_size}, pageWidth={_pageWidth}, pageHeight={_pageHeight}, "
-            f"resolution={self.resolution}, buffer={self.buffer}, margin={self.margin}, "
-            f"header_height={self.header_height}, footer_height={self.footer_height}"
+            f"[TestReport] Settings: size={_size}, pageWidth={_pageWidth}, pag"
+            f"eHeight={_pageHeight}, resolution={self.resolution}, buffer="
+            f"{self.buffer}, margin={self.margin}, header_height="
+            f"{self.header_height}, footer_height={self.footer_height}"
         )
         if _size == "Custom":
             self.pageSize = QtGui.QPageSize(

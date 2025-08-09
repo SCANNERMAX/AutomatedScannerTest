@@ -5,6 +5,7 @@ import traceback
 
 import tester
 from tester.devices.mso5000 import MSO5000
+from tester.devices.enums import Measurement, Source, HrefMode, BandwidthLimit, SourceOutputImpedance
 from tester.manager.devices import DeviceManager
 import tester.tests
 
@@ -333,18 +334,18 @@ class TorqueCenterTest(tester.tests.Test):
             super().setup()
             mso = self.devices.MSO5000
             logger.info("[TorqueCenterTest] Configuring MSO5000 device")
-            mso.timebase_settings(offset=2, scale=0.02, href_mode=MSO5000.HrefMode.Trigger)
+            mso.timebase_settings(offset=2, scale=0.02, href_mode=HrefMode.Trigger)
             mso.function_generator_sinusoid(
                 1,
                 frequency=5,
                 amplitude=0.5,
-                output_impedance=MSO5000.SourceOutputImpedance.Fifty,
+                output_impedance=SourceOutputImpedance.Fifty,
             )
             mso.channel_settings(1, display=False)
             mso.channel_settings(
-                2, scale=2, display=True, bandwidth_limit=MSO5000.BandwidthLimit._20M
+                2, scale=2, display=True, bandwidth_limit=BandwidthLimit._20M
             )
-            mso.set_measure_item(MSO5000.Measurement.VoltageRms, MSO5000.Source.Channel2)
+            mso.set_measure_item(Measurement.VoltageRms, Source.Channel2)
             logger.info("[TorqueCenterTest] Device setup for TorqueCenterTest complete")
         except Exception as e:
             logger.critical(f"[TorqueCenterTest] Exception in setup: {e}\n{traceback.format_exc()}")
@@ -374,7 +375,7 @@ class TorqueCenterTest(tester.tests.Test):
                     msleep(100)
                 try:
                     rms = mso.get_measure_item(
-                        MSO5000.Measurement.VoltageRms, MSO5000.Source.Channel2
+                        Measurement.VoltageRms, Source.Channel2
                     )
                     logger.info(f"[TorqueCenterTest] Measured RMS: {rms} at offset: {offset}")
                     data.append(QtCore.QPointF(offset_scaled, rms * 100))

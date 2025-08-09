@@ -4,10 +4,21 @@ import logging
 
 import tester
 from tester.devices.mso5000 import MSO5000
+from tester.devices.enums import (
+    MemoryDepth,
+    AcquireType,
+    BandwidthLimit,
+    HrefMode,
+    SourceOutputImpedance,
+    Source,
+    WaveformMode,
+    WaveformFormat,
+)
 from tester.manager.devices import DeviceManager
 import tester.tests
 
 logger = logging.getLogger(__name__)
+
 
 class BearingTest(tester.tests.Test):
     """
@@ -32,7 +43,9 @@ class BearingTest(tester.tests.Test):
             cancel (tester.tests.CancelToken): The cancel token to allow test interruption.
             devices (DeviceManager, optional): The device manager.
         """
-        logger.debug("[BearingTest] __init__ called with cancel=%r, devices=%r", cancel, devices)
+        logger.debug(
+            "[BearingTest] __init__ called with cancel=%r, devices=%r", cancel, devices
+        )
         super().__init__(
             "Bearing Test", cancel, devices if devices is not None else DeviceManager()
         )
@@ -79,8 +92,14 @@ class BearingTest(tester.tests.Test):
         logger.debug(
             "[BearingTest] Settings: readDelay=%r, charttitle=%r, xtitle=%r, "
             "xmin=%r, xmax=%r, ytitle=%r, ymin=%r, ymax=%r",
-            self.readDelay, self.charttitle, self.xtitle,
-            self.xmin, self.xmax, self.ytitle, self.ymin, self.ymax
+            self.readDelay,
+            self.charttitle,
+            self.xtitle,
+            self.xmin,
+            self.xmax,
+            self.ytitle,
+            self.ymin,
+            self.ymax,
         )
 
     def setupUi(self, widget: QtWidgets.QWidget):
@@ -156,7 +175,9 @@ class BearingTest(tester.tests.Test):
             )
             logger.debug("[BearingTest] Friction plot added to report")
         except Exception as e:
-            logger.critical("[BearingTest] Failed to add friction plot to report: %r", e)
+            logger.critical(
+                "[BearingTest] Failed to add friction plot to report: %r", e
+            )
 
     def onSaveData(self):
         """
@@ -180,7 +201,9 @@ class BearingTest(tester.tests.Test):
                 file.close()
                 logger.debug("[BearingTest] Friction data saved to %r", dataFilePath)
             else:
-                logger.warning("[BearingTest] Could not open file %r for writing", dataFilePath)
+                logger.warning(
+                    "[BearingTest] Could not open file %r for writing", dataFilePath
+                )
         except Exception as e:
             logger.critical("[BearingTest] Failed to save friction data: %r", e)
         return super().onSaveData()
@@ -209,7 +232,11 @@ class BearingTest(tester.tests.Test):
             logger.debug("[BearingTest] Created data directory: %r", self.dataDirectory)
         self.figurePath = dir_obj.filePath("friction_plot.png")
         self.dataFilePath = dir_obj.filePath("friction_plot_data.csv")
-        logger.debug("[BearingTest] Figure path: %r, Data file path: %r", self.figurePath, self.dataFilePath)
+        logger.debug(
+            "[BearingTest] Figure path: %r, Data file path: %r",
+            self.figurePath,
+            self.dataFilePath,
+        )
 
     def setup(self):
         """
@@ -220,28 +247,30 @@ class BearingTest(tester.tests.Test):
         MSO = self.devices.MSO5000
         MSO.acquire_settings(
             averages=16,
-            memory_depth=MSO5000.MemoryDepth._10K,
-            type_=MSO5000.AcquireType.Averages,
+            memory_depth=MemoryDepth._10K,
+            type_=AcquireType.Averages,
         )
         self.SampleRate = MSO.get_sample_rate()
         MSO.channel_settings(1, scale=2, display=True)
         MSO.channel_settings(
-            2, scale=2, display=True, bandwidth_limit=MSO5000.BandwidthLimit._20M
+            2, scale=2, display=True, bandwidth_limit=BandwidthLimit._20M
         )
         MSO.channel_settings(
-            3, scale=2, display=True, bandwidth_limit=MSO5000.BandwidthLimit._20M
+            3, scale=2, display=True, bandwidth_limit=BandwidthLimit._20M
         )
-        MSO.timebase_settings(offset=2, scale=0.2, href_mode=MSO5000.HrefMode.Trigger)
+        MSO.timebase_settings(offset=2, scale=0.2, href_mode=HrefMode.Trigger)
         MSO.trigger_edge(nreject=True)
         MSO.function_generator_ramp(
             1,
             frequency=0.5,
             phase=270,
             amplitude=5,
-            output_impedance=MSO5000.SourceOutputImpedance.Fifty,
+            output_impedance=SourceOutputImpedance.Fifty,
         )
         MSO.function_generator_square(2, frequency=0.5, phase=270, amplitude=5)
-        logger.info("[BearingTest] Device setup complete, SampleRate=%r", self.SampleRate)
+        logger.info(
+            "[BearingTest] Device setup complete, SampleRate=%r", self.SampleRate
+        )
 
     def run(self):
         """
@@ -262,15 +291,15 @@ class BearingTest(tester.tests.Test):
             QtCore.QThread.msleep(1000)
         get_waveform = MSO.get_waveform
         _positions_raw = get_waveform(
-            source=MSO5000.Source.Channel2,
-            mode=MSO5000.WaveformMode.Raw,
-            format_=MSO5000.WaveformFormat.Ascii,
+            source=Source.Channel2,
+            mode=WaveformMode.Raw,
+            format_=WaveformFormat.Ascii,
             stop=10000,
         )
         _currents_raw = get_waveform(
-            source=MSO5000.Source.Channel3,
-            mode=MSO5000.WaveformMode.Raw,
-            format_=MSO5000.WaveformFormat.Ascii,
+            source=Source.Channel3,
+            mode=WaveformMode.Raw,
+            format_=WaveformFormat.Ascii,
             stop=10000,
         )
         self.checkCancelled()
@@ -278,7 +307,9 @@ class BearingTest(tester.tests.Test):
             QtCore.QPointF(4.5 * x, 100 * y)
             for x, y in zip(_positions_raw, _currents_raw)
         ]
-        logger.info("[BearingTest] Collected %r friction data points", len(self.FrictionData))
+        logger.info(
+            "[BearingTest] Collected %r friction data points", len(self.FrictionData)
+        )
         MSO.function_generator_state(1, False)
         MSO.function_generator_state(2, False)
 

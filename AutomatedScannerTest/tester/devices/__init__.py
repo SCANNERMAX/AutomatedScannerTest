@@ -32,25 +32,18 @@ class Device(QtCore.QObject):
         self.Name = name
         app = QtCore.QCoreApplication.instance()
         logger.debug(f"[Device] QCoreApplication instance: {app}")
-        if (
-            app is not None
-            and hasattr(app, "get_settings")
-            and hasattr(app, "metaObject")
-            and callable(app.metaObject)
-            and app.metaObject().className() == "TesterApp"
-        ):
-            logger.debug(f"[Device] Application is TesterApp, retrieving settings.")
-            self._settings = app.get_settings()
-            settings_modified = getattr(self._settings, "settingsModified", None)
-            if callable(getattr(settings_modified, "connect", None)):
-                logger.debug(f"[Device] Connecting settingsModified signal.")
-                settings_modified.connect(self.onSettingsModified)
-            else:
-                logger.warning(f"[Device] settingsModified signal not found in settings object.")
-            self.onSettingsModified()
-        else:
+        if app is None or app.__class__.__name__ != "TesterApp":
             logger.critical(f"[Device] TesterApp instance not found. Ensure the application is initialized correctly.")
             raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
+        logger.debug(f"[Device] Application is TesterApp, retrieving settings.")
+        self._settings = app.get_settings()
+        settings_modified = getattr(self._settings, "settingsModified", None)
+        if callable(getattr(settings_modified, "connect", None)):
+            logger.debug(f"[Device] Connecting settingsModified signal.")
+            settings_modified.connect(self.onSettingsModified)
+        else:
+            logger.warning(f"[Device] settingsModified signal not found in settings object.")
+        self.onSettingsModified()
         logger.debug(f"[Device] Device initialized successfully.")
         # Only call findInstrument if subclass has overridden it
         if type(self).findInstrument is not Device.findInstrument:
