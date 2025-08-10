@@ -34,8 +34,7 @@ class TorqueCenterTest(tester.tests.Test):
             cancel (tester.tests.CancelToken): Token to signal cancellation of the test.
             devices (DeviceManager, optional): Device manager for hardware interaction.
         """
-        logger.debug("[TorqueCenterTest] Entering __init__")
-        logger.info(f"[TorqueCenterTest] Initializing TorqueCenterTest with cancel={cancel}, devices={devices}")
+        logger.debug(f"[TorqueCenterTest] Initializing TorqueCenterTest with cancel={cancel}, devices={devices}")
         try:
             super().__init__(
                 "Torque Center Test",
@@ -55,11 +54,7 @@ class TorqueCenterTest(tester.tests.Test):
         Returns:
             list: The list of QPointF (offset, RMS current) points.
         """
-        logger.debug("[TorqueCenterTest] Entering TorqueData getter")
-        data = self.getParameter("TorqueData", [])
-        logger.info(f"[TorqueCenterTest] TorqueData getter returning: {data}")
-        logger.debug("[TorqueCenterTest] Exiting TorqueData getter")
-        return data
+        return self.getParameter("TorqueData", [])
 
     @TorqueData.setter
     def TorqueData(self, value):
@@ -69,11 +64,8 @@ class TorqueCenterTest(tester.tests.Test):
         Args:
             value (list): The new torque data as a list of QPointF.
         """
-        logger.debug("[TorqueCenterTest] Entering TorqueData setter")
-        logger.info(f"[TorqueCenterTest] Setting TorqueData to: {value}")
         self.setParameter("TorqueData", value)
         self.torqueDataChanged.emit(value)
-        logger.debug("[TorqueCenterTest] Exiting TorqueData setter")
 
     @QtCore.Property(float, notify=torqueCenterChanged)
     def TorqueCenter(self):
@@ -83,11 +75,7 @@ class TorqueCenterTest(tester.tests.Test):
         Returns:
             float: The torque center value.
         """
-        logger.debug("[TorqueCenterTest] Entering TorqueCenter getter")
-        center = self.getParameter("TorqueCenter", 0.0)
-        logger.info(f"[TorqueCenterTest] TorqueCenter getter returning: {center}")
-        logger.debug("[TorqueCenterTest] Exiting TorqueCenter getter")
-        return center
+        return self.getParameter("TorqueCenter", 0.0)
 
     @TorqueCenter.setter
     def TorqueCenter(self, value: float):
@@ -97,11 +85,8 @@ class TorqueCenterTest(tester.tests.Test):
         Args:
             value (float): The new torque center value.
         """
-        logger.debug("[TorqueCenterTest] Entering TorqueCenter setter")
-        logger.info(f"[TorqueCenterTest] Setting TorqueCenter to: {value}")
         self.setParameter("TorqueCenter", value)
         self.torqueCenterChanged.emit(value)
-        logger.debug("[TorqueCenterTest] Exiting TorqueCenter setter")
 
     def onSettingsModified(self):
         """
@@ -121,7 +106,7 @@ class TorqueCenterTest(tester.tests.Test):
             self.ytitle = s("TorqueCurrentTitle", "RMS Current (mA)")
             self.ymin = s("TorqueCurrentMinimum", 0)
             self.ymax = s("TorqueCurrentMaximum", 500.0)
-            logger.info(
+            logger.debug(
                 f"[TorqueCenterTest] Settings loaded: readDelay={self.readDelay}, centerTolerance={self.centerTolerance}, "
                 f"charttitle={self.charttitle}, xtitle={self.xtitle}, xmin={self.xmin}, xmax={self.xmax}, "
                 f"ytitle={self.ytitle}, ymin={self.ymin}, ymax={self.ymax}"
@@ -233,11 +218,6 @@ class TorqueCenterTest(tester.tests.Test):
         logger.debug("[TorqueCenterTest] Entering onGenerateReport")
         try:
             super().onGenerateReport(report)
-            logger.info(
-                f"[TorqueCenterTest] Generating report with data={self.TorqueData}, charttitle={self.charttitle}, "
-                f"xtitle={self.xtitle}, ytitle={self.ytitle}, figurePath={getattr(self, 'figurePath', '')}, "
-                f"xmin={self.xmin}, xmax={self.xmax}, ymin={self.ymin}, ymax={self.ymax}"
-            )
             report.plotXYData(
                 self.TorqueData,
                 self.charttitle,
@@ -251,7 +231,6 @@ class TorqueCenterTest(tester.tests.Test):
                 yTickCount=8,
             )
             report.writeLine(f"Torque Center: {self.TorqueCenter:.2f} deg")
-            logger.info("[TorqueCenterTest] Report generated and plot added")
         except Exception as e:
             logger.critical(f"[TorqueCenterTest] Failed to generate report: {e}\n{traceback.format_exc()}")
         logger.debug("[TorqueCenterTest] Exiting onGenerateReport")
@@ -265,7 +244,6 @@ class TorqueCenterTest(tester.tests.Test):
         """
         logger.debug("[TorqueCenterTest] Entering onSaveData")
         dataFilePath = getattr(self, "dataFilePath", "")
-        logger.info(f"[TorqueCenterTest] Saving torque data to {dataFilePath}")
         try:
             file = QtCore.QFile(dataFilePath)
             if file.open(QtCore.QIODevice.WriteOnly | QtCore.QIODevice.Text):
@@ -296,7 +274,6 @@ class TorqueCenterTest(tester.tests.Test):
             super().resetParameters()
             self.TorqueData = []
             self.TorqueCenter = 0.0
-            logger.info("[TorqueCenterTest] Parameters reset: TorqueData cleared, TorqueCenter set to 0.0")
         except Exception as e:
             logger.critical(f"[TorqueCenterTest] Exception in resetParameters: {e}\n{traceback.format_exc()}")
         logger.debug("[TorqueCenterTest] Exiting resetParameters")
@@ -308,8 +285,7 @@ class TorqueCenterTest(tester.tests.Test):
         Args:
             data_directory (str): The root directory where data should be stored.
         """
-        logger.debug("[TorqueCenterTest] Entering setDataDirectory")
-        logger.info(f"[TorqueCenterTest] Setting data directory: {data_directory}")
+        logger.debug(f"[TorqueCenterTest] Setting data directory: {data_directory}")
         try:
             super().setDataDirectory(data_directory)
             dir_obj = QtCore.QDir(self.dataDirectory)
@@ -317,9 +293,9 @@ class TorqueCenterTest(tester.tests.Test):
                 logger.warning(f"[TorqueCenterTest] Data directory {self.dataDirectory} does not exist. Creating directory.")
                 dir_obj.mkpath(".")
             self.figurePath = dir_obj.filePath("torque_plot.png")
-            logger.info(f"[TorqueCenterTest] Figure path set to: {self.figurePath}")
+            logger.debug(f"[TorqueCenterTest] Figure path set to: {self.figurePath}")
             self.dataFilePath = dir_obj.filePath("torque_center_data.csv")
-            logger.info(f"[TorqueCenterTest] Data file path set to: {self.dataFilePath}")
+            logger.debug(f"[TorqueCenterTest] Data file path set to: {self.dataFilePath}")
         except Exception as e:
             logger.critical(f"[TorqueCenterTest] Exception in setDataDirectory: {e}\n{traceback.format_exc()}")
         logger.debug("[TorqueCenterTest] Exiting setDataDirectory")
@@ -328,8 +304,7 @@ class TorqueCenterTest(tester.tests.Test):
         """
         Set up the test environment for the torque center test using the provided serial number and devices.
         """
-        logger.debug("[TorqueCenterTest] Entering setup")
-        logger.info(f"[TorqueCenterTest] Setting up TorqueCenterTest for serial: {self.SerialNumber}")
+        logger.debug(f"[TorqueCenterTest] Setting up TorqueCenterTest for serial: {self.SerialNumber}")
         try:
             super().setup()
             mso = self.devices.MSO5000
@@ -355,7 +330,6 @@ class TorqueCenterTest(tester.tests.Test):
         """
         Run the torque center test by iteratively adjusting the source offset and collecting RMS measurements.
         """
-        logger.debug("[TorqueCenterTest] Entering run")
         logger.info(f"[TorqueCenterTest] Running TorqueCenterTest for serial: {self.SerialNumber}")
         try:
             super().run()
@@ -399,7 +373,6 @@ class TorqueCenterTest(tester.tests.Test):
         Returns:
             bool: True if the test passes, False otherwise.
         """
-        logger.debug("[TorqueCenterTest] Entering analyzeResults")
         logger.info(f"[TorqueCenterTest] Analyzing results for serial: {self.SerialNumber}")
         try:
             super().analyzeResults()

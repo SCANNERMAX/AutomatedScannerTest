@@ -5,6 +5,8 @@ import logging
 # Configure Python logging
 logger = logging.getLogger(__name__)
 
+QPageSizeMap = {QtGui.QPageSize.PageSizeId(s).name : QtGui.QPageSize(s) for s in QtGui.QPageSize.PageSizeId}
+
 class TestReport:
     """
     Generates a PDF report for test results, including formatted pages, headers, footers, and graphical data.
@@ -44,7 +46,7 @@ class TestReport:
             self.__settings.settingsModified.connect(self.onSettingsModified)
             self.onSettingsModified()
             self.appName = app.applicationName()
-            self.company = app.companyName()
+            self.company = app.organizationName()
             logger.debug(f"[TestReport] Settings initialized.")
         else:
             logger.critical(
@@ -99,7 +101,8 @@ class TestReport:
             )
             logger.debug(f"[TestReport] Custom page size set: {_pageWidth} x {_pageHeight} inches")
         else:
-            self.pageSize = QtGui.QPageSize(QtGui.QPageSize.id(_size))
+            pageId = QPageSizeMap.get(_size)
+            self.pageSize = QtGui.QPageSize(pageId)
             logger.debug(f"[TestReport] Standard page size set: {_size}")
         logger.debug(f"[TestReport] Settings modified and page parameters updated.")
 

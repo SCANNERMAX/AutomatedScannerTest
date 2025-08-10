@@ -60,9 +60,6 @@ class DeviceManager(QtCore.QObject):
                 if _obj.__module__ == _module.__name__ and issubclass(_obj, Device) and _obj is not Device:
                     try:
                         _device = _obj()
-                        find_instrument = getattr(_device, "findInstrument", None)
-                        if callable(find_instrument):
-                            find_instrument()
                         setattr(self, _name, _device)
                     except Exception as e:
                         logger.warning(f"[DeviceManager] Could not instantiate {_name}: {e}")

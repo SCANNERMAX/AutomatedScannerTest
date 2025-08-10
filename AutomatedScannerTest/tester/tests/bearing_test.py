@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 from PySide6 import QtCore, QtWidgets, QtCharts
 import logging
+import traceback
 
-import tester
-from tester.devices.mso5000 import MSO5000
+from tester.tests import CancelToken, Test
 from tester.devices.enums import (
     MemoryDepth,
     AcquireType,
@@ -15,12 +15,11 @@ from tester.devices.enums import (
     WaveformFormat,
 )
 from tester.manager.devices import DeviceManager
-import tester.tests
 
 logger = logging.getLogger(__name__)
 
 
-class BearingTest(tester.tests.Test):
+class BearingTest(Test):
     """
     Test for evaluating scanner bearing friction by sweeping and measuring current.
 
@@ -35,7 +34,7 @@ class BearingTest(tester.tests.Test):
 
     frictionDataChanged = QtCore.Signal(list)
 
-    def __init__(self, cancel: tester.tests.CancelToken, devices: DeviceManager = None):
+    def __init__(self, cancel: CancelToken, devices: DeviceManager = None):
         """
         Initialize the BearingTest instance.
 
@@ -43,12 +42,18 @@ class BearingTest(tester.tests.Test):
             cancel (tester.tests.CancelToken): The cancel token to allow test interruption.
             devices (DeviceManager, optional): The device manager.
         """
-        logger.debug(
-            "[BearingTest] __init__ called with cancel=%r, devices=%r", cancel, devices
-        )
-        super().__init__(
-            "Bearing Test", cancel, devices if devices is not None else DeviceManager()
-        )
+        logger.debug(f"[BearingTest] Initializing BearingTest with cancel={cancel}, devices={devices}")
+        try:
+            super().__init__(
+                "Bearing Test",
+                cancel,
+                devices if devices is not None else DeviceManager(),
+            )
+            logger.debug("[BearingTest] Super __init__ called successfully")
+        except Exception as e:
+            logger.critical(f"[BearingTest] Exception in __init__: {e}\n{traceback.format_exc()}")
+        logger.debug("[BearingTest] Exiting __init__")
+
 
     @QtCore.Property(list, notify=frictionDataChanged)
     def FrictionData(self):
@@ -58,9 +63,7 @@ class BearingTest(tester.tests.Test):
         Returns:
             list: The list of (position, current) QPointF tuples.
         """
-        value = self.getParameter("FrictionData", [])
-        logger.debug("[BearingTest] FrictionData getter: %r", value)
-        return value
+        return self.getParameter("FrictionData", [])
 
     @FrictionData.setter
     def FrictionData(self, value):
@@ -72,7 +75,6 @@ class BearingTest(tester.tests.Test):
         """
         self.setParameter("FrictionData", value)
         self.frictionDataChanged.emit(value)
-        logger.debug("[BearingTest] FrictionData setter: %r", value)
 
     def onSettingsModified(self):
         """
@@ -89,18 +91,6 @@ class BearingTest(tester.tests.Test):
         self.ytitle = s("TorqueCurrentTitle", "Torque Current (mA)")
         self.ymin = s("TorqueCurrentMinimum", -400.0)
         self.ymax = s("TorqueCurrentMaximum", 400.0)
-        logger.debug(
-            "[BearingTest] Settings: readDelay=%r, charttitle=%r, xtitle=%r, "
-            "xmin=%r, xmax=%r, ytitle=%r, ymin=%r, ymax=%r",
-            self.readDelay,
-            self.charttitle,
-            self.xtitle,
-            self.xmin,
-            self.xmax,
-            self.ytitle,
-            self.ymin,
-            self.ymax,
-        )
 
     def setupUi(self, widget: QtWidgets.QWidget):
         """
@@ -215,7 +205,6 @@ class BearingTest(tester.tests.Test):
         logger.debug("[BearingTest] resetParameters called")
         super().resetParameters()
         self.FrictionData = []
-        logger.debug("[BearingTest] Parameters reset and FrictionData cleared")
 
     def setDataDirectory(self, data_directory):
         """

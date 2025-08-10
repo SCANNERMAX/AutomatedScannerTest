@@ -68,7 +68,6 @@ class MSO5000(Device):
             Sets the device name and initializes the instrument reference.
         """
         super().__init__("MSO5000")
-        self.__instrument = None
 
     def __getattr__(self, name):
         """
@@ -83,7 +82,7 @@ class MSO5000(Device):
         Raises:
             AttributeError: If the attribute is not found.
         """
-        inst = self.__instrument
+        inst = self.visa_instrument
         if inst is not None:
             try:
                 return getattr(inst, name)
@@ -112,12 +111,15 @@ class MSO5000(Device):
         logger.debug(f'sending request "{_message}"...')
         for _ in range(5):
             try:
-                _response = self.__instrument.query(_message).rstrip()
+                _response = self.visa_instrument.query(_message).rstrip()
                 if _response:
                     return _response
             except pyvisa.errors.VisaIOError:
                 logger.debug("retrying...")
                 time.sleep(0.1)
+            except Exception as e:
+                logger.error(f"Error querying instrument: {e}")
+                raise AssertionError(f"Failed to query command: {_message}")
         raise AssertionError("Failed to get response.")
 
     def __write(self, message: str):
@@ -135,11 +137,14 @@ class MSO5000(Device):
         for _ in range(5):
             try:
                 logger.debug(f'sending command "{_message}"...')
-                self.__instrument.write(_message)
+                self.visa_instrument.write(_message)
                 return
             except pyvisa.errors.VisaIOError:
                 logger.debug("retrying...")
                 time.sleep(0.1)
+            except Exception as e:
+                logger.error(f"Error writing to instrument: {e}")
+                raise AssertionError(f"Failed to write command: {_message}")
 
     def __get_names(self, channel: str, parameter: str):
         """
@@ -223,14 +228,14 @@ class MSO5000(Device):
                 idn = _instrument.query("*IDN?").strip()
                 if "RIGOL" in idn and "MSO5" in idn:
                     logger.info(f"Found MSO5000 oscilloscope: {_resource_name}")
-                    self.__instrument = _instrument
+                    self.visa_instrument = _instrument
                     found = True
                     break
             except Exception as e:
                 logger.debug(f"Error opening resource {_resource_name}: {e}")
         assert found, "No oscilloscope found."
         try:
-            idn = self.__instrument.query("*IDN?").strip()
+            idn = self.visa_instrument.query("*IDN?").strip()
             parts = idn.split(",")
             if len(parts) >= 4:
                 settings = {
@@ -1790,7 +1795,7 @@ class MSO5000(Device):
             self.set_waveform_start(_start)
             self.set_waveform_stop(_stop)
             self.__write(":WAVeform:DATA?")
-            _response = self.__instrument._read_raw()
+            _response = self.visa_instrument._read_raw()
             assert _response[0] == 35, "Data must start with the '#' character."
             assert _response[-1] == 10, "Data must end with the '\n' character."
             _header_length = int(chr(_response[1]))

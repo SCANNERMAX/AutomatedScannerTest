@@ -84,7 +84,7 @@ class Device(QtCore.QObject):
             logger.warning(f"[Device] Settings object not initialized.")
             return default
         try:
-            value = settings.getSetting(f"Devices/{self.Name}", key, default)
+            value = settings.getSetting(self.Name, key, default)
             logger.debug(f"[Device] Retrieved setting '{key}': {value}")
             return value
         except Exception as e:
@@ -108,7 +108,7 @@ class Device(QtCore.QObject):
             logger.warning(f"[Device] Settings object not initialized.")
             return
         try:
-            settings.setSetting(f"Devices/{self.Name}", key, value)
+            settings.setSetting(self.Name, key, value)
             logger.debug(f"[Device] Set setting '{key}' to '{value}' successfully.")
         except Exception as e:
             logger.critical(f"[Device] Exception while setting '{key}' to '{value}': {e}")
