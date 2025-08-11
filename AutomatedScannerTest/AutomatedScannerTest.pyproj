@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>ac905e11-9872-4d8a-bd1d-9802bca77056</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>main.py</StartupFile>
+    <StartupFile>tester\app.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -34,7 +34,6 @@
     <Compile Include="tester\asset\tester_rc.py" />
     <Compile Include="tester\gui\settings.py" />
     <Compile Include="tester\gui\tester_ui.py" />
-    <Compile Include="main.py" />
     <Compile Include="tester\manager\devices.py" />
     <Compile Include="tester\manager\report.py" />
     <Compile Include="tester\manager\worker.py">

@@ -2,8 +2,8 @@
 from PySide6 import QtCore, QtNetwork
 import importlib
 import inspect
-import os
 import logging
+import os
 
 from tester.devices import Device
 
@@ -33,13 +33,10 @@ class DeviceManager(QtCore.QObject):
         super().__init__()
         logger.debug("[DeviceManager] Initializing DeviceManager...")
         app = QtCore.QCoreApplication.instance()
-        if not (app and app.__class__.__name__ == "TesterApp"):
+        if not (app and hasattr(app, "addSettingsToObject")):
             logger.critical("[DeviceManager] TesterApp instance not found. Ensure the application is initialized correctly.")
             raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
-
-        self.__settings = app.get_settings()
-        self.__settings.settingsModified.connect(self.onSettingsModified)
-        self.onSettingsModified()
+        app.addSettingsToObject(self)
 
         # Device discovery and instantiation
         _device_module = importlib.import_module(Device.__module__)

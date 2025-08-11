@@ -47,23 +47,20 @@ class TesterWindow(QtWidgets.QMainWindow):
 
         logger.debug(f"[TesterWindow] Initializing TesterWindow...")
         app = QtCore.QCoreApplication.instance()
-        if app is not None and app.__class__.__name__ == "TesterApp":
-            self.__settings = app.get_settings()
-            self.__settings.settingsModified.connect(self.onSettingsModified)
-            self.onSettingsModified()
-            app.statusMessage.connect(self.updateStatus)
-            logger.debug(f"[TesterWindow] Connected to TesterApp instance and settings.")
-        else:
+        if not (app and hasattr(app, "addSettingsToObject")):
             logger.critical(f"[TesterWindow] TesterApp instance not found.")
             raise RuntimeError(
                 "TesterApp instance not found. Ensure the application is initialized correctly."
             )
-
+        app.addSettingsToObject(self)
+        app.statusMessage.connect(self.updateStatus)
+        logger.debug(f"[TesterWindow] Connected to TesterApp instance and settings.")
         self.__cancel = CancelToken()
         self.worker = TestWorker(self.__cancel)
         logger.debug(f"[TesterWindow] TestWorker initialized.")
 
-        if getattr(app, "options", None) and app.options.isSet("gui"):
+        options = getattr(app, "options", None)
+        if options and options.isSet("gui"):
             self.ui = Ui_TesterWindow()
             self.ui.setupUi(self)
             logger.debug(f"[TesterWindow] UI setup complete.")
@@ -151,9 +148,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         Returns:
             str: The last directory path.
         """
-        value = self.__settings.getSetting("GUI", "LastDirectory")
-        logger.debug(f"[TesterWindow] Get LastDirectory: {value}")
-        return value
+        return self.getSetting("GUI", "LastDirectory")
 
     @LastDirectory.setter
     def LastDirectory(self, value):
@@ -163,8 +158,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         Args:
             value (str): The directory path to set.
         """
-        logger.debug(f"[TesterWindow] Set LastDirectory: {value}")
-        self.__settings.setSetting("GUI", "LastDirectory", value)
+        self.setSetting("LastDirectory", value)
 
     @QtCore.Slot()
     def onSettings(self):
@@ -172,18 +166,13 @@ class TesterWindow(QtWidgets.QMainWindow):
         Slot to open the settings dialog and apply changes if accepted.
         """
         logger.debug(f"[TesterWindow] Opening settings dialog.")
-        _dialog = SettingsDialog(self.__settings)
+        _dialog = SettingsDialog(self.settings)
         _dialog.setWindowTitle(
             QtCore.QCoreApplication.translate("TesterWindow", "Settings")
         )
         _dialog.setWindowIcon(QtGui.QIcon(":/rsc/Pangolin.ico"))
         result = _dialog.exec()
         logger.debug(f"[TesterWindow] Settings dialog result: {result}")
-        if result == QtWidgets.QDialog.Accepted:
-            logger.debug(f"[TesterWindow] Settings dialog accepted.")
-            self.onSettingsModified()
-        else:
-            logger.debug(f"[TesterWindow] Settings dialog canceled.")
 
     @QtCore.Slot()
     def onSettingsModified(self):
@@ -192,14 +181,18 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         logger.debug(f"[TesterWindow] Settings modified, updating UI properties.")
         self.firstColumnWidth = int(
-            self.__settings.getSetting("GUI", "FirstColumnWidth", 175)
+            self.getSetting("FirstColumnWidth", 175)
         )
         self.secondColumnWidth = int(
-            self.__settings.getSetting("GUI", "SecondColumnWidth", 75)
+            self.getSetting("SecondColumnWidth", 75)
         )
         self.dateTimeFormat = str(
-            self.__settings.getSetting("GUI", "DateTimeFormat", "yyyy-MM-dd HH:mm:ss")
+            self.getSetting("DateTimeFormat", "yyyy-MM-dd HH:mm:ss")
         )
+        if hasattr(self, "ui"):
+            self.ui.tableSequence.setColumnWidth(0, self.firstColumnWidth)
+            self.ui.tableSequence.setColumnWidth(1, self.secondColumnWidth)
+
         logger.debug(f"[TesterWindow] firstColumnWidth={self.firstColumnWidth}, secondColumnWidth={self.secondColumnWidth}, dateTimeFormat={self.dateTimeFormat}")
 
     @QtCore.Slot()

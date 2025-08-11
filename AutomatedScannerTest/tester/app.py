@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 from PySide6 import QtWidgets, QtCore
-import sys
 import logging
 from logging.handlers import RotatingFileHandler
+import sys
 
 from tester.manager.worker import TestWorker
-from tester import __application__, __company__, __version__, __doc__
+from tester import __application__, __company__, __version__, __doc__, CancelToken
 from tester.gui.gui import TesterWindow
 
 logger = logging.getLogger(__name__)
@@ -16,6 +16,7 @@ class TesterSettings(QtCore.QSettings):
     Extends QSettings to provide convenience methods for getting and setting grouped settings,
     with type conversion and a signal for when settings are modified.
     """
+
     settingsModified = QtCore.Signal()
 
     def getSetting(self, group: str, key: str, default=None):
@@ -103,14 +104,6 @@ class TesterApp(QtWidgets.QApplication):
             raise RuntimeError("Only one QApplication instance is allowed.")
         super().__init__(argv, *args, **kwargs)
 
-        base_dir = QtCore.QStandardPaths.writableLocation(
-            QtCore.QStandardPaths.AppLocalDataLocation
-        )
-        app_dir = QtCore.QDir(base_dir)
-        app_dir.mkpath(__application__)
-        self._configuration_path = app_dir.filePath(__application__)
-
-        # Fix: Do not pass 'self' as parent to QSettings, as it is not supported.
         self.__settings = TesterSettings(
             QtCore.QSettings.Format.IniFormat,
             QtCore.QSettings.Scope.SystemScope,
@@ -127,43 +120,25 @@ class TesterApp(QtWidgets.QApplication):
         self.setApplicationVersion(__version__)
         self.setQuitOnLastWindowClosed(True)
 
-        self.options = QtCore.QCommandLineParser()
-        context = self.options.__class__.__name__
-        self.options.setApplicationDescription(__doc__)
-
-        options = (
-            (["d", "directory"], "Set the data directory.", "directory", str(self.ConfigurationPath)),
-            (["r", "run"], "Run test(s) in commandline mode.", None, None),
-            (["l", "list"], "List the available tests.", None, None),
-            (["s", "serial"], "The serial number on which to test.", "serial", ""),
-            (["m", "model"], "The model number on which to test.", "model", ""),
-            (["t", "test"], "Select a single test to run.", "test", None),
-            (["x", "exitcodes"], "Display exit codes and their meaning.", None, None),
-        )
-        addOption = self.options.addOption
-        for names, desc, value_name, default in options:
-            addOption(
-                QtCore.QCommandLineOption(
-                    names,
-                    QtCore.QCoreApplication.translate(context, desc),
-                    value_name or "",
-                    default if default is not None else "",
-                )
-            )
-        self.options.addHelpOption()
-        self.options.addVersionOption()
-        self.options.process(self)
         self._setup_python_logging()
         self._setup_qt_logging()
+        self._setup_commandline()
+        self.aboutToQuit.connect(self.cleanup)
 
     class SafeFormatter(logging.Formatter):
         def format(self, record):
             # Provide defaults for custom fields if not present
             for attr, default in [
-                ('qt_file', record.filename if hasattr(record, 'filename') else 'unknown'),
-                ('qt_line', record.lineno if hasattr(record, 'lineno') else -1),
-                ('qt_func', record.funcName if hasattr(record, 'funcName') else 'unknown'),
-                ('qt_category', 'general')
+                (
+                    "qt_file",
+                    record.filename if hasattr(record, "filename") else "unknown",
+                ),
+                ("qt_line", record.lineno if hasattr(record, "lineno") else -1),
+                (
+                    "qt_func",
+                    record.funcName if hasattr(record, "funcName") else "unknown",
+                ),
+                ("qt_category", "general"),
             ]:
                 if not hasattr(record, attr):
                     setattr(record, attr, default)
@@ -174,7 +149,9 @@ class TesterApp(QtWidgets.QApplication):
         Sets up Python logging for the application.
         Logs everything to both file and console for all loggers.
         """
-        log_dir = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.AppLocalDataLocation)
+        log_dir = QtCore.QStandardPaths.writableLocation(
+            QtCore.QStandardPaths.AppLocalDataLocation
+        )
         now = QtCore.QDateTime.currentDateTime()
         timestamp = now.toString("yyyyMMdd_HHmmss")
         log_file_name = f"log_{timestamp}.log"
@@ -193,7 +170,9 @@ class TesterApp(QtWidgets.QApplication):
         console_formatter = self.SafeFormatter("%(levelname)s: %(message)s")
 
         # File handler (logs everything)
-        file_handler = RotatingFileHandler(log_file_path, maxBytes=5*1024*1024, backupCount=5, encoding="utf-8")
+        file_handler = RotatingFileHandler(
+            log_file_path, maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8"
+        )
         file_handler.setFormatter(file_formatter)
         file_handler.setLevel(logging.DEBUG)
         root_logger.addHandler(file_handler)
@@ -221,7 +200,45 @@ class TesterApp(QtWidgets.QApplication):
         # Fix: PySide6 expects the message handler to be a static function
         QtCore.qInstallMessageHandler(self.qt_message_handler)
 
-        QtCore.qInfo(f"Qt logging redirected to Python logger. Log file: {self._qt_log_file_path}")
+        QtCore.qInfo(
+            f"Qt logging redirected to Python logger. Log file: {self._qt_log_file_path}"
+        )
+
+    def _setup_commandline(self):
+        """
+        Parses command-line arguments and sets up the application based on provided options.
+        """
+        self.options = QtCore.QCommandLineParser()
+        context = self.options.__class__.__name__
+        self.options.setApplicationDescription(__doc__)
+
+        options = (
+            (
+                ["d", "directory"],
+                "Set the data directory.",
+                "directory",
+                str(self.ConfigurationPath),
+            ),
+            (["r", "run"], "Run test(s) in commandline mode.", None, None),
+            (["l", "list"], "List the available tests.", None, None),
+            (["s", "serial"], "The serial number on which to test.", "serial", ""),
+            (["m", "model"], "The model number on which to test.", "model", ""),
+            (["t", "test"], "Select a single test to run.", "test", None),
+            (["x", "exitcodes"], "Display exit codes and their meaning.", None, None),
+        )
+        addOption = self.options.addOption
+        for names, desc, value_name, default in options:
+            addOption(
+                QtCore.QCommandLineOption(
+                    names,
+                    QtCore.QCoreApplication.translate(context, desc),
+                    value_name or "",
+                    default if default is not None else "",
+                )
+            )
+        self.options.addHelpOption()
+        self.options.addVersionOption()
+        self.options.process(self)
 
     @staticmethod
     def qt_message_handler(mode, context, message):
@@ -235,15 +252,15 @@ class TesterApp(QtWidgets.QApplication):
             message (str): The message text.
         """
         # Fix: Static method, cannot use 'self'
-        file = getattr(context, 'file', 'unknown')
-        line = getattr(context, 'line', -1)
-        function = getattr(context, 'function', 'unknown')
-        category = getattr(context, 'category', 'general')
+        file = getattr(context, "file", "unknown")
+        line = getattr(context, "line", -1)
+        function = getattr(context, "function", "unknown")
+        category = getattr(context, "category", "general")
         extra = {
-            'qt_file': file,
-            'qt_line': line,
-            'qt_func': function,
-            'qt_category': category
+            "qt_file": file,
+            "qt_line": line,
+            "qt_func": function,
+            "qt_category": category,
         }
 
         level_map = {
@@ -258,25 +275,48 @@ class TesterApp(QtWidgets.QApplication):
 
         logger.log(level, log_msg, extra=extra)
 
+    def addSettingsToObject(self, obj: QtCore.QObject) -> None:
+        """
+        Adds a QObject to the application settings.
+        Args:
+            obj (QtCore.QObject): The QObject to add to the settings.
+        """
+        if not isinstance(obj, QtCore.QObject):
+            raise TypeError("obj must be an instance of QtCore.QObject")
+        obj.settings = self.__settings
+        _name = obj.__class__.__name__
+        obj.getSetting = lambda key, default=None: self.__settings.getSetting(
+            _name, key, default
+        )
+        obj.setSetting = lambda key, value: self.__settings.setSetting(
+            _name, key, value
+        )
+        onSettingsModified = getattr(obj, "onSettingsModified", None)
+        if callable(onSettingsModified):
+            self.__settings.settingsModified.connect(onSettingsModified)
+            onSettingsModified()
+
+    @QtCore.Slot()
     def onSettingsModified(self) -> None:
         """
         Slot called when application settings are modified.
 
         Updates the data directory from settings.
         """
-        old_data_directory = self.ConfigurationPath
-        self._configuration_path = self.__settings.getSetting(
-            "", "DataDirectory", str(old_data_directory)
-        )
+        logger.debug("[TesterApp] Settings modified.")
+        settings_path = self.__settings.fileName()
+        configuration_path = QtCore.QFileInfo(settings_path).absolutePath()
+        self._configuration_path = configuration_path
 
-    def get_settings(self) -> TesterSettings:
+    @QtCore.Slot()
+    def cleanup(self) -> None:
         """
-        Returns the application settings object.
-
-        Returns:
-            TesterSettings: The settings instance for the application.
+        Cleanup function called when the application is about to quit.
         """
-        return self.__settings
+        logger.info("Application is exiting. Performing cleanup...")
+        self.__settings.sync()
+        # Add any additional cleanup code here if necessary
+        logger.info("Cleanup complete.")
 
 
 def main() -> int:
@@ -290,7 +330,7 @@ def main() -> int:
     """
     app = TesterApp(sys.argv)
     if len(sys.argv) > 1:
-        worker = TestWorker()
+        worker = TestWorker(CancelToken())
         thread = QtCore.QThread()
         worker.moveToThread(thread)
         thread.started.connect(worker.run_cli)

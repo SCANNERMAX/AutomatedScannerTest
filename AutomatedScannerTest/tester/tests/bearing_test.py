@@ -76,6 +76,7 @@ class BearingTest(Test):
         self.setParameter("FrictionData", value)
         self.frictionDataChanged.emit(value)
 
+    @QtCore.Slot()
     def onSettingsModified(self):
         """
         Handle modifications to the test settings and update internal state.

@@ -102,16 +102,14 @@ class Test(QtCore.QObject):
         self.resetParameters()
         self.Name = name
         app = QtCore.QCoreApplication.instance()
-        if app is None or app.__class__.__name__ != "TesterApp":
+        if not (app and hasattr(app, "addSettingsToObject")):
             logger.critical(
                 f"[Test] Test class must be initialized within a TesterApp instance."
             )
             raise RuntimeError(
                 f"Test class must be initialized within a TesterApp instance."
             )
-        self._settings = app.get_settings()
-        self._settings.settingsModified.connect(self.onSettingsModified)
-        self.onSettingsModified()
+        app.addSettingsToObject(self)
         self.cancel = cancel
         self.devices = devices
         self.widgetTestMain = None
@@ -277,32 +275,7 @@ class Test(QtCore.QObject):
         self.setParameter("Status", value)
         self.statusChanged.emit(value)
 
-    def getSetting(self, key: str, default=None):
-        """
-        Get a persistent setting value for this test, or set it to default if not present.
-
-        Args:
-            key (str): The setting key.
-            default (any): The default value if the key is not present.
-
-        Returns:
-            any: The setting value.
-        """
-        value = self._settings.getSetting(self.__class__.__name__, key, default)
-        logger.debug(f"[Test] Retrieved setting \"{key}\": {value}")
-        return value
-
-    def setSetting(self, key: str, value):
-        """
-        Set a persistent setting value for this test.
-
-        Args:
-            key (str): The setting key.
-            value (any): The value to set.
-        """
-        logger.debug(f"[Test] Setting \"{key}\" to: {value}")
-        self._settings.setSetting(self.__class__.__name__, key, value)
-
+    @QtCore.Slot()
     def onSettingsModified(self):
         """
         Handle settings modifications by updating the test as needed.

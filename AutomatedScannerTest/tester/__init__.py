@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-"""This application runs a series of tests designed to validate the quality of Pangolin Laser System scanners."""
+"""
+This application runs a series of tests designed to validate the quality of
+Pangolin Laser System scanners.
+"""
 from PySide6 import QtCore
 import logging
 
@@ -38,7 +41,7 @@ class CancelToken(QtCore.QObject):
         """
         super().__init__(parent)
         self._cancelled = False
-        logger.debug("CancelToken initialized with cancelled=False.")
+        logger.debug("[CancelToken] Initialized with cancelled=False.")
 
     @QtCore.Property(bool, notify=cancelledChanged)
     def cancelled(self):
@@ -50,7 +53,7 @@ class CancelToken(QtCore.QObject):
         bool
             True if cancelled, False otherwise.
         """
-        logger.debug(f"CancelToken.cancelled accessed, current value: {self._cancelled}.")
+        logger.debug(f"[CancelToken] cancelled accessed, current value: {self._cancelled}.")
         return self._cancelled
 
     @cancelled.setter
@@ -64,7 +67,7 @@ class CancelToken(QtCore.QObject):
             The new cancelled state.
         """
         if self._cancelled != value:
-            logger.debug(f"CancelToken.cancelled changed from {self._cancelled} to {value}.")
+            logger.debug(f"[CancelToken] cancelled changed from {self._cancelled} to {value}.")
             self._cancelled = value
             self.cancelledChanged.emit(self._cancelled)
 
@@ -73,7 +76,7 @@ class CancelToken(QtCore.QObject):
         """
         Set the cancelled state to True.
         """
-        logger.debug("CancelToken.cancel() called.")
+        logger.debug("[CancelToken] cancel() called.")
         self.cancelled = True
 
     @QtCore.Slot()
@@ -81,7 +84,7 @@ class CancelToken(QtCore.QObject):
         """
         Reset the cancelled state to False.
         """
-        logger.debug("CancelToken.reset() called.")
+        logger.debug("[CancelToken] reset() called.")
         self.cancelled = False
 
 

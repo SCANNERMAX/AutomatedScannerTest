@@ -32,7 +32,7 @@ class TestWorker(QtCore.QObject):
     statusChanged = QtCore.Signal(str)
     testerNameChanged = QtCore.Signal(str)
 
-    def __init__(self):
+    def __init__(self, cancel: CancelToken):
         """
         Initialize the TestWorker instance, setting up connections, device manager,
         test sequence model, and timezone.
@@ -41,16 +41,14 @@ class TestWorker(QtCore.QObject):
         """
         super().__init__()
         logger.debug("[TestWorker] __init__ called.")
-        app_instance = QtCore.QCoreApplication.instance()
-        if not (app_instance and app_instance.__class__.__name__ == "TesterApp"):
+        app = QtCore.QCoreApplication.instance()
+        if not (app and hasattr(app, "addSettingsToObject")):
             logger.critical("[TestWorker] TesterApp instance not found. Ensure the application is initialized correctly.")
             raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
-        self.__settings = app_instance.get_settings()
-        self.__settings.settingsModified.connect(self.onSettingsModified)
-        self.DataDirectory = self.__settings.getSetting(None, "DataDirectory", "")
-        self.__cancel = CancelToken()
+        app.addSettingsToObject(self)
+        self.__cancel = cancel
         self.__devices = DeviceManager()
-        self.__model = TestSequenceModel(self.__cancel, self.__devices)
+        self.__model = TestSequenceModel(cancel, self.__devices)
         self.__model.startedTest.connect(self.modelStartedTest)
         self.__model.finishedTest.connect(self.modelFinishedTest)
         self.__timezone = QtCore.QTimeZone.systemTimeZone()
@@ -354,7 +352,8 @@ class TestWorker(QtCore.QObject):
         Slot called when settings are modified. Updates the data directory.
         """
         logger.debug("[TestWorker] onSettingsModified called. Updating worker settings.")
-        self.DataDirectory = self.__settings.getSetting(None, "DataDirectory", self.DataDirectory)
+        dataDirectory = getattr(self, "DataDirectory", "")
+        self.DataDirectory = self.settings.getSetting(None, "DataDirectory", dataDirectory)
 
     @QtCore.Slot(str)
     def onGenerateReport(self, path: str = None):

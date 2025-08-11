@@ -1,6 +1,7 @@
 ﻿# -*- coding: utf-8 -*-
 from PySide6 import QtCore, QtWidgets, QtCharts
 import logging
+import numpy as np
 import traceback
 
 import tester
@@ -45,6 +46,7 @@ class TorqueCenterTest(tester.tests.Test):
         except Exception as e:
             logger.critical(f"[TorqueCenterTest] Exception in __init__: {e}\n{traceback.format_exc()}")
         logger.debug("[TorqueCenterTest] Exiting __init__")
+        self.polyfit_coeffs = None  # Add this line
 
     @QtCore.Property(list, notify=torqueDataChanged)
     def TorqueData(self):
@@ -88,6 +90,7 @@ class TorqueCenterTest(tester.tests.Test):
         self.setParameter("TorqueCenter", value)
         self.torqueCenterChanged.emit(value)
 
+    @QtCore.Slot()
     def onSettingsModified(self):
         """
         Handle modifications to the test settings.
@@ -130,10 +133,26 @@ class TorqueCenterTest(tester.tests.Test):
             line_series = QtCharts.QLineSeries()
             line_series.setObjectName("lineSeriesTorqueCenter")
             data = self.TorqueData
-            logger.info(f"[TorqueCenterTest] Initial chart data: {data}")
             if data:
                 line_series.replace(data)
             chart.addSeries(line_series)
+
+            # --- Polynomial fit curve ---
+            fit_series = QtCharts.QLineSeries()
+            fit_series.setObjectName("lineSeriesTorqueFit")
+            fit_series.setColor(QtCore.Qt.GlobalColor.red)  # Optional: make it red
+
+            # Only plot if coefficients are available
+            if self.polyfit_coeffs is not None:
+                a, b, c = self.polyfit_coeffs
+                # Use 100 points between xmin and xmax
+                xs = np.linspace(self.xmin, self.xmax, 100)
+                for x in xs:
+                    y = a * x**2 + b * x + c
+                    fit_series.append(x, y)
+                chart.addSeries(fit_series)
+                fit_series.attachAxis(axis_x)
+                fit_series.attachAxis(axis_y)
 
             axis_x = QtCharts.QValueAxis()
             axis_x.setTitleText(self.xtitle)
@@ -218,8 +237,23 @@ class TorqueCenterTest(tester.tests.Test):
         logger.debug("[TorqueCenterTest] Entering onGenerateReport")
         try:
             super().onGenerateReport(report)
+
+            # Prepare measured data as (x, y) tuples
+            measured_data = [
+                (p.x(), p.y()) if isinstance(p, QtCore.QPointF) else (p[0], p[1])
+                for p in self.TorqueData
+            ]
+
+            # Prepare polynomial fit data as (x, y) tuples
+            fit_data = []
+            if self.polyfit_coeffs is not None:
+                a, b, c = self.polyfit_coeffs
+                xs = np.linspace(self.xmin, self.xmax, 100)
+                fit_data = [(x, a * x**2 + b * x + c) for x in xs]
+
+            # Call plotXYData with both series
             report.plotXYData(
-                self.TorqueData,
+                [measured_data, fit_data] if fit_data else [measured_data],
                 self.charttitle,
                 self.xtitle,
                 self.ytitle,
@@ -229,6 +263,8 @@ class TorqueCenterTest(tester.tests.Test):
                 ymin=self.ymin,
                 ymax=self.ymax,
                 yTickCount=8,
+                series_labels=["Measured", "Polynomial Fit"] if fit_data else ["Measured"],
+                series_colors=[QtCore.Qt.blue, QtCore.Qt.red] if fit_data else [QtCore.Qt.blue],
             )
             report.writeLine(f"Torque Center: {self.TorqueCenter:.2f} deg")
         except Exception as e:
@@ -367,7 +403,8 @@ class TorqueCenterTest(tester.tests.Test):
         """
         Analyze the test results for a given serial number.
 
-        Determines the torque center by finding the offset with the minimum RMS current.
+        Determines the torque center by fitting a quadratic polynomial to the data
+        and finding the offset corresponding to the minimum RMS current.
         Sets the test status to "Pass" if the absolute value of the torque center is less than the tolerance.
 
         Returns:
@@ -378,12 +415,17 @@ class TorqueCenterTest(tester.tests.Test):
             super().analyzeResults()
             data = self.TorqueData
             if data:
-                def get_y(p):
-                    return p.y() if isinstance(p, QtCore.QPointF) else p[1]
-                min_point = min(data, key=get_y)
-                logger.info(f"[TorqueCenterTest] Minimum RMS point: {min_point}")
-                self.TorqueCenter = min_point.x() if isinstance(min_point, QtCore.QPointF) else min_point[0]
-                logger.info(f"[TorqueCenterTest] TorqueCenter determined: {self.TorqueCenter:.4f}")
+                x = np.array([p.x() if isinstance(p, QtCore.QPointF) else p[0] for p in data])
+                y = np.array([p.y() if isinstance(p, QtCore.QPointF) else p[1] for p in data])
+                coeffs = np.polyfit(x, y, 2)
+                self.polyfit_coeffs = coeffs  # Store coefficients
+                a, b, c = coeffs
+                if a != 0:
+                    torque_center_fit = -b / (2 * a)
+                    self.TorqueCenter = torque_center_fit
+                else:
+                    min_point = min(data, key=lambda p: p.y() if isinstance(p, QtCore.QPointF) else p[1])
+                    self.TorqueCenter = min_point.x() if isinstance(min_point, QtCore.QPointF) else min_point[0]
             else:
                 logger.critical("[TorqueCenterTest] No torque data available for analysis")
                 raise ValueError("No torque data available for analysis")

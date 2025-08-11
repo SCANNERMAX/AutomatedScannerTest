@@ -234,21 +234,6 @@ class MSO5000(Device):
             except Exception as e:
                 logger.debug(f"Error opening resource {_resource_name}: {e}")
         assert found, "No oscilloscope found."
-        try:
-            idn = self.visa_instrument.query("*IDN?").strip()
-            parts = idn.split(",")
-            if len(parts) >= 4:
-                settings = {
-                    "manufacturer_name": parts[0],
-                    "model_name": parts[1],
-                    "serial_number": parts[2],
-                    "model_code": parts[1],
-                    "manufacturer_id": parts[0],
-                }
-                for k, v in settings.items():
-                    self.setSetting(k, v)
-        except Exception as e:
-            logger.debug(f"Error parsing IDN: {e}")
         logger.info(
             f"Connected to {getattr(self, 'model_name', 'Unknown')} oscilloscope."
         )

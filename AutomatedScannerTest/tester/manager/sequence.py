@@ -8,6 +8,7 @@ from tester.tests import CancelToken, _test_list
 # Configure Python logging
 logger = logging.getLogger(__name__)
 
+
 class TestSequenceModel(QtCore.QAbstractTableModel):
     """
     Manages the execution, logging, and reporting of a sequence of hardware or software tests.
@@ -16,6 +17,9 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
     result logging, report generation, and parameter management. It integrates with device management
     and supports both GUI and command-line workflows.
     """
+
+    __parameters = {}
+    __header = ("Test", "Status")
     startedTest = QtCore.Signal(int, str)
     finishedTest = QtCore.Signal(int, str, bool)
 
@@ -30,17 +34,19 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         Raises:
             RuntimeError: If there is no running QCoreApplication instance.
         """
-        logger.debug(f"[TestSequenceModel] __init__ called with cancel={cancel}, devices={devices}")
+        logger.debug(
+            f"[TestSequenceModel] __init__ called with cancel={cancel}, devices={devices}"
+        )
         super().__init__()
-        app_instance = QtCore.QCoreApplication.instance()
-        if app_instance is None or not hasattr(app_instance, "get_settings"):
-            logger.critical(f"[TestSequenceModel] TesterApp instance not found. Ensure the application is initialized correctly.")
-            raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
-        self.__settings = app_instance.get_settings()
-        self.__settings.settingsModified.connect(self.onSettingsModified)
-        self.onSettingsModified()
-        self.__parameters = {}
-        self.__header = ("Test", "Status")
+        app = QtCore.QCoreApplication.instance()
+        if not (app and hasattr(app, "addSettingsToObject")):
+            logger.critical(
+                f"[TestSequenceModel] TesterApp instance not found. Ensure the application is initialized correctly."
+            )
+            raise RuntimeError(
+                "TesterApp instance not found. Ensure the application is initialized correctly."
+            )
+        app.addSettingsToObject(self)
         self.__cancel = cancel
         self.__devices = devices
         # Use list comprehension for faster test instantiation
@@ -65,7 +71,9 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         Args:
             value (str): The computer name.
         """
-        logger.debug(f"[TestSequenceModel] ComputerName setter called with value={value}")
+        logger.debug(
+            f"[TestSequenceModel] ComputerName setter called with value={value}"
+        )
         self.__parameters["ComputerName"] = value
 
     @QtCore.Property(float)
@@ -111,7 +119,9 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
             value (QtCore.QDateTime): The end time.
         """
         logger.debug(f"[TestSequenceModel] EndTime setter called with value={value}")
-        self.__parameters["EndTime"] = value if isinstance(value, QtCore.QDateTime) else QtCore.QDateTime()
+        self.__parameters["EndTime"] = (
+            value if isinstance(value, QtCore.QDateTime) else QtCore.QDateTime()
+        )
 
     @QtCore.Property(str)
     def ModelName(self):
@@ -157,7 +167,9 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         Args:
             value (str): The serial number.
         """
-        logger.debug(f"[TestSequenceModel] SerialNumber setter called with value={value}")
+        logger.debug(
+            f"[TestSequenceModel] SerialNumber setter called with value={value}"
+        )
         self.__parameters["SerialNumber"] = value
         for _test in self.__tests:
             _test.SerialNumber = value
@@ -183,7 +195,9 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
             value (QtCore.QDateTime): The start time.
         """
         logger.debug(f"[TestSequenceModel] StartTime setter called with value={value}")
-        self.__parameters["StartTime"] = value if isinstance(value, QtCore.QDateTime) else QtCore.QDateTime()
+        self.__parameters["StartTime"] = (
+            value if isinstance(value, QtCore.QDateTime) else QtCore.QDateTime()
+        )
 
     @QtCore.Property(str)
     def Status(self):
@@ -277,10 +291,14 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
             return None
         test = self.__tests[row]
         if role == QtCore.Qt.DisplayRole:
-            logger.debug(f"[TestSequenceModel] data: Returning display value for row={row}, col={col}")
+            logger.debug(
+                f"[TestSequenceModel] data: Returning display value for row={row}, col={col}"
+            )
             return test.Name if col == 0 else test.Status
         if role == QtCore.Qt.UserRole:
-            logger.debug(f"[TestSequenceModel] data: Returning user role value for row={row}")
+            logger.debug(
+                f"[TestSequenceModel] data: Returning user role value for row={row}"
+            )
             return test
         return None
 
@@ -296,7 +314,9 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         Returns:
             Any: The header data.
         """
-        logger.debug(f"[TestSequenceModel] headerData called with section={section}, orientation={orientation}, role={role}")
+        logger.debug(
+            f"[TestSequenceModel] headerData called with section={section}, orientation={orientation}, role={role}"
+        )
         if role == QtCore.Qt.DisplayRole and orientation == QtCore.Qt.Horizontal:
             return self.__header[section] if section < len(self.__header) else None
         return super().headerData(section, orientation, role)
@@ -338,7 +358,9 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         Args:
             report: The report object to populate.
         """
-        logger.debug(f"[TestSequenceModel] onGenerateReport called with report={report}")
+        logger.debug(
+            f"[TestSequenceModel] onGenerateReport called with report={report}"
+        )
         for _test in self.__tests:
             if getattr(_test, "Status", None) != "Skipped":
                 logger.debug(f"[TestSequenceModel] Generating report for test: {_test}")
@@ -351,13 +373,17 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         Args:
             tests_data (dict): Dictionary of test data keyed by test name.
         """
-        logger.debug(f"[TestSequenceModel] onLoadData called with tests_data={tests_data}")
+        logger.debug(
+            f"[TestSequenceModel] onLoadData called with tests_data={tests_data}"
+        )
         if tests_data:
             _name_to_test = {t.Name: t for t in self.__tests}
             for _test_name, _test_data in tests_data.items():
                 _test_obj = _name_to_test.get(_test_name)
                 if _test_obj:
-                    logger.debug(f"[TestSequenceModel] Loading data for test: {_test_name}")
+                    logger.debug(
+                        f"[TestSequenceModel] Loading data for test: {_test_name}"
+                    )
                     _test_obj.onLoadData(_test_data)
 
     def onSaveData(self) -> dict:
@@ -391,14 +417,18 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         Returns:
             bool or None: True if all tests succeeded, False if any failed, None if cancelled or no tests run.
         """
-        logger.debug(f"[TestSequenceModel] onStartTest called with data_directory={data_directory}, test={test}")
+        logger.debug(
+            f"[TestSequenceModel] onStartTest called with data_directory={data_directory}, test={test}"
+        )
         statuses = []
         cancel = getattr(self.__cancel, "cancelled", False)
         for index, _test in enumerate(self.__tests):
             logger.info(f"[TestSequenceModel] Starting {_test.Name} (index={index})")
             self.startedTest.emit(index, _test.Name)
             if cancel:
-                logger.warning(f"[TestSequenceModel] Testing cancelled before starting {_test.Name}")
+                logger.warning(
+                    f"[TestSequenceModel] Testing cancelled before starting {_test.Name}"
+                )
                 _test.Status = "Skipped"
                 continue
             if test and _test.Name != test:
@@ -415,7 +445,9 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
             logger.warning(f"[TestSequenceModel] No tests were executed.")
             return None
         else:
-            logger.info(f"[TestSequenceModel] All tests finished. Success={all(statuses)}")
+            logger.info(
+                f"[TestSequenceModel] All tests finished. Success={all(statuses)}"
+            )
             return all(statuses)
 
     def resetTestData(self):

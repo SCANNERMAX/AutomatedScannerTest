@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 QPageSizeMap = {QtGui.QPageSize.PageSizeId(s).name : QtGui.QPageSize(s) for s in QtGui.QPageSize.PageSizeId}
 
-class TestReport:
+class TestReport(QtCore.QObject):
     """
     Generates a PDF report for test results, including formatted pages, headers, footers, and graphical data.
 
@@ -40,21 +40,17 @@ class TestReport:
         """
         logger.debug(f"[TestReport] __init__ called with path: {path}")
         app = QtCore.QCoreApplication.instance()
-        if app is not None and app.__class__.__name__ == "TesterApp":
-            logger.debug(f"[TestReport] TesterApp instance found.")
-            self.__settings = app.get_settings()
-            self.__settings.settingsModified.connect(self.onSettingsModified)
-            self.onSettingsModified()
-            self.appName = app.applicationName()
-            self.company = app.organizationName()
-            logger.debug(f"[TestReport] Settings initialized.")
-        else:
+        if not (app and hasattr(app, "addSettingsToObject")):
             logger.critical(
                 f"[TestReport] TesterApp instance not found. Ensure the application is initialized correctly."
             )
             raise RuntimeError(
                 "TesterApp instance not found. Ensure the application is initialized correctly."
             )
+        app.addSettingsToObject(self)
+        self.appName = app.applicationName()
+        self.company = app.organizationName()
+        logger.debug(f"[TestReport] Settings initialized.")
 
         parent_dir = QtCore.QFileInfo(path).dir()
         logger.debug(f"[TestReport] Checking if parent directory exists: {parent_dir.absolutePath()}")
@@ -72,23 +68,21 @@ class TestReport:
         self._font_cache = {}
         logger.debug(f"[TestReport] PDF writer initialized at {path}.")
 
+    QtCore.Slot()
     def onSettingsModified(self) -> None:
         """
         Update page and layout settings from the application settings.
         """
         logger.debug(f"[TestReport] onSettingsModified called.")
-        _class = self.__class__.__name__
-        s = self.__settings
-        _size = s.getSetting(_class, "PageSize", "Letter")
-        _pageWidth = s.getSetting(_class, "PageWidth", 8.5)
-        _pageHeight = s.getSetting(_class, "PageHeight", 11)
-        self.resolution = s.getSetting(_class, "Resolution", 300)
-        self.buffer = self.convertInches(s.getSetting(_class, "Buffer", 0.05))
-        self.margin = self.convertInches(s.getSetting(_class, "Margin", 0.5))
-        self.header_height = self.convertInches(s.getSetting(_class, "HeaderHeight", 1))
-        self.footer_height = self.convertInches(
-            s.getSetting(_class, "FooterHeight", 0.33)
-        )
+        s = self.getSettings
+        _size = s("PageSize", "Letter")
+        _pageWidth = s("PageWidth", 8.5)
+        _pageHeight = s("PageHeight", 11)
+        self.resolution = s("Resolution", 300)
+        self.buffer = self.convertInches(s("Buffer", 0.05))
+        self.margin = self.convertInches(s("Margin", 0.5))
+        self.header_height = self.convertInches(s("HeaderHeight", 1))
+        self.footer_height = self.convertInches(s("FooterHeight", 0.33))
         logger.debug(
             f"[TestReport] Settings: size={_size}, pageWidth={_pageWidth}, pag"
             f"eHeight={_pageHeight}, resolution={self.resolution}, buffer="
@@ -445,12 +439,14 @@ class TestReport:
         ymin: float = -100,
         ymax: float = 100,
         yTickCount=21,
+        series_colors=None,
+        series_labels=None,
     ):
         """
-        Plot XY data as a chart, save as an image, and embed in the PDF.
+        Plot one or more XY data series as a chart, save as an image, and embed in the PDF.
 
         Args:
-            data (list): List of (x, y) tuples.
+            data (list or list of lists): List of (x, y) tuples, or list of such lists for multiple series.
             title (str): Chart title.
             xlabel (str): X-axis label.
             ylabel (str): Y-axis label.
@@ -461,6 +457,8 @@ class TestReport:
             ymin (float): Minimum Y value.
             ymax (float): Maximum Y value.
             yTickCount (int): Number of Y ticks.
+            series_colors (list, optional): List of Qt colors for each series.
+            series_labels (list, optional): List of labels for each series.
         """
         logger.debug(
             f"[TestReport] plotXYData called with title={title}, xlabel={xlabel}, ylabel={ylabel}, path={path}, "
@@ -470,6 +468,12 @@ class TestReport:
             logger.warning(f"[TestReport] No data provided to plotXYData.")
             return
 
+        # Detect if data is a single series or multiple series
+        is_multi = isinstance(data[0], (list, tuple)) and (
+            len(data) > 0 and isinstance(data[0][0], (list, tuple, QtCore.QPointF))
+        )
+        series_list = data if is_multi else [data]
+
         _width = int(self.rect.width())
         _height = int(0.75 * _width)
         logger.debug(f"[TestReport] Chart dimensions: width={_width}, height={_height}")
@@ -477,28 +481,44 @@ class TestReport:
             logger.debug(f"[TestReport] Not enough space for chart. Creating new page.")
             self.newPage()
 
-        _series = QtCharts.QLineSeries()
-        logger.debug(f"[TestReport] Appending data points to QLineSeries.")
-        _series.append((QtCore.QPointF(float(x), float(y)) for x, y in data))
-        _series.setPen(QtGui.QPen(QtCore.Qt.blue, 4))
-
         _chart = QtCharts.QChart()
-        _chart.addSeries(_series)
         _chart.setTitle(title)
-        _chart.createDefaultAxes()
-        _chart.axisX().setTitleText(xlabel)
-        _chart.axisY().setTitleText(ylabel)
-        _chart.legend().hide()
         _chart.setBackgroundVisible(False)
         _chart.setBackgroundRoundness(0)
 
-        self.setFont()
-        _font = self.painter.font()
+        # Default colors if not provided
+        default_colors = [
+            QtCore.Qt.blue,
+            QtCore.Qt.red,
+            QtCore.Qt.darkGreen,
+            QtCore.Qt.magenta,
+            QtCore.Qt.darkYellow,
+            QtCore.Qt.darkCyan,
+            QtCore.Qt.black,
+        ]
+        colors = series_colors if series_colors else default_colors
+        labels = series_labels if series_labels else [f"Series {i+1}" for i in range(len(series_list))]
+
+        for idx, series_data in enumerate(series_list):
+            _series = QtCharts.QLineSeries()
+            _series.setName(labels[idx] if idx < len(labels) else f"Series {idx+1}")
+            color = colors[idx % len(colors)]
+            _series.setPen(QtGui.QPen(color, 4))
+            # Accept both (x, y) tuples and QPointF
+            if series_data and isinstance(series_data[0], QtCore.QPointF):
+                _series.append(series_data)
+            else:
+                _series.append((QtCore.QPointF(float(x), float(y)) for x, y in series_data))
+            _chart.addSeries(_series)
+
+        _chart.createDefaultAxes()
+        _chart.axisX().setTitleText(xlabel)
+        _chart.axisY().setTitleText(ylabel)
+        _chart.setFont(self.painter.font())
+        _chart.setTitleFont(self.painter.font())
         for axis in (_chart.axisX(), _chart.axisY()):
-            axis.setTitleFont(_font)
-            axis.setLabelsFont(_font)
-        _chart.setFont(_font)
-        _chart.setTitleFont(_font)
+            axis.setTitleFont(self.painter.font())
+            axis.setLabelsFont(self.painter.font())
         _chart.axisX().setGridLinePen(
             QtGui.QPen(QtCore.Qt.lightGray, 3, QtCore.Qt.PenStyle.DotLine)
         )
@@ -512,6 +532,12 @@ class TestReport:
         _chart.axisX().setTickCount(xTickCount)
         _chart.axisY().setRange(ymin, ymax)
         _chart.axisY().setTickCount(yTickCount)
+
+        if len(series_list) > 1:
+            _chart.legend().setVisible(True)
+            _chart.legend().setAlignment(QtCore.Qt.AlignmentFlag.AlignBottom)
+        else:
+            _chart.legend().hide()
 
         _chart.resize(_width, _height)
         logger.debug(f"[TestReport] Chart resized.")
