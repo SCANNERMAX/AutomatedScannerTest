@@ -473,7 +473,7 @@ class TestWorker(QtCore.QObject):
             status (bool): The status of the test (True for pass, False for fail).
         """
         logger.info(
-            f"[TestWorker] Finished test #{test_id} -- {test_name}, Status={'Pass' if status else 'Fail'}."
+            f"[TestWorker] Finished test #{test_id + 1} -- {test_name}, Status={'Pass' if status else 'Fail'}."
         )
         self.testFinishedSignal.emit(test_id, test_name, status)
 
@@ -486,7 +486,7 @@ class TestWorker(QtCore.QObject):
             test_id (int): The ID of the test.
             test_name (str): The name of the test.
         """
-        logger.info(f"[TestWorker] Started test #{test_id} -- {test_name}.")
+        logger.info(f"[TestWorker] Started test #{test_id + 1} -- {test_name}.")
         self.testStartedSignal.emit(test_id, test_name)
 
     @QtCore.Slot()

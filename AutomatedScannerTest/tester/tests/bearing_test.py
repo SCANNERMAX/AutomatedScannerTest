@@ -23,12 +23,8 @@ class BearingTest(Test):
     """
     Test for evaluating scanner bearing friction by sweeping and measuring current.
 
-    This test sweeps the scanner across its field at a constant speed and measures
-    the current required, detecting issues such as increased friction or mechanical
-    resistance in the scanner's bearings.
-
     Attributes:
-        FrictionData (list[QPointF]): List of (position, current) points.
+        FrictionData (list[tuple]): List of (position, current) tuples.
         frictionDataChanged (Signal): Emitted when friction data is updated.
     """
 
@@ -39,8 +35,8 @@ class BearingTest(Test):
         Initialize the BearingTest instance.
 
         Args:
-            cancel (tester.tests.CancelToken): The cancel token to allow test interruption.
-            devices (DeviceManager, optional): The device manager.
+            cancel (CancelToken): Token to allow test interruption.
+            devices (DeviceManager, optional): Device manager for hardware access.
         """
         logger.debug(f"[BearingTest] Initializing BearingTest with cancel={cancel}, devices={devices}")
         try:
@@ -49,11 +45,8 @@ class BearingTest(Test):
                 cancel,
                 devices if devices is not None else DeviceManager(),
             )
-            logger.debug("[BearingTest] Super __init__ called successfully")
         except Exception as e:
             logger.critical(f"[BearingTest] Exception in __init__: {e}\n{traceback.format_exc()}")
-        logger.debug("[BearingTest] Exiting __init__")
-
 
     @QtCore.Property(list, notify=frictionDataChanged)
     def FrictionData(self):
@@ -61,7 +54,7 @@ class BearingTest(Test):
         Get the current friction data.
 
         Returns:
-            list: The list of (position, current) QPointF tuples.
+            list: The list of (position, current) tuples.
         """
         return self.getParameter("FrictionData", [])
 
@@ -71,7 +64,7 @@ class BearingTest(Test):
         Set the friction data and emit the frictionDataChanged signal.
 
         Args:
-            value (list): The new friction data as a list of QPointF tuples.
+            value (list): The new friction data as a list of (position, current) tuples.
         """
         self.setParameter("FrictionData", value)
         self.frictionDataChanged.emit(value)
@@ -84,7 +77,7 @@ class BearingTest(Test):
         logger.debug("[BearingTest] onSettingsModified called")
         super().onSettingsModified()
         s = self.getSetting
-        self.readDelay = s("ReadDelay", 5)
+        self.readDelay = s("ReadDelay", 10)
         self.charttitle = s("ChartTitle", "Bearing Friction Plot")
         self.xtitle = s("PositionTitle", "Position (deg)")
         self.xmin = s("PositionMinimum", -30.0)
@@ -107,7 +100,8 @@ class BearingTest(Test):
         line_series = QtCharts.QLineSeries()
         data = self.FrictionData
         if data:
-            line_series.replace(data)
+            # Use generator expression for memory efficiency
+            line_series.replace((QtCore.QPointF(x, y) for x, y in data))
         chart.addSeries(line_series)
 
         axis_x = QtCharts.QValueAxis()
@@ -132,14 +126,22 @@ class BearingTest(Test):
         )
         self.layoutTestData.addWidget(chart_view)
 
-        self.frictionDataChanged.connect(line_series.replace)
+        # Use a local function to avoid recreating lambda on every signal emission
+        def update_chart(data):
+            """
+            Update the chart with new friction data.
+
+            Args:
+                data (list): List of (position, current) tuples.
+            """
+            line_series.replace((QtCore.QPointF(x, y) for x, y in data))
+        self.frictionDataChanged.connect(update_chart)
 
         self.chartFriction = chart
         self.lineSeriesFriction = line_series
         self.axisX = axis_x
         self.axisY = axis_y
         self.chartViewFriction = chart_view
-        logger.debug("[BearingTest] UI setup complete")
 
     def onGenerateReport(self, report):
         """
@@ -164,7 +166,6 @@ class BearingTest(Test):
                 ymax=self.ymax,
                 yTickCount=9,
             )
-            logger.debug("[BearingTest] Friction plot added to report")
         except Exception as e:
             logger.critical(
                 "[BearingTest] Failed to add friction plot to report: %r", e
@@ -184,13 +185,10 @@ class BearingTest(Test):
             if file.open(QtCore.QIODevice.WriteOnly | QtCore.QIODevice.Text):
                 stream = QtCore.QTextStream(file)
                 stream << f"Time (ns),{self.xtitle},{self.ytitle}\n"
-                for _time, _data in enumerate(self.FrictionData):
-                    if isinstance(_data, QtCore.QPointF):
-                        stream << f"{_time},{_data.x()},{_data.y()}\n"
-                    else:
-                        stream << f"{_time},{_data[0]},{_data[1]}\n"
+                # Use enumerate and unpack directly for clarity
+                for _time, (_x, _y) in enumerate(self.FrictionData):
+                    stream << f"{_time},{_x},{_y}\n"
                 file.close()
-                logger.debug("[BearingTest] Friction data saved to %r", dataFilePath)
             else:
                 logger.warning(
                     "[BearingTest] Could not open file %r for writing", dataFilePath
@@ -219,14 +217,8 @@ class BearingTest(Test):
         dir_obj = QtCore.QDir(self.dataDirectory)
         if not dir_obj.exists():
             dir_obj.mkpath(".")
-            logger.debug("[BearingTest] Created data directory: %r", self.dataDirectory)
         self.figurePath = dir_obj.filePath("friction_plot.png")
         self.dataFilePath = dir_obj.filePath("friction_plot_data.csv")
-        logger.debug(
-            "[BearingTest] Figure path: %r, Data file path: %r",
-            self.figurePath,
-            self.dataFilePath,
-        )
 
     def setup(self):
         """
@@ -258,9 +250,6 @@ class BearingTest(Test):
             output_impedance=SourceOutputImpedance.Fifty,
         )
         MSO.function_generator_square(2, frequency=0.5, phase=270, amplitude=5)
-        logger.info(
-            "[BearingTest] Device setup complete, SampleRate=%r", self.SampleRate
-        )
 
     def run(self):
         """
@@ -273,12 +262,9 @@ class BearingTest(Test):
         MSO.function_generator_state(2, True)
         MSO.phase_align(2)
         MSO.clear()
-        logger.info("[BearingTest] Sweeping scanner for bearing test")
         MSO.single()
         self.checkCancelled()
-        for _ in range(int(self.readDelay)):
-            self.checkCancelled()
-            QtCore.QThread.msleep(1000)
+        QtCore.QThread.msleep(1000 * int(self.readDelay))
         get_waveform = MSO.get_waveform
         _positions_raw = get_waveform(
             source=Source.Channel2,
@@ -293,13 +279,11 @@ class BearingTest(Test):
             stop=10000,
         )
         self.checkCancelled()
+        # Use zip and list comprehension for efficient tuple creation
         self.FrictionData = [
-            QtCore.QPointF(4.5 * x, 100 * y)
+            (4.5 * x, 100 * y)
             for x, y in zip(_positions_raw, _currents_raw)
         ]
-        logger.info(
-            "[BearingTest] Collected %r friction data points", len(self.FrictionData)
-        )
         MSO.function_generator_state(1, False)
         MSO.function_generator_state(2, False)
 
@@ -312,5 +296,4 @@ class BearingTest(Test):
         """
         logger.debug("[BearingTest] analyzeResults called")
         result = super().analyzeResults()
-        logger.info("[BearingTest] Data analyzed with result %r", result)
         return result

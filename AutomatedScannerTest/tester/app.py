@@ -338,12 +338,15 @@ def main() -> int:
         thread.started.connect(worker.onRunCli)
         thread.finished.connect(thread.deleteLater)
         thread.start()
-        thread.wait()
+        # Start the event loop so signals/slots work
+        exit_code = app.exec()
+        thread.wait()  # Wait for the thread to finish after event loop exits
+        return exit_code
     else:
         window = TesterWindow()
         app.statusMessage.connect(window.onUpdateStatus)
         window.show()
-    return app.exec()
+        return app.exec()
 
 
 if __name__ == "__main__":

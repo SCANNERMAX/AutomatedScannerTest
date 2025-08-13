@@ -26,6 +26,7 @@ class TorqueCenterTest(tester.tests.Test):
 
     torqueDataChanged = QtCore.Signal(list)
     torqueCenterChanged = QtCore.Signal(float)
+    polyfitCoeffsChanged = QtCore.Signal(object)
 
     def __init__(self, cancel: tester.tests.CancelToken, devices: DeviceManager = None):
         """
@@ -46,7 +47,28 @@ class TorqueCenterTest(tester.tests.Test):
         except Exception as e:
             logger.critical(f"[TorqueCenterTest] Exception in __init__: {e}\n{traceback.format_exc()}")
         logger.debug("[TorqueCenterTest] Exiting __init__")
-        self.polyfit_coeffs = None  # Add this line
+        self.setParameter("PolyfitCoeffs", None)  # Store as parameter
+
+    @QtCore.Property(object, notify=polyfitCoeffsChanged)
+    def PolyfitCoeffs(self):
+        """
+        Get the polynomial fit coefficients.
+
+        Returns:
+            object: The polynomial fit coefficients (tuple or None).
+        """
+        return self.getParameter("PolyfitCoeffs", None)
+
+    @PolyfitCoeffs.setter
+    def PolyfitCoeffs(self, value):
+        """
+        Set the polynomial fit coefficients and emit the change signal.
+
+        Args:
+            value (object): The new polynomial fit coefficients.
+        """
+        self.setParameter("PolyfitCoeffs", value)
+        self.polyfitCoeffsChanged.emit(value)
 
     @QtCore.Property(list, notify=torqueDataChanged)
     def TorqueData(self):
@@ -54,7 +76,7 @@ class TorqueCenterTest(tester.tests.Test):
         Get the current torque data.
 
         Returns:
-            list: The list of QPointF (offset, RMS current) points.
+            list: The list of (offset, RMS current) tuples.
         """
         return self.getParameter("TorqueData", [])
 
@@ -64,7 +86,7 @@ class TorqueCenterTest(tester.tests.Test):
         Set the torque data and emit the torqueDataChanged signal.
 
         Args:
-            value (list): The new torque data as a list of QPointF.
+            value (list): The new torque data as a list of (offset, RMS current) tuples.
         """
         self.setParameter("TorqueData", value)
         self.torqueDataChanged.emit(value)
@@ -120,7 +142,10 @@ class TorqueCenterTest(tester.tests.Test):
 
     def setupUi(self, parent=None):
         """
-        Initialize and configure the UI components for displaying the torque center plot and value.
+        Set up the user interface for the torque center test.
+
+        This method creates and configures the chart displaying measured torque data and polynomial fit,
+        sets up axes, connects update functions to signals, and adds widgets for displaying the torque center value.
 
         Args:
             parent (QtWidgets.QWidget): The parent widget to which the UI components will be added.
@@ -130,43 +155,69 @@ class TorqueCenterTest(tester.tests.Test):
             super().setupUi(parent)
             chart = QtCharts.QChart()
             chart.setObjectName("chartTorqueCenter")
+
+            # Create series
             line_series = QtCharts.QLineSeries()
             line_series.setObjectName("lineSeriesTorqueCenter")
-            data = self.TorqueData
-            if data:
-                line_series.replace(data)
-            chart.addSeries(line_series)
-
-            # --- Polynomial fit curve ---
             fit_series = QtCharts.QLineSeries()
             fit_series.setObjectName("lineSeriesTorqueFit")
-            fit_series.setColor(QtCore.Qt.GlobalColor.red)  # Optional: make it red
+            fit_series.setColor(QtCore.Qt.GlobalColor.red)
 
-            # Only plot if coefficients are available
-            if self.polyfit_coeffs is not None:
-                a, b, c = self.polyfit_coeffs
-                # Use 100 points between xmin and xmax
-                xs = np.linspace(self.xmin, self.xmax, 100)
-                for x in xs:
-                    y = a * x**2 + b * x + c
-                    fit_series.append(x, y)
-                chart.addSeries(fit_series)
-                fit_series.attachAxis(axis_x)
-                fit_series.attachAxis(axis_y)
-
+            # Create axes
             axis_x = QtCharts.QValueAxis()
             axis_x.setTitleText(self.xtitle)
             axis_x.setLabelFormat("%.2f")
             axis_x.setRange(self.xmin, self.xmax)
             chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
-            line_series.attachAxis(axis_x)
 
             axis_y = QtCharts.QValueAxis()
             axis_y.setTitleText(self.ytitle)
             axis_y.setLabelFormat("%.2f")
             axis_y.setRange(self.ymin, self.ymax)
             chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
-            line_series.attachAxis(axis_y)
+
+            # Attach series to axes
+            for series in (line_series, fit_series):
+                chart.addSeries(series)
+                series.attachAxis(axis_x)
+                series.attachAxis(axis_y)
+
+            def update_line_series(data):
+                """
+                Update the measured data series in the chart.
+
+                Args:
+                    data (list): List of measured data points (QPointF or tuple).
+                """
+                line_series.clear()
+                if data:
+                    points = [
+                        p if isinstance(p, QtCore.QPointF) else QtCore.QPointF(p[0], p[1])
+                        for p in data
+                    ]
+                    line_series.append(points)
+
+            def update_fit_series(coeffs):
+                """
+                Update the polynomial fit series in the chart.
+
+                Args:
+                    coeffs (object): Polynomial coefficients (a, b, c) or None.
+                """
+                fit_series.clear()
+                if coeffs is not None:
+                    a, b, c = coeffs
+                    xs = np.linspace(self.xmin, self.xmax, 100)
+                    ys = a * xs**2 + b * xs + c
+                    fit_series.append([QtCore.QPointF(float(x), float(y)) for x, y in zip(xs, ys)])
+
+            # Initial plot
+            update_line_series(self.TorqueData)
+            update_fit_series(self.PolyfitCoeffs)
+
+            # Connect signals
+            self.torqueDataChanged.connect(update_line_series)
+            self.polyfitCoeffsChanged.connect(update_fit_series)
 
             chart_view = QtCharts.QChartView(chart, parent)
             chart_view.setObjectName("chartViewTorqueCenter")
@@ -184,14 +235,6 @@ class TorqueCenterTest(tester.tests.Test):
                 parent.setLayout(layout)
                 layout.addWidget(chart_view)
                 logger.info("[TorqueCenterTest] Added chart_view to parent layout")
-
-            self.torqueDataChanged.connect(line_series.replace)
-
-            self.chartTorqueCenter = chart
-            self.lineSeriesTorqueCenter = line_series
-            self.axisX = axis_x
-            self.axisY = axis_y
-            self.chartViewTorqueCenter = chart_view
 
             widget_torque_center = QtWidgets.QWidget(parent)
             widget_torque_center.setObjectName("widgetTorqueCenter")
@@ -218,6 +261,13 @@ class TorqueCenterTest(tester.tests.Test):
                 parent.layout().addWidget(widget_torque_center)
                 logger.info("[TorqueCenterTest] Added widget_torque_center to parent layout")
 
+            # Store references
+            self.chartTorqueCenter = chart
+            self.lineSeriesTorqueCenter = line_series
+            self.lineSeriesTorqueFit = fit_series
+            self.axisX = axis_x
+            self.axisY = axis_y
+            self.chartViewTorqueCenter = chart_view
             self.widgetTorqueCenter = widget_torque_center
             self.layoutTorqueCenter = layout_torque_center
             self.labelTorqueCenterName = label_torque_center_name
@@ -246,8 +296,8 @@ class TorqueCenterTest(tester.tests.Test):
 
             # Prepare polynomial fit data as (x, y) tuples
             fit_data = []
-            if self.polyfit_coeffs is not None:
-                a, b, c = self.polyfit_coeffs
+            if self.PolyfitCoeffs is not None:
+                a, b, c = self.PolyfitCoeffs
                 xs = np.linspace(self.xmin, self.xmax, 100)
                 fit_data = [(x, a * x**2 + b * x + c) for x in xs]
 
@@ -403,8 +453,8 @@ class TorqueCenterTest(tester.tests.Test):
         """
         Analyze the test results for a given serial number.
 
-        Determines the torque center by fitting a quadratic polynomial to the data
-        and finding the offset corresponding to the minimum RMS current.
+        Determines the torque center by fitting a quadratic polynomial to the central portion of the data
+        (where the fit is best), and finding the offset corresponding to the minimum RMS current.
         Sets the test status to "Pass" if the absolute value of the torque center is less than the tolerance.
 
         Returns:
@@ -417,15 +467,28 @@ class TorqueCenterTest(tester.tests.Test):
             if data:
                 x = np.array([p.x() if isinstance(p, QtCore.QPointF) else p[0] for p in data])
                 y = np.array([p.y() if isinstance(p, QtCore.QPointF) else p[1] for p in data])
-                coeffs = np.polyfit(x, y, 2)
-                self.polyfit_coeffs = coeffs  # Store coefficients
-                a, b, c = coeffs
+
+                # Select the seven points in the center of the plot
+                n_select = 7
+                n_points = len(x)
+                center = n_points // 2
+                half = n_select // 2
+                start = max(center - half, 0)
+                end = min(start + n_select, n_points)
+                selected_indices = list(range(start, end))
+                x_selected = x[selected_indices]
+                y_selected = y[selected_indices]
+
+                # Refit using selected points
+                coeffs_selected = np.polyfit(x_selected, y_selected, 2)
+                self.PolyfitCoeffs = coeffs_selected
+                a, b, c = coeffs_selected
                 if a != 0:
                     torque_center_fit = -b / (2 * a)
                     self.TorqueCenter = torque_center_fit
                 else:
-                    min_point = min(data, key=lambda p: p.y() if isinstance(p, QtCore.QPointF) else p[1])
-                    self.TorqueCenter = min_point.x() if isinstance(min_point, QtCore.QPointF) else min_point[0]
+                    min_point = min(zip(x_selected, y_selected), key=lambda p: p[1])
+                    self.TorqueCenter = min_point[0]
             else:
                 logger.critical("[TorqueCenterTest] No torque data available for analysis")
                 raise ValueError("No torque data available for analysis")

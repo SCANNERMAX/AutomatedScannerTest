@@ -20,6 +20,7 @@ from tester.manager.report import TestReport
 
 logger = logging.getLogger(__name__)
 
+
 def _test_list() -> list:
     """
     Discover and return all test classes derived from the Test base class
@@ -94,11 +95,10 @@ class Test(QtCore.QObject):
     statusChanged = QtCore.Signal(str)
     parameterChanged = QtCore.Signal(str, object)
 
-    _parameters = {}
-
     def __init__(self, name: str, cancel: CancelToken, devices: DeviceManager):
         logger.debug(f"[Test] Initializing Test instance with name: {name}")
         super().__init__()
+        self._parameters = {}
         self.resetParameters()
         self.Name = name
         app = QtCore.QCoreApplication.instance()
@@ -294,7 +294,7 @@ class Test(QtCore.QObject):
             any: The parameter value.
         """
         value = self._parameters.get(key, default)
-        logger.debug(f"[Test] Retrieved parameter \"{key}\": {value}")
+        logger.debug(f'[Test] Retrieved parameter "{key}": {value}')
         return value
 
     def setParameter(self, key: str, value):
@@ -305,7 +305,7 @@ class Test(QtCore.QObject):
             key (str): The parameter key.
             value (any): The value to set.
         """
-        logger.debug(f"[Test] Setting parameter \"{key}\" to: {value}")
+        logger.debug(f'[Test] Setting parameter "{key}" to: {value}')
         self._parameters[key] = value
         self.parameterChanged.emit(key, value)
 
@@ -368,9 +368,7 @@ class Test(QtCore.QObject):
             Returns:
                 QtWidgets.QLabel: The created label.
             """
-            logger.debug(
-                f"Adding label \"{obj_name}\" with initial text \"{text}\""
-            )
+            logger.debug(f'Adding label "{obj_name}" with initial text "{text}"')
             label = QtWidgets.QLabel(groupBox)
             label.setObjectName(obj_name)
             label.setText(str(text))
@@ -434,9 +432,9 @@ class Test(QtCore.QObject):
         for key, value in data.items():
             try:
                 setattr(self, key, value)
-                logger.debug(f"[Test] Set attribute \"{key}\" to \"{value}\"")
+                logger.debug(f'[Test] Set attribute "{key}" to "{value}"')
             except AttributeError:
-                logger.warning(f"[Test] Attribute \"{key}\" not found")
+                logger.warning(f'[Test] Attribute "{key}" not found')
 
     def onSaveData(self) -> dict:
         """
@@ -455,33 +453,35 @@ class Test(QtCore.QObject):
         Returns:
             bool: True if the test and analysis succeed, False otherwise.
         """
-        logger.debug(f"[Test] Starting in directory \"{data_directory}\"")
+        logger.debug(f'[Test] Starting in directory "{data_directory}"')
         try:
             self.setDataDirectory(data_directory)
             self.StartTime = self.getCurrentTime()
             self.checkCancelled()
-            logger.info(f"[Test] Beginning device setup for test \"{self.Name}\"")
+            logger.info(f'[Test] Beginning device setup for test "{self.Name}"')
             self.setup()
             self.checkCancelled()
-            logger.info(f"[Test] Beginning execution for test \"{self.Name}\"")
+            logger.info(f'[Test] Beginning execution for test "{self.Name}"')
             self.run()
             self.checkCancelled()
-            logger.info(f"[Test] Analyzing collected data for test \"{self.Name}\"")
+            logger.info(f'[Test] Analyzing collected data for test "{self.Name}"')
             result = self.analyzeResults()
             self.checkCancelled()
             self.Status = "Pass" if result else "Fail"
-            logger.info(f"[Test] Test \"{self.Name}\" completed with status: {self.Status}")
+            logger.info(
+                f'[Test] Test "{self.Name}" completed with status: {self.Status}'
+            )
             return result
         except CancelledError:
             self.Status = "Cancelled"
-            logger.warning(f"[Test] Test \"{self.Name}\" was cancelled.")
+            logger.warning(f'[Test] Test "{self.Name}" was cancelled.')
             return False
         except Exception as e:
             self.Status = "Error"
-            logger.critical(f"[Test] Exception in test \"{self.Name}\": {e}")
+            logger.critical(f'[Test] Exception in test "{self.Name}": {e}')
             return False
         finally:
-            logger.info(f"[Test] Beginning teardown for test \"{self.Name}\"")
+            logger.info(f'[Test] Beginning teardown for test "{self.Name}"')
             self.teardown()
             self.EndTime = self.getCurrentTime()
 
@@ -505,7 +505,7 @@ class Test(QtCore.QObject):
         """
         if hasattr(self.cancel, "isCancelled") and self.cancel.isCancelled():
             logger.warning(f"[Test] Detected cancellation.")
-            raise CancelledError(f"Test \"{self.Name}\" was cancelled.")
+            raise CancelledError(f'Test "{self.Name}" was cancelled.')
 
     def setDataDirectory(self, data_directory: str):
         """
@@ -514,14 +514,12 @@ class Test(QtCore.QObject):
         Args:
             data_directory (str): The path to the data directory.
         """
-        logger.debug(f"[Test] Setting data directory to \"{data_directory}\"")
+        logger.debug(f'[Test] Setting data directory to "{data_directory}"')
         dir_obj = QtCore.QDir(data_directory)
         test_dir_path = dir_obj.filePath(self.Name)
         test_dir = QtCore.QDir(test_dir_path)
         if not test_dir.exists("."):
-            logger.debug(
-                f"Creating directory \"{self.Name}\" in \"{data_directory}\""
-            )
+            logger.debug(f'Creating directory "{self.Name}" in "{data_directory}"')
             dir_obj.mkpath(self.Name)
         self.dataDirectory = test_dir_path
 
