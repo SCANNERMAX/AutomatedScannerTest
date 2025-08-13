@@ -39,6 +39,7 @@ class TestReport(QtCore.QObject):
             RuntimeError: If not running inside a TesterApp instance.
         """
         logger.debug(f"[TestReport] __init__ called with path: {path}")
+        super().__init__()
         app = QtCore.QCoreApplication.instance()
         if not (app and hasattr(app, "addSettingsToObject")):
             logger.critical(
@@ -74,7 +75,7 @@ class TestReport(QtCore.QObject):
         Update page and layout settings from the application settings.
         """
         logger.debug(f"[TestReport] onSettingsModified called.")
-        s = self.getSettings
+        s = self.getSetting
         _size = s("PageSize", "Letter")
         _pageWidth = s("PageWidth", 8.5)
         _pageHeight = s("PageHeight", 11)
@@ -445,6 +446,8 @@ class TestReport(QtCore.QObject):
         """
         Plot one or more XY data series as a chart, save as an image, and embed in the PDF.
 
+        If data is empty, an empty chart with axes and title is created and embedded.
+
         Args:
             data (list or list of lists): List of (x, y) tuples, or list of such lists for multiple series.
             title (str): Chart title.
@@ -459,108 +462,128 @@ class TestReport(QtCore.QObject):
             yTickCount (int): Number of Y ticks.
             series_colors (list, optional): List of Qt colors for each series.
             series_labels (list, optional): List of labels for each series.
+
+        Returns:
+            None
         """
         logger.debug(
-            f"[TestReport] plotXYData called with title={title}, xlabel={xlabel}, ylabel={ylabel}, path={path}, "
-            f"xmin={xmin}, xmax={xmax}, xTickCount={xTickCount}, ymin={ymin}, ymax={ymax}, yTickCount={yTickCount}"
+            f"[TestReport] plotXYData called with title={title}, xlabel="
+            f"{xlabel}, ylabel={ylabel}, path={path}, xmin={xmin}, xmax={xmax}"
+            f", xTickCount={xTickCount}, ymin={ymin}, ymax={ymax}, yTickCount="
+            f"{yTickCount}"
         )
-        if not data:
-            logger.warning(f"[TestReport] No data provided to plotXYData.")
-            return
-
-        # Detect if data is a single series or multiple series
-        is_multi = isinstance(data[0], (list, tuple)) and (
-            len(data) > 0 and isinstance(data[0][0], (list, tuple, QtCore.QPointF))
-        )
-        series_list = data if is_multi else [data]
 
         _width = int(self.rect.width())
         _height = int(0.75 * _width)
-        logger.debug(f"[TestReport] Chart dimensions: width={_width}, height={_height}")
         if _height > self.rect.height():
-            logger.debug(f"[TestReport] Not enough space for chart. Creating new page.")
             self.newPage()
 
         _chart = QtCharts.QChart()
         _chart.setTitle(title)
         _chart.setBackgroundVisible(False)
         _chart.setBackgroundRoundness(0)
-
-        # Default colors if not provided
-        default_colors = [
-            QtCore.Qt.blue,
-            QtCore.Qt.red,
-            QtCore.Qt.darkGreen,
-            QtCore.Qt.magenta,
-            QtCore.Qt.darkYellow,
-            QtCore.Qt.darkCyan,
-            QtCore.Qt.black,
-        ]
-        colors = series_colors if series_colors else default_colors
-        labels = series_labels if series_labels else [f"Series {i+1}" for i in range(len(series_list))]
-
-        for idx, series_data in enumerate(series_list):
-            _series = QtCharts.QLineSeries()
-            _series.setName(labels[idx] if idx < len(labels) else f"Series {idx+1}")
-            color = colors[idx % len(colors)]
-            _series.setPen(QtGui.QPen(color, 4))
-            # Accept both (x, y) tuples and QPointF
-            if series_data and isinstance(series_data[0], QtCore.QPointF):
-                _series.append(series_data)
-            else:
-                _series.append((QtCore.QPointF(float(x), float(y)) for x, y in series_data))
-            _chart.addSeries(_series)
-
-        _chart.createDefaultAxes()
-        _chart.axisX().setTitleText(xlabel)
-        _chart.axisY().setTitleText(ylabel)
         _chart.setFont(self.painter.font())
         _chart.setTitleFont(self.painter.font())
-        for axis in (_chart.axisX(), _chart.axisY()):
+
+        legend = _chart.legend()
+        legend.setFont(self.painter.font())
+
+        def _setup_axis(axis, title, minv, maxv, ticks):
+            """
+            Configure a QValueAxis with title, range, tick count, font, and pen styles.
+
+            Args:
+                axis (QtCharts.QValueAxis): The axis to configure.
+                title (str): Axis title.
+                minv (float): Minimum value.
+                maxv (float): Maximum value.
+                ticks (int): Number of ticks.
+
+            Returns:
+                None
+            """
+            axis.setTitleText(title)
+            axis.setRange(minv, maxv)
+            axis.setTickCount(ticks)
             axis.setTitleFont(self.painter.font())
             axis.setLabelsFont(self.painter.font())
-        _chart.axisX().setGridLinePen(
-            QtGui.QPen(QtCore.Qt.lightGray, 3, QtCore.Qt.PenStyle.DotLine)
-        )
-        _chart.axisY().setGridLinePen(
-            QtGui.QPen(QtCore.Qt.lightGray, 3, QtCore.Qt.PenStyle.DotLine)
-        )
-        _chart.axisX().setLinePen(QtGui.QPen(QtCore.Qt.black, 5))
-        _chart.axisY().setLinePen(QtGui.QPen(QtCore.Qt.black, 5))
+            axis.setGridLinePen(QtGui.QPen(QtCore.Qt.lightGray, 3, QtCore.Qt.PenStyle.DotLine))
+            axis.setLinePen(QtGui.QPen(QtCore.Qt.black, 5))
 
-        _chart.axisX().setRange(xmin, xmax)
-        _chart.axisX().setTickCount(xTickCount)
-        _chart.axisY().setRange(ymin, ymax)
-        _chart.axisY().setTickCount(yTickCount)
-
-        if len(series_list) > 1:
-            _chart.legend().setVisible(True)
-            _chart.legend().setAlignment(QtCore.Qt.AlignmentFlag.AlignBottom)
-        else:
+        if not data:
+            logger.warning(f"[TestReport] No data provided to plotXYData. Creating empty plot.")
+            axis_x = QtCharts.QValueAxis()
+            axis_y = QtCharts.QValueAxis()
+            _setup_axis(axis_x, xlabel, xmin, xmax, xTickCount)
+            _setup_axis(axis_y, ylabel, ymin, ymax, yTickCount)
+            _chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
+            _chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
             _chart.legend().hide()
+        else:
+            is_multi = isinstance(data[0], (list, tuple)) and (
+                len(data) > 0 and isinstance(data[0][0], (list, tuple, QtCore.QPointF))
+            )
+            series_list = data if is_multi else [data]
+
+            default_colors = [
+                QtCore.Qt.blue,
+                QtCore.Qt.red,
+                QtCore.Qt.darkGreen,
+                QtCore.Qt.magenta,
+                QtCore.Qt.darkYellow,
+                QtCore.Qt.darkCyan,
+                QtCore.Qt.black,
+            ]
+            colors = series_colors if series_colors else default_colors
+            labels = series_labels if series_labels else [f"Series {i+1}" for i in range(len(series_list))]
+
+            for idx, series_data in enumerate(series_list):
+                _series = QtCharts.QLineSeries()
+                _series.setName(labels[idx] if idx < len(labels) else f"Series {idx+1}")
+                _series.setPen(QtGui.QPen(colors[idx % len(colors)], 4))
+                if series_data and isinstance(series_data[0], QtCore.QPointF):
+                    _series.append(series_data)
+                else:
+                    _series.append([QtCore.QPointF(float(x), float(y)) for x, y in series_data])
+                _chart.addSeries(_series)
+
+            _chart.createDefaultAxes()
+            for axis in (_chart.axisX(), _chart.axisY()):
+                axis.setTitleFont(self.painter.font())
+                axis.setLabelsFont(self.painter.font())
+            _chart.axisX().setTitleText(xlabel)
+            _chart.axisY().setTitleText(ylabel)
+            _chart.axisX().setGridLinePen(QtGui.QPen(QtCore.Qt.lightGray, 3, QtCore.Qt.PenStyle.DotLine))
+            _chart.axisY().setGridLinePen(QtGui.QPen(QtCore.Qt.lightGray, 3, QtCore.Qt.PenStyle.DotLine))
+            _chart.axisX().setLinePen(QtGui.QPen(QtCore.Qt.black, 5))
+            _chart.axisY().setLinePen(QtGui.QPen(QtCore.Qt.black, 5))
+            _chart.axisX().setRange(xmin, xmax)
+            _chart.axisX().setTickCount(xTickCount)
+            _chart.axisY().setRange(ymin, ymax)
+            _chart.axisY().setTickCount(yTickCount)
+            if len(series_list) > 1:
+                _chart.legend().setVisible(True)
+                _chart.legend().setAlignment(QtCore.Qt.AlignmentFlag.AlignBottom)
+                _chart.legend().setFont(self.painter.font())
+            else:
+                _chart.legend().hide()
 
         _chart.resize(_width, _height)
-        logger.debug(f"[TestReport] Chart resized.")
 
         _scene = QtWidgets.QGraphicsScene()
         _scene.addItem(_chart)
         _scene.setSceneRect(QtCore.QRectF(0, 0, _width, _height))
-        logger.debug(f"[TestReport] QGraphicsScene created and chart added.")
 
         _image = QtGui.QImage(_width, _height, QtGui.QImage.Format_ARGB32)
         _image.fill(QtCore.Qt.white)
         _painter = QtGui.QPainter(_image)
         _scene.render(_painter, QtCore.QRectF(0, 0, _width, _height))
         _painter.end()
-        logger.debug(f"[TestReport] Chart rendered to image.")
 
         parent_dir = QtCore.QFileInfo(path).dir()
-        logger.debug(f"[TestReport] Checking if image parent directory exists: {parent_dir.absolutePath()}")
         if not parent_dir.exists():
-            logger.debug(f"[TestReport] Image parent directory does not exist. Creating...")
             parent_dir.mkpath(".")
         _image.save(path, None, -1)
-        logger.debug(f"[TestReport] Chart image saved to: {path}")
 
         _target_rect = QtCore.QRectF(self.rect.left(), self.rect.top(), _width, _height)
         self.painter.drawImage(_target_rect, _image)

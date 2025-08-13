@@ -330,15 +330,18 @@ def main() -> int:
     """
     app = TesterApp(sys.argv)
     if len(sys.argv) > 1:
-        worker = TestWorker(CancelToken())
+        worker = TestWorker()
         thread = QtCore.QThread()
         worker.moveToThread(thread)
-        thread.started.connect(worker.run_cli)
-        thread.finished.connect(app.quit)
+        worker.closeSignal.connect(thread.quit)
+        worker.closeSignal.connect(worker.deleteLater)
+        thread.started.connect(worker.onRunCli)
+        thread.finished.connect(thread.deleteLater)
         thread.start()
+        thread.wait()
     else:
         window = TesterWindow()
-        app.statusMessage.connect(window.updateStatus)
+        app.statusMessage.connect(window.onUpdateStatus)
         window.show()
     return app.exec()
 
