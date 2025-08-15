@@ -442,7 +442,28 @@ class TestWorker(QtCore.QObject):
                 file_obj.close()
                 self.openFinishedSignal.emit()
                 return
-            _data = doc.object().toVariantMap()
+
+            def _from_qvariant(obj):
+                """
+                Recursively convert QVariant-compatible types back to Python/Qt types.
+                Handles dict, list, QDateTime, QPoint, and tuples.
+                """
+                if isinstance(obj, dict):
+                    # Handle QPoint
+                    if "x" in obj and "y" in obj and len(obj) == 2:
+                        return QtCore.QPoint(obj["x"], obj["y"])
+                    return {k: _from_qvariant(v) for k, v in obj.items()}
+                if isinstance(obj, list):
+                    return [_from_qvariant(v) for v in obj]
+                if isinstance(obj, str):
+                    # Try to parse QDateTime from ISO string
+                    dt = QtCore.QDateTime.fromString(obj, QtCore.Qt.ISODate)
+                    if dt.isValid():
+                        return dt
+                    return obj
+                return obj
+
+            _data = _from_qvariant(doc.object().toVariantMap())
             _tests_data = _data.pop("Tests", None)
             self.model.onLoadData(_tests_data)
             for _key, _value in _data.items():
@@ -650,7 +671,7 @@ class TestWorker(QtCore.QObject):
             seq.endResetModel()
         logger.debug("[TestWorker] Test sequence model initialized.")
 
-    @QtCore.Slot(str)
+    @QtCore.Slot(str, str)
     def onSaveData(self, path: str = None):
         """
         Save test data to a JSON file.
@@ -667,13 +688,21 @@ class TestWorker(QtCore.QObject):
         def _to_qvariant(obj):
             """
             Recursively convert objects to QVariant-compatible types.
+            Handles dict, list, QDateTime, QPoint, and tuples.
+            Ensures QDateTime is saved in UTC.
             """
             if isinstance(obj, dict):
                 return {k: _to_qvariant(v) for k, v in obj.items()}
             if isinstance(obj, list):
                 return [_to_qvariant(v) for v in obj]
+            if isinstance(obj, tuple):
+                return [_to_qvariant(v) for v in obj]
+            if hasattr(QtCore, "QPoint") and isinstance(obj, QtCore.QPoint):
+                return {"x": obj.x(), "y": obj.y()}
             if isinstance(obj, QtCore.QDateTime):
-                return obj.toString(QtCore.Qt.ISODate)
+                # Convert to UTC before saving
+                utc_dt = obj.toUTC() if obj.isValid() else obj
+                return utc_dt.toString(QtCore.Qt.ISODate)
             return obj
 
         qjson_obj = QtCore.QJsonDocument.fromVariant(_to_qvariant(_data))
@@ -742,3 +771,46 @@ class TestWorker(QtCore.QObject):
         self.onGenerateReport()
         self.running = False
         self.testingFinishedSignal.emit(final_status)
+
+
+def moveWorkerToThread(worker, interval_ms=100, run_cli=False):
+    """
+    Moves the worker to a new QThread and starts a QTimer in that thread
+    to periodically process Qt events. Calls either onRunCli or onRunGui
+    on the worker when the thread starts, based on the run_cli parameter.
+
+    Args:
+        worker (TestWorker): The worker instance to move.
+        interval_ms (int): Timer interval in milliseconds.
+        run_cli (bool): If True, call onRunCli; otherwise, call onRunGui.
+    Returns:
+        QThread: The thread running the worker.
+    """
+    thread = QtCore.QThread()
+    worker.moveToThread(thread)
+
+    # Timer to process events in the worker's thread
+    timer = QtCore.QTimer()
+    timer.setInterval(interval_ms)
+    timer.moveToThread(thread)
+    timer.timeout.connect(QtCore.QCoreApplication.processEvents)
+
+    # Ensure timer stops and thread quits when worker signals close
+    worker.closeSignal.connect(timer.stop)
+    worker.closeSignal.connect(thread.quit)
+    worker.closeSignal.connect(worker.deleteLater)
+    thread.finished.connect(thread.deleteLater)
+
+    # Start timer and call the appropriate method when thread starts
+    def start_timer_and_method():
+        timer.start()
+        if run_cli:
+            if hasattr(worker, "onRunCli") and callable(worker.onRunCli):
+                worker.onRunCli()
+        else:
+            if hasattr(worker, "onRunGui") and callable(worker.onRunGui):
+                worker.onRunGui()
+    thread.started.connect(start_timer_and_method)
+
+    thread.start()
+    return thread

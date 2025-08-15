@@ -2,10 +2,9 @@
 from PySide6 import QtCore, QtGui, QtWidgets
 import logging
 
-from tester import CancelToken
 from tester.gui.settings import SettingsDialog
 from tester.gui.tester_ui import Ui_TesterWindow
-from tester.manager.worker import TestWorker
+from tester.manager.worker import TestWorker, moveWorkerToThread
 
 _SERIAL_RE = QtCore.QRegularExpression(r"^[A-Z]{2}[0-9]{6}$")
 logger = logging.getLogger(__name__)
@@ -117,14 +116,8 @@ class TesterWindow(QtWidgets.QMainWindow):
         self.worker.setupUi(self.ui)
         self.worker.resetTestData()
 
-        self.thread = QtCore.QThread(self)
-        self.worker.moveToThread(self.thread)
         self.worker.closeSignal.connect(self.onUpdateStatus)
-        self.worker.closeSignal.connect(self.thread.quit)
-        self.worker.closeSignal.connect(self.worker.deleteLater)
-        self.thread.started.connect(self.worker.onRunGui)
-        self.thread.finished.connect(self.thread.deleteLater)
-        self.thread.start()
+        self.thread = moveWorkerToThread(self.worker)
 
         # Timer to update current time label every second
         self._current_time_timer = QtCore.QTimer(self)

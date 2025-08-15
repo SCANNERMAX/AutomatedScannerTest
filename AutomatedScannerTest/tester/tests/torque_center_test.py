@@ -5,7 +5,6 @@ import numpy as np
 import traceback
 
 import tester
-from tester.devices.mso5000 import MSO5000
 from tester.devices.enums import Measurement, Source, HrefMode, BandwidthLimit, SourceOutputImpedance
 from tester.manager.devices import DeviceManager
 import tester.tests
@@ -22,6 +21,7 @@ class TorqueCenterTest(tester.tests.Test):
     Signals:
         torqueDataChanged (list): Emitted when the torque data changes.
         torqueCenterChanged (float): Emitted when the torque center value changes.
+        polyfitCoeffsChanged (object): Emitted when the polynomial fit coefficients change.
     """
 
     torqueDataChanged = QtCore.Signal(list)
@@ -187,15 +187,11 @@ class TorqueCenterTest(tester.tests.Test):
                 Update the measured data series in the chart.
 
                 Args:
-                    data (list): List of measured data points (QPointF or tuple).
+                    data (list): List of measured data points (tuple).
                 """
                 line_series.clear()
                 if data:
-                    points = [
-                        p if isinstance(p, QtCore.QPointF) else QtCore.QPointF(p[0], p[1])
-                        for p in data
-                    ]
-                    line_series.append(points)
+                    line_series.append([QtCore.QPointF(p[0], p[1]) for p in data])
 
             def update_fit_series(coeffs):
                 """
@@ -288,11 +284,8 @@ class TorqueCenterTest(tester.tests.Test):
         try:
             super().onGenerateReport(report)
 
-            # Prepare measured data as (x, y) tuples
-            measured_data = [
-                (p.x(), p.y()) if isinstance(p, QtCore.QPointF) else (p[0], p[1])
-                for p in self.TorqueData
-            ]
+            # Prepare measured data as (x, y) tuples (already tuples)
+            measured_data = list(self.TorqueData)
 
             # Prepare polynomial fit data as (x, y) tuples
             fit_data = []
@@ -335,13 +328,8 @@ class TorqueCenterTest(tester.tests.Test):
             if file.open(QtCore.QIODevice.WriteOnly | QtCore.QIODevice.Text):
                 stream = QtCore.QTextStream(file)
                 stream << f"Time (ns),{self.xtitle},{self.ytitle}\n"
-                torque_data = self.TorqueData
-                for _time, _data in enumerate(torque_data):
-                    logger.debug(f"[TorqueCenterTest] Writing data row: time={_time}, data={_data}")
-                    if isinstance(_data, QtCore.QPointF):
-                        stream << f"{_time},{_data.x()},{_data.y()}\n"
-                    else:
-                        stream << f"{_time},{_data[0]},{_data[1]}\n"
+                for _time, (offset, rms) in enumerate(self.TorqueData):
+                    stream << f"{_time},{offset},{rms}\n"
                 file.close()
                 logger.info(f"[TorqueCenterTest] Torque data saved to {dataFilePath}")
             else:
@@ -438,7 +426,7 @@ class TorqueCenterTest(tester.tests.Test):
                         Measurement.VoltageRms, Source.Channel2
                     )
                     logger.info(f"[TorqueCenterTest] Measured RMS: {rms} at offset: {offset}")
-                    data.append(QtCore.QPointF(offset_scaled, rms * 100))
+                    data.append((offset_scaled, rms * 100))  # Store as tuple
                 except Exception as e:
                     logger.warning(f"[TorqueCenterTest] Failed to get RMS at offset {offset:.2f}: {e}\n{traceback.format_exc()}")
             self.TorqueData = data
@@ -465,8 +453,8 @@ class TorqueCenterTest(tester.tests.Test):
             super().analyzeResults()
             data = self.TorqueData
             if data:
-                x = np.array([p.x() if isinstance(p, QtCore.QPointF) else p[0] for p in data])
-                y = np.array([p.y() if isinstance(p, QtCore.QPointF) else p[1] for p in data])
+                x = np.array([p[0] for p in data])
+                y = np.array([p[1] for p in data])
 
                 # Select the seven points in the center of the plot
                 n_select = 7
@@ -475,24 +463,20 @@ class TorqueCenterTest(tester.tests.Test):
                 half = n_select // 2
                 start = max(center - half, 0)
                 end = min(start + n_select, n_points)
-                selected_indices = list(range(start, end))
-                x_selected = x[selected_indices]
-                y_selected = y[selected_indices]
+                x_selected = x[start:end]
+                y_selected = y[start:end]
 
-                # Refit using selected points
-                coeffs_selected = np.polyfit(x_selected, y_selected, 2)
-                self.PolyfitCoeffs = coeffs_selected
-                a, b, c = coeffs_selected
+                # Fit quadratic polynomial
+                a, b, c = np.polyfit(x_selected, y_selected, 2)
+                self.PolyfitCoeffs = (float(a), float(b), float(c))
                 if a != 0:
-                    torque_center_fit = -b / (2 * a)
-                    self.TorqueCenter = torque_center_fit
+                    self.TorqueCenter = float(-b / (2 * a))
                 else:
-                    min_point = min(zip(x_selected, y_selected), key=lambda p: p[1])
-                    self.TorqueCenter = min_point[0]
+                    self.TorqueCenter = float(x_selected[np.argmin(y_selected)])
             else:
                 logger.critical("[TorqueCenterTest] No torque data available for analysis")
                 raise ValueError("No torque data available for analysis")
-            result = abs(self.TorqueCenter) < self.centerTolerance
+            result = abs(float(self.TorqueCenter)) < self.centerTolerance
             logger.info(
                 f"[TorqueCenterTest] Test result: {'Pass' if result else 'Fail'} (TorqueCenter={self.TorqueCenter}, centerTolerance={self.centerTolerance})"
             )

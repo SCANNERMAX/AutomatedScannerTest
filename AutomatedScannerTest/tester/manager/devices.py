@@ -40,26 +40,33 @@ class DeviceManager(QtCore.QObject):
 
         # Device discovery and instantiation
         _device_module = importlib.import_module(Device.__module__)
-        _device_folder = QtCore.QFileInfo(_device_module.__file__).absolutePath()
-        py_files = [f for f in QtCore.QDir(_device_folder).entryList(["*.py"], QtCore.QDir.Files) if not f.startswith("__")]
+        _device_folder = os.path.dirname(os.path.abspath(_device_module.__file__))
+        py_files = [f for f in os.listdir(_device_folder) if f.endswith(".py") and not f.startswith("__")]
 
         imported_modules = {}
+        device_classes = []
         for _filename in py_files:
             _module_name = f"tester.devices.{_filename[:-3]}"
             try:
-                _module = imported_modules.get(_module_name) or importlib.import_module(_module_name)
-                imported_modules[_module_name] = _module
+                _module = imported_modules.get(_module_name)
+                if _module is None:
+                    _module = importlib.import_module(_module_name)
+                    imported_modules[_module_name] = _module
             except Exception as e:
                 logger.warning(f"[DeviceManager] Could not import {_module_name}: {e}")
                 continue
 
+            # Use inspect.getmembers only once per module
             for _name, _obj in inspect.getmembers(_module, inspect.isclass):
                 if _obj.__module__ == _module.__name__ and issubclass(_obj, Device) and _obj is not Device:
-                    try:
-                        _device = _obj()
-                        setattr(self, _name, _device)
-                    except Exception as e:
-                        logger.warning(f"[DeviceManager] Could not instantiate {_name}: {e}")
+                    device_classes.append((_name, _obj))
+
+        # Instantiate devices in a loop outside the import loop for better cache locality
+        for _name, _obj in device_classes:
+            try:
+                setattr(self, _name, _obj())
+            except Exception as e:
+                logger.warning(f"[DeviceManager] Could not instantiate {_name}: {e}")
 
     @QtCore.Property(str)
     def ComputerName(self) -> str:
@@ -86,13 +93,31 @@ class DeviceManager(QtCore.QObject):
         Returns:
             str: The user's name.
         """
-        home_path = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.HomeLocation)
-        if home_path:
-            return os.path.basename(home_path.rstrip("/\\"))
-        try:
-            return os.getlogin()
-        except Exception:
-            return os.environ.get("USERNAME", "unknown")
+        import platform
+        if platform.system() == "Windows":
+            try:
+                import ctypes
+                GetUserNameEx = ctypes.windll.secur32.GetUserNameExW
+                NameDisplay = 3
+                size = ctypes.c_ulong(0)
+                # First call to get the required buffer size
+                if not GetUserNameEx(NameDisplay, None, ctypes.byref(size)):
+                    # Now allocate buffer and get the name
+                    nameBuffer = ctypes.create_unicode_buffer(size.value)
+                    if GetUserNameEx(NameDisplay, nameBuffer, ctypes.byref(size)):
+                        return nameBuffer.value
+            except Exception:
+                pass
+        else:
+            try:
+                import pwd
+                username = os.getenv("USER") or os.getenv("USERNAME") or os.path.basename(os.path.expanduser("~"))
+                if username:
+                    user_info = pwd.getpwnam(username)
+                    return user_info.pw_gecos.split(',')[0]  # Full name is usually first part
+            except Exception:
+                pass
+        return None
 
     @QtCore.Slot()
     def onSettingsModified(self):
@@ -104,12 +129,12 @@ class DeviceManager(QtCore.QObject):
         """
         pass
 
-    @QtCore.Slot()
-    def setup(self):
+    def _reset_mso(self, context):
         """
-        Prepare the device manager and devices before running tests.
+        Helper method to reset the MSO5000 device.
 
-        This method resets the MSO5000 device if present, ensuring a clean state before tests.
+        Args:
+            context (str): Additional context for logging (e.g., during teardown).
         """
         mso = getattr(self, "MSO5000", None)
         if mso:
@@ -118,7 +143,16 @@ class DeviceManager(QtCore.QObject):
                 try:
                     reset_method()
                 except Exception as e:
-                    logger.warning(f"[DeviceManager] Failed to reset MSO5000: {e}")
+                    logger.warning(f"[DeviceManager] Failed to reset MSO5000{context}: {e}")
+
+    @QtCore.Slot()
+    def setup(self):
+        """
+        Prepare the device manager and devices before running tests.
+
+        This method resets the MSO5000 device if present, ensuring a clean state before tests.
+        """
+        self._reset_mso("")
 
     @QtCore.Slot()
     def test_setup(self):
@@ -129,18 +163,17 @@ class DeviceManager(QtCore.QObject):
         """
         mso = getattr(self, "MSO5000", None)
         if mso:
-            reset_method = getattr(mso, "reset", None)
-            if callable(reset_method):
-                try:
-                    reset_method()
-                except Exception as e:
-                    logger.warning(f"[DeviceManager] Error during test_setup for MSO5000: {e}")
-            clear_registers = getattr(mso, "clear_registers", None)
-            if callable(clear_registers):
-                clear_registers()
-            clear = getattr(mso, "clear", None)
-            if callable(clear):
-                clear()
+            for method_name, log_msg in [
+                ("reset", "Error during test_setup for MSO5000"),
+                ("clear_registers", "Error clearing registers for MSO5000"),
+                ("clear", "Error clearing MSO5000"),
+            ]:
+                method = getattr(mso, method_name, None)
+                if callable(method):
+                    try:
+                        method()
+                    except Exception as e:
+                        logger.warning(f"[DeviceManager] {log_msg}: {e}")
 
     @QtCore.Slot()
     def test_teardown(self):
@@ -158,11 +191,4 @@ class DeviceManager(QtCore.QObject):
 
         This method resets the MSO5000 device if present, ensuring devices are left in a safe state.
         """
-        mso = getattr(self, "MSO5000", None)
-        if mso:
-            reset_method = getattr(mso, "reset", None)
-            if callable(reset_method):
-                try:
-                    reset_method()
-                except Exception as e:
-                    logger.warning(f"[DeviceManager] Failed to reset MSO5000 during teardown: {e}")
+        self._reset_mso(" during teardown")

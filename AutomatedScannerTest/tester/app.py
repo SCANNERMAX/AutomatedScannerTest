@@ -4,7 +4,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import sys
 
-from tester.manager.worker import TestWorker
+from tester.manager.worker import TestWorker, moveWorkerToThread
 from tester import __application__, __company__, __version__, __doc__, CancelToken
 from tester.gui.gui import TesterWindow
 
@@ -331,16 +331,9 @@ def main() -> int:
     app = TesterApp(sys.argv)
     if len(sys.argv) > 1:
         worker = TestWorker()
-        thread = QtCore.QThread()
-        worker.moveToThread(thread)
-        worker.closeSignal.connect(thread.quit)
-        worker.closeSignal.connect(worker.deleteLater)
-        thread.started.connect(worker.onRunCli)
-        thread.finished.connect(thread.deleteLater)
-        thread.start()
-        # Start the event loop so signals/slots work
+        thread = moveWorkerToThread(worker, run_cli=True)
         exit_code = app.exec()
-        thread.wait()  # Wait for the thread to finish after event loop exits
+        thread.wait()
         return exit_code
     else:
         window = TesterWindow()
