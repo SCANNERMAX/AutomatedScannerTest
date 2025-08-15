@@ -11,6 +11,7 @@ from tester.devices.enums import (
     HrefMode,
     SourceOutputImpedance,
     Source,
+    TriggerCoupling,
     WaveformMode,
     WaveformFormat,
 )
@@ -241,7 +242,7 @@ class BearingTest(Test):
             3, scale=2, display=True, bandwidth_limit=BandwidthLimit._20M
         )
         MSO.timebase_settings(offset=2, scale=0.2, href_mode=HrefMode.Trigger)
-        MSO.trigger_edge(nreject=True)
+        MSO.trigger_edge(nreject=False)
         MSO.function_generator_ramp(
             1,
             frequency=0.5,
@@ -250,6 +251,11 @@ class BearingTest(Test):
             output_impedance=SourceOutputImpedance.Fifty,
         )
         MSO.function_generator_square(2, frequency=0.5, phase=270, amplitude=5)
+        MSO.function_generator_state(1, True)
+        MSO.function_generator_state(2, True)
+        MSO.phase_align(2)
+        MSO.clear()
+        self.checkCancelled()
 
     def run(self):
         """
@@ -258,12 +264,7 @@ class BearingTest(Test):
         logger.debug("[BearingTest] run called")
         super().run()
         MSO = self.devices.MSO5000
-        MSO.function_generator_state(1, True)
-        MSO.function_generator_state(2, True)
-        MSO.phase_align(2)
-        MSO.clear()
         MSO.single()
-        self.checkCancelled()
         QtCore.QThread.msleep(1000 * int(self.readDelay))
         get_waveform = MSO.get_waveform
         _positions_raw = get_waveform(

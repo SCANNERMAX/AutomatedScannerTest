@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from venv import logger
-from PySide6.QtCore import QSettings
 from ctypes.wintypes import BYTE
 import logging
 import pyvisa
@@ -108,17 +107,17 @@ class MSO5000(Device):
         """
         _message = message.strip()
         assert _message, "Message cannot be empty."
-        logger.debug(f'sending request "{_message}"...')
+        logger.debug(f'[MSO5000] sending request "{_message}"...')
         for _ in range(5):
             try:
                 _response = self.visa_instrument.query(_message).rstrip()
                 if _response:
                     return _response
             except pyvisa.errors.VisaIOError:
-                logger.debug("retrying...")
+                logger.debug(f"[MSO5000] retrying...")
                 time.sleep(0.1)
             except Exception as e:
-                logger.error(f"Error querying instrument: {e}")
+                logger.error(f"[MSO5000] Error querying instrument: {e}")
                 raise AssertionError(f"Failed to query command: {_message}")
         raise AssertionError("Failed to get response.")
 
@@ -136,14 +135,14 @@ class MSO5000(Device):
         assert _message, "Message cannot be empty."
         for _ in range(5):
             try:
-                logger.debug(f'sending command "{_message}"...')
+                logger.debug(f'[MSO5000] sending command "{_message}"...')
                 self.visa_instrument.write(_message)
                 return
             except pyvisa.errors.VisaIOError:
-                logger.debug("retrying...")
+                logger.debug(f"[MSO5000] retrying...")
                 time.sleep(0.1)
             except Exception as e:
-                logger.error(f"Error writing to instrument: {e}")
+                logger.error(f"[MSO5000] Error writing to instrument: {e}")
                 raise AssertionError(f"Failed to write command: {_message}")
 
     def __get_names(self, channel: str, parameter: str):
@@ -223,16 +222,16 @@ class MSO5000(Device):
         found = False
         for _resource_name in _resource_manager.list_resources():
             try:
-                logger.info(f"Found device: {_resource_name}")
+                logger.info(f"[MSO5000] Found device: {_resource_name}")
                 _instrument = _resource_manager.open_resource(_resource_name)
                 idn = _instrument.query("*IDN?").strip()
                 if "RIGOL" in idn and "MSO5" in idn:
-                    logger.info(f"Found MSO5000 oscilloscope: {_resource_name}")
+                    logger.info(f"[MSO5000] Found MSO5000 oscilloscope: {_resource_name}")
                     self.visa_instrument = _instrument
                     found = True
                     break
             except Exception as e:
-                logger.debug(f"Error opening resource {_resource_name}: {e}")
+                logger.debug(f"[MSO5000] Error opening resource {_resource_name}: {e}")
         assert found, "No oscilloscope found."
         logger.info(
             f"Connected to {getattr(self, 'model_name', 'Unknown')} oscilloscope."
@@ -1326,7 +1325,6 @@ class MSO5000(Device):
         Raises:
             AssertionError: If the specified width is greater than 10 seconds.
 
-        This method configures the trigger system to use the specified upper width for pulse detection.
         """
         assert width <= 10, "Trigger pulse upper width must be less than 10s."
         self.setParameter("TRIGger", "PULSe:UWIDth", width)
@@ -1348,7 +1346,7 @@ class MSO5000(Device):
 
     def set_trigger_pulse_level(self, level: float):
         """
-        Sets the trigger pulse level for the device.
+        Sets the trigger pulse level for the oscilloscope.
 
         Args:
             level (float): The desired trigger pulse level in volts. Must be between -15 and 15.
@@ -1563,107 +1561,6 @@ class MSO5000(Device):
     # Trigger mode: Pattern
     # Trigger mode: Duration
     # Trigger mode: Timeout
-    def set_trigger_timeout_source(self, source: TriggerSource):
-        """
-        Sets the trigger timeout source for the oscilloscope.
-
-        Args:
-            source (TriggerSource): The trigger source to set. Must not be `TriggerSource.AcLine`.
-
-        Raises:
-            AssertionError: If the provided source is `TriggerSource.AcLine`.
-
-        """
-        assert (
-            source is not TriggerSource.AcLine
-        ), "Trigger source cannot be ACLine."
-        self.setParameter("TRIGger", "TIMeout:SOURce", source.value)
-
-    def set_trigger_timeout_slope(self, slope: TriggerSlope):
-        """
-        Sets the trigger timeout slope for the device.
-
-        Args:
-            slope (TriggerSlope): The desired trigger slope. Must be a member of the TriggerSlope enum.
-
-        Raises:
-            AssertionError: If the provided slope is not a valid TriggerSlope enum value.
-
-        """
-        assert (
-            slope in TriggerSlope
-        ), "Trigger slope must be one of the TriggerSlope enum values."
-        self.setParameter("TRIGger", "TIMeout:SLOPe", slope.value)
-
-    def set_trigger_timeout_time(self, time: float):
-        """
-        Sets the trigger timeout time for the device.
-
-        The trigger timeout time determines how long the device waits for a trigger event before timing out.
-
-        Args:
-            time (float): The timeout duration in seconds. Must be between 16 nanoseconds (16e-9) and 10 seconds.
-
-        Raises:
-            AssertionError: If the provided time is not within the valid range [16e-9, 10].
-        """
-        assert (
-            time >= 16e-9 and time <= 10
-        ), "Trigger time must be between 16ns and 10s."
-        self.setParameter("TRIGger", "TIMeout:TIME", time)
-
-    def set_trigger_timeout_level(self, level: float):
-        """
-        Sets the trigger timeout level for the device.
-
-        Args:
-            level (float): The desired trigger timeout level in volts. Must be between -15 and 15.
-
-        Raises:
-            AssertionError: If the specified level is not within the range -15 to 15.
-
-        """
-        assert (
-            level >= -15 and level <= 15
-        ), "Trigger level must be between -15V and 15V."
-        self.setParameter("TRIGger", "TIMeout:LEVel", level)
-
-    def trigger_timeout(
-        self,
-        coupling: TriggerCoupling = TriggerCoupling.DC,
-        sweep: TriggerSweep = TriggerSweep.Auto,
-        holdoff: float = 8e-9,
-        nreject: bool = False,
-        source: TriggerSource = TriggerSource.Channel1,
-        slope: TriggerSlope = TriggerSlope.Positive,
-        time: float = 1e-6,
-        level: float = 0,
-    ):
-        """
-        Configures the timeout trigger settings for the oscilloscope.
-
-        Parameters:
-            coupling (TriggerCoupling, optional): The trigger coupling mode (e.g., DC, AC). Defaults to TriggerCoupling.DC.
-            sweep (TriggerSweep, optional): The trigger sweep mode (e.g., Auto, Normal). Defaults to TriggerSweep.Auto.
-            holdoff (float, optional): The trigger holdoff time in seconds. Defaults to 8e-9.
-            nreject (bool, optional): Whether to enable noise rejection. Defaults to False.
-            source (TriggerSource, optional): The source channel for the pulse trigger. Defaults to TriggerSource.Channel1.
-            slope (TriggerSlope, optional): The trigger slope (e.g., Positive, Negative). Defaults to TriggerSlope.Positive.
-            time (float, optional): The timeout duration in seconds. Defaults to 1e-6.
-            level (float, optional): The trigger level. Defaults to 0.
-
-        This method sets the oscilloscope to use the timeout trigger mode and applies the specified settings.
-        """
-        self.set_trigger_mode(TriggerMode.Slope)
-        self.set_trigger_coupling(coupling)
-        self.set_trigger_sweep(sweep)
-        self.set_trigger_holdoff(holdoff)
-        self.set_trigger_noise_reject(nreject)
-        self.set_trigger_timeout_source(source)
-        self.set_trigger_timeout_slope(slope)
-        self.set_trigger_timeout_time(time)
-        self.set_trigger_timeout_level(level)
-
     # Trigger mode: Runt
     # Trigger mode: Windows
     # Trigger mode: Delay
@@ -1760,51 +1657,75 @@ class MSO5000(Device):
             format_ (WaveformFormat, optional): The format of the waveform data (Byte, Word, or Ascii). Defaults to WaveformFormat.Byte.
             mode (WaveformMode, optional): The acquisition mode for the waveform. Defaults to WaveformMode.Normal.
             start (int, optional): The starting data point (1-based index). Must be >= 1. Defaults to 1.
-            stop (int, optional): The ending data point (exclusive). Must be greater than start. Defaults to 1000.
+            stop (int, optional): The ending data point (inclusive). Must be greater than or equal to start. Defaults to 1000.
 
         Returns:
             list: The acquired waveform data as a list of values, with type depending on the selected format.
 
         Raises:
-            AssertionError: If start < 1, stop <= start, or if the oscilloscope response is malformed.
+            AssertionError: If start < 1, stop < start, or if the oscilloscope response is malformed.
         """
-        assert start >= 1, "Waveform start must be greater than 1."
-        assert stop > start, "Waveform stop must be greater than start."
+        assert start >= 1, "Waveform start must be greater than or equal to 1."
+        assert stop >= start, "Waveform stop must be greater than or equal to start."
         self.set_waveform_source(source)
         self.set_waveform_mode(mode)
         self.set_waveform_format(format_)
-        _start = start
-        _stop = min(start + 100, stop)
         _data = [0] * (stop - start + 1)
-        while _start < stop:
-            self.set_waveform_start(_start)
-            self.set_waveform_stop(_stop)
-            self.__write(":WAVeform:DATA?")
-            _response = self.visa_instrument._read_raw()
-            assert _response[0] == 35, "Data must start with the '#' character."
-            assert _response[-1] == 10, "Data must end with the '\n' character."
-            _header_length = int(chr(_response[1]))
-            _data_length = int(
-                "".join([chr(x) for x in _response[2 : 2 + _header_length]])
-            )
-            _response = _response[
-                2 + _header_length : 2 + _header_length + _data_length
-            ]
-            if format_ == WaveformFormat.Ascii:
-                _points = "".join([chr(x) for x in _response]).split(",")
-                for _index in range(_start, _stop):
-                    _data[_index - start] = float(_points[_index - _start])
-            elif format_ == WaveformFormat.Word:
-                for _index in range(_start, _stop):
-                    _rind = _index - _start
-                    _byte1 = _response[_rind * 2]
-                    _byte2 = _response[_rind * 2 + 1]
-                    _data[_index - start] = (_byte1 << 8) + _byte2
-            else:
-                for _index in range(_start, _stop):
-                    _data[_index - start] = _response[_index - _start]
-            _start = _stop
-            _stop = min(_start + 100, stop)
+        _chunk_size = 100
+        for _chunk_start in range(start, stop + 1, _chunk_size):
+            _chunk_stop = min(_chunk_start + _chunk_size - 1, stop)
+            self.set_waveform_start(_chunk_start)
+            self.set_waveform_stop(_chunk_stop)
+            # Robust retry logic for communication errors
+            for attempt in range(5):
+                try:
+                    self.__write(":WAVeform:DATA?")
+                    _response = self.visa_instrument._read_raw()
+                    if not _response or len(_response) < 3:
+                        raise ValueError("Empty or too short response from instrument.")
+                    if _response[0] != 35:  # ord('#')
+                        raise ValueError("Data must start with the '#' character.")
+                    if _response[-1] != 10:  # ord('\n')
+                        raise ValueError("Data must end with the '\\n' character.")
+                    _header_length = int(chr(_response[1]))
+                    if _header_length < 1 or _header_length > 9:
+                        raise ValueError("Invalid header length in response.")
+                    try:
+                        _data_length = int(bytes(_response[2 : 2 + _header_length]).decode())
+                    except Exception as e:
+                        raise ValueError(f"Failed to decode data length: {e}")
+                    _payload = _response[2 + _header_length : 2 + _header_length + _data_length]
+                    if len(_payload) != _data_length:
+                        raise ValueError("Payload length does not match data length.")
+                    if format_ == WaveformFormat.Ascii:
+                        try:
+                            _points = bytes(_payload).decode(errors="replace").split(",")
+                            for idx in range(_chunk_start - 1, _chunk_stop):
+                                i = idx - _chunk_start + 1
+                                val = _points[i].strip()
+                                if idx < len(_data):
+                                    _data[idx] = float(val)
+                        except Exception as e:
+                            raise ValueError(f"Failed to decode ASCII waveform: {e}")
+                    elif format_ == WaveformFormat.Word:
+                        for i in range(_chunk_stop - _chunk_start + 1):
+                            idx = _chunk_start - start + i
+                            if idx < len(_data):
+                                try:
+                                    _byte1 = _payload[i * 2]
+                                    _byte2 = _payload[i * 2 + 1]
+                                    _data[idx] = (_byte1 << 8) + _byte2
+                                except Exception as e:
+                                    raise ValueError(f"Failed to decode Word waveform: {e}")
+                    else:  # Byte
+                        _len = _chunk_stop - _chunk_start + 1
+                        _data[_chunk_start - start : _chunk_start - start + _len] = list(_payload[:_len])
+                    break  # Success, exit retry loop
+                except Exception as e:
+                    logger.error(f"[MSO5000] Waveform chunk {_chunk_start}-{_chunk_stop} error: {e}")
+                    time.sleep(0.2)
+                    if attempt == 4:
+                        raise AssertionError(f"Failed to get waveform data after retries: {e}")
         return _data
 
     def get_waveform_xincrement(self) -> float:
