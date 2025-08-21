@@ -96,12 +96,22 @@ class BearingTest(Test):
         """
         logger.debug("[BearingTest] setupUi called")
         super().setupUi(widget)
+
+        # Set a vertical layout for the test data widget
+        layoutTestData = QtWidgets.QVBoxLayout(self.widgetTestData)
+        layoutTestData.setObjectName("layoutBearingTestData")
+        self.widgetTestData.setLayout(layoutTestData)
+
+        # Create and configure the chart for friction data
         chart = QtCharts.QChart()
-        chart.setObjectName("chartFriction")
+        chart.setObjectName("bearingTestChart")
+        chart.setTitle(self.charttitle)
+        chart.legend().hide()
+
+        # Create the line series and populate it with initial data
         line_series = QtCharts.QLineSeries()
         data = self.FrictionData
         if data:
-            # Use generator expression for memory efficiency
             line_series.replace((QtCore.QPointF(x, y) for x, y in data))
         chart.addSeries(line_series)
 
@@ -120,12 +130,9 @@ class BearingTest(Test):
         line_series.attachAxis(axis_y)
 
         chart_view = QtCharts.QChartView(chart, self.widgetTestData)
-        chart_view.setObjectName("chartViewFriction")
-        chart_view.setWindowTitle(self.charttitle)
-        chart_view.setSizePolicy(
-            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
-        )
-        self.layoutTestData.addWidget(chart_view)
+        chart_view.setObjectName("bearingTestChartView")
+        chart_view.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        layoutTestData.addWidget(chart_view)
 
         # Use a local function to avoid recreating lambda on every signal emission
         def update_chart(data):

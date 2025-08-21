@@ -476,7 +476,7 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
                 widget.deleteLater()
             for test in self.__tests:
                 logger.debug(f"[TestSequenceModel] Adding widget for test: {test}")
-                widget = QtWidgets.QWidget()
+                widget = QtWidgets.QWidget(parent)
                 parent.addWidget(widget)
                 test.setupUi(widget)
         logger.debug(f"[TestSequenceModel] UI setup complete")

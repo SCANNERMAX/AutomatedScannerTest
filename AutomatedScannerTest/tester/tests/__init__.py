@@ -112,7 +112,7 @@ class Test(QtCore.QObject):
         app.addSettingsToObject(self)
         self.cancel = cancel
         self.devices = devices
-        self.widgetTestMain = None
+        self.widgetTestData = None
         logger.debug(f"[Test] Instance initialized.")
 
     def __repr__(self):
@@ -340,61 +340,68 @@ class Test(QtCore.QObject):
         Args:
             parent (QtWidgets.QWidget): The parent widget for the test UI.
         """
-        logger.debug(f"[Test] Loading UI.")
-        self.widgetTestMain = parent
+        logger.debug("[Test] Loading UI.")
+        if not isinstance(parent, QtWidgets.QWidget):
+            logger.critical("[Test] Parent must be a QWidget instance.")
+            raise ValueError("Parent must be a QWidget instance.")
+        cname = self.__class__.__name__
+        parent.setObjectName(f"widget{cname}")
+        layout = QtWidgets.QHBoxLayout(parent)
+        layout.setObjectName(f"layout{cname}")
+        parent.setLayout(layout)
 
-        layoutTestMain = QtWidgets.QHBoxLayout(parent)
-        layoutTestMain.setObjectName("layoutTestMain")
-        layoutTestMain.setContentsMargins(0, 0, 0, 0)
+        # Left panel with test parameters
+        groupBoxWidget = QtWidgets.QGroupBox(parent)
+        groupBoxWidget.setObjectName(f"groupBox{cname}")
+        groupBoxWidget.setCheckable(False)
+        groupBoxWidget.setFixedWidth(250)
+        groupBoxWidget.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Expanding)
+        groupBoxLayout = QtWidgets.QVBoxLayout(groupBoxWidget)
+        groupBoxLayout.setObjectName(f"layout{cname}Params")
+        groupBoxLayout.setContentsMargins(5, 5, 5, 5)
+        groupBoxWidget.setLayout(groupBoxLayout)
+        layout.addWidget(groupBoxWidget)
 
-        groupBox = QtWidgets.QGroupBox(parent)
-        groupBox.setObjectName("groupBoxTestParameters")
-        groupBox.setAutoFillBackground(True)
-        groupBox.setCheckable(False)
-        layoutTestMain.addWidget(groupBox)
+        # Predefine label info to avoid repeated code
+        label_info = [
+            ("Name", self.Name, self.nameChanged),
+            ("Serial Number", self.SerialNumber, self.serialNumberChanged),
+            ("Start Time", self.StartTime.toString("HH:mm:ss"), self.startTimeChanged),
+            ("End Time", self.EndTime.toString("HH:mm:ss"), self.endTimeChanged),
+            ("Duration", self.Duration, self.durationChanged),
+            ("Status", self.Status, self.statusChanged),
+        ]
 
-        layoutParams = QtWidgets.QVBoxLayout(groupBox)
-        layoutParams.setObjectName("layoutTestParameters")
-
-        def add_label(obj_name, text, signal):
-            """
-            Helper to add a QLabel to the layout and connect it to a signal.
-
-            Args:
-                obj_name (str): The object name for the label.
-                text (any): The initial text for the label.
-                signal (QtCore.Signal): The signal to connect for updating the label text.
-
-            Returns:
-                QtWidgets.QLabel: The created label.
-            """
-            logger.debug(f'Adding label "{obj_name}" with initial text "{text}"')
-            label = QtWidgets.QLabel(groupBox)
-            label.setObjectName(obj_name)
+        def add_label(name, text, signal):
+            label_name = f"label{cname}{name}".replace(" ", "")
+            param_label = QtWidgets.QLabel(groupBoxWidget)
+            param_label.setObjectName(f"{label_name}Title")
+            param_label.setText(f"<b>{name}</b>")
+            param_label.setTextFormat(QtCore.Qt.RichText)
+            groupBoxLayout.addWidget(param_label)
+            label = QtWidgets.QLabel(groupBoxWidget)
+            label.setObjectName(label_name)
             label.setText(str(text))
+            label.setFixedWidth(300)
             signal.connect(label.setText)
-            layoutParams.addWidget(label)
+            groupBoxLayout.addWidget(label)
             return label
 
-        self.labelTestName = add_label("labelTestName", self.Name, self.nameChanged)
-        self.labelSerialNumber = add_label(
-            "labelSerialNumber", self.SerialNumber, self.serialNumberChanged
-        )
-        self.labelStartTime = add_label(
-            "labelStartTime", self.StartTime.toString("HH:mm:ss"), self.startTimeChanged
-        )
-        self.labelEndTime = add_label(
-            "labelEndTime", self.EndTime.toString("HH:mm:ss"), self.endTimeChanged
-        )
-        self.labelDuration = add_label(
-            "labelDuration", self.Duration, self.durationChanged
-        )
-        self.labelStatus = add_label("labelStatus", self.Status, self.statusChanged)
+        # Use a loop to add labels efficiently
+        self.labelTestName, self.labelSerialNumber, self.labelStartTime, \
+        self.labelEndTime, self.labelDuration, self.labelStatus = [
+            add_label(*info) for info in label_info
+        ]
+
+        # Add an expanding spacer at the bottom
+        spacer_widget = QtWidgets.QWidget(groupBoxWidget)
+        spacer_widget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        groupBoxLayout.addWidget(spacer_widget)
 
         self.widgetTestData = QtWidgets.QWidget(parent)
-        self.widgetTestData.setObjectName("widgetTestData")
-        self.layoutTestData = QtWidgets.QVBoxLayout(self.widgetTestData)
-        self.layoutTestData.setObjectName("layoutTestData")
+        self.widgetTestData.setObjectName(f"widget{cname}Data")
+        self.widgetTestData.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        layout.addWidget(self.widgetTestData)
 
     def onGenerateReport(self, report: TestReport):
         """

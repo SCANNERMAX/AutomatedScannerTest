@@ -349,10 +349,10 @@ class TestWorker(QtCore.QObject):
         if (
             parent is not None
             and hasattr(parent, "tableSequence")
-            and hasattr(parent, "widgetTest")
+            and hasattr(parent, "stackedWidgetTest")
         ):
             parent.tableSequence.setModel(self.model)
-            self.model.setupUi(parent.widgetTest)
+            self.model.setupUi(parent.stackedWidgetTest)
         else:
             logger.warning(
                 "[TestWorker] setupUi: parent is None or missing required attributes."

@@ -45,47 +45,27 @@ class TesterWindow(QtWidgets.QMainWindow):
         Raises:
             RuntimeError: If the application instance is not a TesterApp.
         """
+        logger.debug(f"[TesterWindow] Begin TesterWindow.__init__({args}, {kwargs}).")
         super().__init__(*args, **kwargs)
-
-        logger.debug("[TesterWindow] Initializing TesterWindow...")
-        app = QtCore.QCoreApplication.instance()
-        if not (app and hasattr(app, "addSettingsToObject")):
-            logger.critical("[TesterWindow] TesterApp instance not found.")
-            raise RuntimeError(
-                "TesterApp instance not found. Ensure the application is initialized correctly."
-            )
-        app.addSettingsToObject(self)
-        app.statusMessage.connect(self.onUpdateStatus)
-        logger.debug("[TesterWindow] Connected to TesterApp instance and settings.")
 
         # Initialize UI property defaults before UI setup
         self.ui = Ui_TesterWindow()
         self.ui.setupUi(self)
-        logger.debug("[TesterWindow] UI setup complete.")
-        self.ui.tableSequence.setColumnWidth(0, self.firstColumnWidth)
-        self.ui.tableSequence.setColumnWidth(1, self.secondColumnWidth)
         self.ui.tableSequence.verticalHeader().setVisible(False)
 
-        # Connect UI signals using a loop for efficiency
-        actions_slots = [
-            (self.ui.actionAbout, self.onAbout),
-            (self.ui.actionOpen, self.onOpen),
-            (self.ui.actionReport, self.onReport),
-            (self.ui.actionSave, self.onSave),
-            (self.ui.actionSettings, self.onSettings),
-            (self.ui.actionStart, self.onStartTest),
-            (self.ui.actionStop, self.onStopTest),
-            (self.ui.actionExit, self.onExit),
-        ]
-        for action, slot in actions_slots:
-            action.triggered.connect(slot)
-        self.ui.tableSequence.selectionModel().selectionChanged.connect(
-            self.on_tableSequence_selectionChanged
-        )
-
-        # Initialize worker and cancel token
+        # Initialize worker
         self.worker = TestWorker()
-        logger.debug("[TesterWindow] TestWorker initialized.")
+        self.worker.setupUi(self.ui)
+        self.worker.resetTestData()
+        self.worker.closeSignal.connect(self.onUpdateStatus)
+        self.thread = moveWorkerToThread(self.worker)
+        self.ui.tableSequence.selectionModel().currentRowChanged.connect(self.onTableSequenceRowChanged)
+
+        self.signalGenerateReport.connect(self.worker.onGenerateReport)
+        self.signalLoadData.connect(self.worker.onLoadData)
+        self.signalSaveData.connect(self.worker.onSaveData)
+        self.signalStartTest.connect(self.worker.onStartTest)
+        self.signalStopWorker.connect(self.worker.onStopWorker)
 
         # Map worker signals to UI slots
         label_signal_map = {
@@ -107,22 +87,37 @@ class TesterWindow(QtWidgets.QMainWindow):
         for signal, slot in label_signal_map.items():
             signal.connect(slot, QtCore.Qt.QueuedConnection)
 
-        self.signalGenerateReport.connect(self.worker.onGenerateReport)
-        self.signalLoadData.connect(self.worker.onLoadData)
-        self.signalSaveData.connect(self.worker.onSaveData)
-        self.signalStartTest.connect(self.worker.onStartTest)
-        self.signalStopWorker.connect(self.worker.onStopWorker)
+        # Connect UI signals using a loop for efficiency
+        actions_slots = [
+            (self.ui.actionAbout, self.onAbout),
+            (self.ui.actionOpen, self.onOpen),
+            (self.ui.actionReport, self.onReport),
+            (self.ui.actionSave, self.onSave),
+            (self.ui.actionSettings, self.onSettings),
+            (self.ui.actionStart, self.onStartTest),
+            (self.ui.actionStop, self.onStopTest),
+            (self.ui.actionExit, self.onExit),
+        ]
+        for action, slot in actions_slots:
+            action.triggered.connect(slot)
 
-        self.worker.setupUi(self.ui)
-        self.worker.resetTestData()
-
-        self.worker.closeSignal.connect(self.onUpdateStatus)
-        self.thread = moveWorkerToThread(self.worker)
+        app = QtCore.QCoreApplication.instance()
+        if not (app and hasattr(app, "addSettingsToObject")):
+            logger.critical("[TesterWindow] TesterApp instance not found.")
+            raise RuntimeError(
+                "TesterApp instance not found. Ensure the application is initialized correctly."
+            )
+        app.addSettingsToObject(self)
+        app.statusMessage.connect(self.onUpdateStatus)
+        self.ui.tableSequence.horizontalHeader().sectionResized.connect(self.onTableSequenceColumnResized)
+        logger.debug("[TesterWindow] Connected to TesterApp instance and settings.")
 
         # Timer to update current time label every second
         self._current_time_timer = QtCore.QTimer(self)
         self._current_time_timer.timeout.connect(self.onUpdateCurrentTime)
         self._current_time_timer.start(1000)
+
+        logger.debug(f"[TesterWindow] TesterWindow.__init__() complete.")
 
     @QtCore.Property(str)
     def LastDirectory(self):
@@ -132,6 +127,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         Returns:
             str: The last directory path.
         """
+        logger.debug(f"[TesterWindow] Getting LastDirectory property.")
         return self.getSetting("LastDirectory", "")
 
     @LastDirectory.setter
@@ -142,6 +138,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         Args:
             value (str): The directory path to set.
         """
+        logger.debug(f"[TesterWindow] Setting LastDirectory property to {value}.")
         self.setSetting("LastDirectory", value)
 
     def show(self):
@@ -153,6 +150,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         Raises:
             RuntimeError: If no QCoreApplication instance is found.
         """
+        logger.debug(f"[TesterWindow] Calling TesterWindow.show().")
         app = QtWidgets.QApplication.instance()
         if not app:
             raise RuntimeError(
@@ -168,11 +166,12 @@ class TesterWindow(QtWidgets.QMainWindow):
         Args:
             subTitle (str): The subtitle to display.
         """
+        logger.debug(f"[TesterWindow] Updating subtitle to {subTitle}.")
         self.setWindowTitle(subTitle)
         self.ui.labelSubtitle.setText(subTitle)
 
     @QtCore.Slot(object, object)
-    def on_tableSequence_selectionChanged(self, selected, deselected):
+    def onTableSequenceRowChanged(self, selected: QtCore.QModelIndex, deselected: QtCore.QModelIndex):
         """
         Slot called when the selection in the test sequence table changes.
 
@@ -180,8 +179,8 @@ class TesterWindow(QtWidgets.QMainWindow):
             selected: The newly selected indexes.
             deselected: The previously selected indexes.
         """
-        indexes = selected.indexes()
-        self.ui.widgetTest.setCurrentIndex(indexes[0].row() if indexes else -1)
+        logger.debug(f"[TesterWindow] Table selection changed to {selected.row()}, changing test window.")
+        self.ui.stackedWidgetTest.setCurrentIndex(selected.row())
 
     @QtCore.Slot()
     def onAbout(self):
@@ -191,6 +190,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         Raises:
             RuntimeError: If no QCoreApplication instance is found.
         """
+        logger.debug(f"[TesterWindow] Showing About dialog.")
         app = QtCore.QCoreApplication.instance()
         if not app:
             raise RuntimeError(
@@ -213,6 +213,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         Slot to handle the exit action, stopping any running test and quitting the application.
         """
+        logger.debug(f"[TesterWindow] Exit action triggered, stopping test and quitting application.")
         self.onUpdateStatus("Exit menu clicked, stopping test and quitting application.")
         self.signalStopWorker.emit()
         while self.thread.isRunning():
@@ -227,6 +228,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         Args:
             file_path (str): The path to the loaded data file.
         """
+        logger.debug(f"[TesterWindow] Data loaded from file {file_path}.")
         self.onUpdateStatus(f"Data loaded from: {file_path}.")
         self.ui.actionOpen.setEnabled(True)
         self.ui.actionReport.setEnabled(True)
@@ -243,6 +245,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         Args:
             file_path (str): The path to the generated report file.
         """
+        logger.debug(f"[TesterWindow] Report generated to file {file_path}.")
         self.onUpdateStatus(f"Report generated: {file_path}.")
         self.ui.actionOpen.setEnabled(True)
         self.ui.actionReport.setEnabled(True)
@@ -258,6 +261,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         Args:
             file_path (str): The path to the saved data file.
         """
+        logger.debug(f"[TesterWindow] Data saved to file {file_path}.")
         self.onUpdateStatus(f"Data saved to: {file_path}.")
         self.ui.actionOpen.setEnabled(True)
         self.ui.actionReport.setEnabled(True)
@@ -275,6 +279,7 @@ class TesterWindow(QtWidgets.QMainWindow):
             name (str): The name of the test.
             result (bool): The result of the test (True for pass, False for fail).
         """
+        logger.debug(f"[TesterWindow] Test {index + 1} {name} finished with result {result}.")
         _status = "PASSED" if result else "FAILED"
         self.onUpdateStatus(f"Test {index + 1} {name} {_status}.")
 
@@ -286,6 +291,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         Args:
             result (bool): The overall result (True for pass, False for fail).
         """
+        logger.debug(f"[TesterWindow] All tests complete with overall result {result}.")
         _status = "Pass" if result else "Fail"
         self.onUpdateStatus(f"All tests complete with status {_status}.")
         self.ui.actionOpen.setEnabled(True)
@@ -299,6 +305,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         Slot to open a file dialog for loading test data from a file.
         """
+        logger.debug(f"[TesterWindow] Open action triggered, showing file dialog.")
         self.ui.actionOpen.setEnabled(False)
         self.ui.actionReport.setEnabled(False)
         self.ui.actionSave.setEnabled(False)
@@ -321,6 +328,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         Slot to open a file dialog for saving a test report.
         """
+        logger.debug(f"[TesterWindow] Report action triggered, showing file dialog.")
         self.ui.actionOpen.setEnabled(False)
         self.ui.actionReport.setEnabled(False)
         self.ui.actionSave.setEnabled(False)
@@ -343,6 +351,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         Slot to open a file dialog for saving test data to a file.
         """
+        logger.debug(f"[TesterWindow] Save action triggered, showing file dialog.")
         self.ui.actionOpen.setEnabled(False)
         self.ui.actionReport.setEnabled(False)
         self.ui.actionSave.setEnabled(False)
@@ -365,6 +374,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         Slot to open the settings dialog and apply changes if accepted.
         """
+        logger.debug(f"[TesterWindow] Settings action triggered, showing settings dialog.")
         _dialog = SettingsDialog(self.settings)
         _dialog.setWindowTitle(QtCore.QCoreApplication.translate("TesterWindow", "Settings"))
         _dialog.setWindowIcon(QtGui.QIcon(":/rsc/Pangolin.ico"))
@@ -375,6 +385,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         Slot called when settings are modified. Updates UI properties accordingly.
         """
+        logger.debug(f"[TesterWindow] Settings modified, updating UI properties.")
         self.firstColumnWidth = int(self.getSetting("FirstColumnWidth", 175))
         self.secondColumnWidth = int(self.getSetting("SecondColumnWidth", 75))
         self.dateTimeFormat = str(
@@ -389,6 +400,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         Slot to prompt for serial number and model name, validate input, and start the test.
         """
+        logger.debug(f"[TesterWindow] Start Test action triggered, prompting for serial number and model name.")
         self.ui.actionOpen.setEnabled(False)
         self.ui.actionReport.setEnabled(False)
         self.ui.actionSave.setEnabled(False)
@@ -438,6 +450,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         Slot to stop the current test and update UI actions.
         """
+        logger.debug(f"[TesterWindow] Stop Test action triggered, stopping current test.")
         self.onUpdateStatus("Stopping current test.")
         self.cancelToken.cancel()
 
@@ -450,6 +463,7 @@ class TesterWindow(QtWidgets.QMainWindow):
             index (int): The index of the test.
             name (str): The name of the test.
         """
+        logger.debug(f"[TesterWindow] Test {index + 1} {name} started.")
         self.ui.tableSequence.selectRow(index)
         self.onUpdateStatus(f"Test {index + 1} {name} started.")
         self.updateSubTitle(name)
@@ -473,3 +487,19 @@ class TesterWindow(QtWidgets.QMainWindow):
         _message = QtCore.QCoreApplication.translate("TesterWindow", message)
         self.ui.statusBar.showMessage(_message, 5000)
 
+    # Add this new slot method to TesterWindow
+    @QtCore.Slot(int, int, int)
+    def onTableSequenceColumnResized(self, logicalIndex: int, oldSize: int, newSize: int):
+        """
+        Slot called when a tableSequence column is resized. Saves the new size to settings.
+        Args:
+            logicalIndex (int): The index of the column resized.
+            oldSize (int): The previous size of the column.
+            newSize (int): The new size of the column.
+        """
+        if logicalIndex == 0:
+            self.setSetting("FirstColumnWidth", newSize)
+            self.firstColumnWidth = newSize
+        elif logicalIndex == 1:
+            self.setSetting("SecondColumnWidth", newSize)
+            self.secondColumnWidth = newSize

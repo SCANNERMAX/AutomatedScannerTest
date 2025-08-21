@@ -18,8 +18,8 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QTransform)
 from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QHeaderView,
     QLabel, QLayout, QMainWindow, QMenu,
-    QMenuBar, QPushButton, QSizePolicy, QStatusBar,
-    QTableView, QVBoxLayout, QWidget)
+    QMenuBar, QPushButton, QSizePolicy, QStackedWidget,
+    QStatusBar, QTableView, QVBoxLayout, QWidget)
 import tester.asset.tester_rc
 
 class Ui_TesterWindow(object):
@@ -301,16 +301,17 @@ class Ui_TesterWindow(object):
 
         self.layoutTestSequence.addWidget(self.frameSequenceControl, 0, Qt.AlignmentFlag.AlignLeft)
 
-        self.widgetTest = QWidget(self.widgetTestSequence)
-        self.widgetTest.setObjectName(u"widgetTest")
+        self.stackedWidgetTest = QStackedWidget(self.widgetTestSequence)
+        self.stackedWidgetTest.setObjectName(u"stackedWidgetTest")
         sizePolicy7 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         sizePolicy7.setHorizontalStretch(0)
         sizePolicy7.setVerticalStretch(0)
-        sizePolicy7.setHeightForWidth(self.widgetTest.sizePolicy().hasHeightForWidth())
-        self.widgetTest.setSizePolicy(sizePolicy7)
-        self.widgetTest.setMaximumSize(QSize(388, 464))
+        sizePolicy7.setHeightForWidth(self.stackedWidgetTest.sizePolicy().hasHeightForWidth())
+        self.stackedWidgetTest.setSizePolicy(sizePolicy7)
+        self.stackedWidgetTest.setMinimumSize(QSize(0, 0))
+        self.stackedWidgetTest.setMaximumSize(QSize(16777215, 16777215))
 
-        self.layoutTestSequence.addWidget(self.widgetTest)
+        self.layoutTestSequence.addWidget(self.stackedWidgetTest)
 
 
         self.layoutMain.addWidget(self.widgetTestSequence)

@@ -153,122 +153,95 @@ class TorqueCenterTest(tester.tests.Test):
         logger.debug("[TorqueCenterTest] Entering setupUi")
         try:
             super().setupUi(parent)
-            chart = QtCharts.QChart()
-            chart.setObjectName("chartTorqueCenter")
+
+            # Setup layout
+            layoutTorqueCenterData = QtWidgets.QVBoxLayout(self.widgetTestData)
+            layoutTorqueCenterData.setObjectName("layoutTorqueCenterData")
+            self.widgetTestData.setLayout(layoutTorqueCenterData)
+
+            # Create chart
+            chartTorqueCenterPlot = QtCharts.QChart()
+            chartTorqueCenterPlot.setObjectName("chartTorqueCenterPlot")
+            chartTorqueCenterPlot.setTitle(self.charttitle)
+            chartTorqueCenterPlot.legend().setVisible(True)
 
             # Create series
-            line_series = QtCharts.QLineSeries()
-            line_series.setObjectName("lineSeriesTorqueCenter")
-            fit_series = QtCharts.QLineSeries()
-            fit_series.setObjectName("lineSeriesTorqueFit")
-            fit_series.setColor(QtCore.Qt.GlobalColor.red)
+            lineSeriesTorqueCenter = QtCharts.QLineSeries()
+            lineSeriesTorqueCenter.setObjectName("lineSeriesTorqueCenter")
+            lineSeriesTorqueFit = QtCharts.QLineSeries()
+            lineSeriesTorqueFit.setObjectName("lineSeriesTorqueFit")
+            lineSeriesTorqueFit.setColor(QtCore.Qt.GlobalColor.red)
 
             # Create axes
-            axis_x = QtCharts.QValueAxis()
-            axis_x.setTitleText(self.xtitle)
-            axis_x.setLabelFormat("%.2f")
-            axis_x.setRange(self.xmin, self.xmax)
-            chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
+            xAxis = QtCharts.QValueAxis()
+            xAxis.setTitleText(self.xtitle)
+            xAxis.setLabelFormat("%.2f")
+            xAxis.setRange(self.xmin, self.xmax)
+            chartTorqueCenterPlot.addAxis(xAxis, QtCore.Qt.AlignmentFlag.AlignBottom)
 
-            axis_y = QtCharts.QValueAxis()
-            axis_y.setTitleText(self.ytitle)
-            axis_y.setLabelFormat("%.2f")
-            axis_y.setRange(self.ymin, self.ymax)
-            chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
+            yAxis = QtCharts.QValueAxis()
+            yAxis.setTitleText(self.ytitle)
+            yAxis.setLabelFormat("%.2f")
+            yAxis.setRange(self.ymin, self.ymax)
+            chartTorqueCenterPlot.addAxis(yAxis, QtCore.Qt.AlignmentFlag.AlignLeft)
 
             # Attach series to axes
-            for series in (line_series, fit_series):
-                chart.addSeries(series)
-                series.attachAxis(axis_x)
-                series.attachAxis(axis_y)
+            for series in (lineSeriesTorqueCenter, lineSeriesTorqueFit):
+                chartTorqueCenterPlot.addSeries(series)
+                series.attachAxis(xAxis)
+                series.attachAxis(yAxis)
 
-            def update_line_series(data):
+            def updateLineSeries(data):
                 """
                 Update the measured data series in the chart.
 
                 Args:
                     data (list): List of measured data points (tuple).
                 """
-                line_series.clear()
+                lineSeriesTorqueCenter.clear()
                 if data:
-                    line_series.append([QtCore.QPointF(p[0], p[1]) for p in data])
+                    lineSeriesTorqueCenter.append([QtCore.QPointF(p[0], p[1]) for p in data])
 
-            def update_fit_series(coeffs):
+            def updateFitSeries(coeffs):
                 """
                 Update the polynomial fit series in the chart.
 
                 Args:
                     coeffs (object): Polynomial coefficients (a, b, c) or None.
                 """
-                fit_series.clear()
+                lineSeriesTorqueFit.clear()
                 if coeffs is not None:
                     a, b, c = coeffs
                     xs = np.linspace(self.xmin, self.xmax, 100)
                     ys = a * xs**2 + b * xs + c
-                    fit_series.append([QtCore.QPointF(float(x), float(y)) for x, y in zip(xs, ys)])
+                    lineSeriesTorqueFit.append([QtCore.QPointF(float(x), float(y)) for x, y in zip(xs, ys)])
 
             # Initial plot
-            update_line_series(self.TorqueData)
-            update_fit_series(self.PolyfitCoeffs)
+            updateLineSeries(self.TorqueData)
+            updateFitSeries(self.PolyfitCoeffs)
 
             # Connect signals
-            self.torqueDataChanged.connect(update_line_series)
-            self.polyfitCoeffsChanged.connect(update_fit_series)
+            self.torqueDataChanged.connect(updateLineSeries)
+            self.polyfitCoeffsChanged.connect(updateFitSeries)
 
-            chart_view = QtCharts.QChartView(chart, parent)
-            chart_view.setObjectName("chartViewTorqueCenter")
-            chart_view.setWindowTitle(self.charttitle)
-            chart_view.setSizePolicy(
-                QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
-            )
+            chartViewTorqueCenter = QtCharts.QChartView(chartTorqueCenterPlot, self.widgetTestData)
+            chartViewTorqueCenter.setObjectName("chartViewTorqueCenter")
+            chartViewTorqueCenter.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+            layoutTorqueCenterData.addWidget(chartViewTorqueCenter)
 
-            layout_test_data = getattr(self, "layoutTestData", None)
-            if layout_test_data is not None:
-                layout_test_data.addWidget(chart_view)
-                logger.info("[TorqueCenterTest] Added chart_view to layoutTestData")
-            else:
-                layout = parent.layout() or QtWidgets.QVBoxLayout(parent)
-                parent.setLayout(layout)
-                layout.addWidget(chart_view)
-                logger.info("[TorqueCenterTest] Added chart_view to parent layout")
-
-            widget_torque_center = QtWidgets.QWidget(parent)
-            widget_torque_center.setObjectName("widgetTorqueCenter")
-            layout_torque_center = QtWidgets.QHBoxLayout(widget_torque_center)
-            label_torque_center_name = QtWidgets.QLabel(
-                "Torque Center: ", widget_torque_center
-            )
-            label_torque_center_name.setObjectName("labelTorqueCenterName")
-            layout_torque_center.addWidget(label_torque_center_name)
-            text_box_torque_center = QtWidgets.QLineEdit(
-                f"{self.TorqueCenter:.2f}", widget_torque_center
-            )
-            text_box_torque_center.setObjectName("textBoxTorqueCenter")
-            text_box_torque_center.setEnabled(False)
-            self.torqueCenterChanged.connect(
-                lambda value: text_box_torque_center.setText(f"{value:.2f}")
-            )
-            layout_torque_center.addWidget(text_box_torque_center)
-
-            if layout_test_data is not None:
-                layout_test_data.addWidget(widget_torque_center)
-                logger.info("[TorqueCenterTest] Added widget_torque_center to layoutTestData")
-            else:
-                parent.layout().addWidget(widget_torque_center)
-                logger.info("[TorqueCenterTest] Added widget_torque_center to parent layout")
-
-            # Store references
-            self.chartTorqueCenter = chart
-            self.lineSeriesTorqueCenter = line_series
-            self.lineSeriesTorqueFit = fit_series
-            self.axisX = axis_x
-            self.axisY = axis_y
-            self.chartViewTorqueCenter = chart_view
-            self.widgetTorqueCenter = widget_torque_center
-            self.layoutTorqueCenter = layout_torque_center
-            self.labelTorqueCenterName = label_torque_center_name
-            self.textBoxTorqueCenter = text_box_torque_center
-            logger.info("[TorqueCenterTest] UI setup for TorqueCenterTest complete")
+            # Add torque center display
+            widgetTorqueCenter = QtWidgets.QWidget(self.widgetTestData)
+            widgetTorqueCenter.setObjectName("widgetTorqueCenter")
+            layoutTorqueCenter = QtWidgets.QHBoxLayout(widgetTorqueCenter)
+            labelTorqueCenterName = QtWidgets.QLabel("Torque Center: ", widgetTorqueCenter)
+            labelTorqueCenterName.setObjectName("labelTorqueCenterName")
+            layoutTorqueCenter.addWidget(labelTorqueCenterName)
+            textBoxTorqueCenter = QtWidgets.QLineEdit(f"{self.TorqueCenter:.2f}", widgetTorqueCenter)
+            textBoxTorqueCenter.setObjectName("textBoxTorqueCenter")
+            textBoxTorqueCenter.setEnabled(False)
+            self.torqueCenterChanged.connect(lambda value: textBoxTorqueCenter.setText(f"{value:.2f}"))
+            layoutTorqueCenter.addWidget(textBoxTorqueCenter)
+            layoutTorqueCenterData.addWidget(widgetTorqueCenter)
         except Exception as e:
             logger.critical(f"[TorqueCenterTest] Exception in setupUi: {e}\n{traceback.format_exc()}")
         logger.debug("[TorqueCenterTest] Exiting setupUi")
