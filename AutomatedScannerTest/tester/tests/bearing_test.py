@@ -39,7 +39,9 @@ class BearingTest(Test):
             cancel (CancelToken): Token to allow test interruption.
             devices (DeviceManager, optional): Device manager for hardware access.
         """
-        logger.debug(f"[BearingTest] Initializing BearingTest with cancel={cancel}, devices={devices}")
+        logger.debug(
+            f"[BearingTest] Initializing BearingTest with cancel={cancel}, devices={devices}"
+        )
         try:
             super().__init__(
                 "Bearing Test",
@@ -47,7 +49,9 @@ class BearingTest(Test):
                 devices if devices is not None else DeviceManager(),
             )
         except Exception as e:
-            logger.critical(f"[BearingTest] Exception in __init__: {e}\n{traceback.format_exc()}")
+            logger.critical(
+                f"[BearingTest] Exception in __init__: {e}\n{traceback.format_exc()}"
+            )
 
     @QtCore.Property(list, notify=frictionDataChanged)
     def FrictionData(self):
@@ -98,58 +102,57 @@ class BearingTest(Test):
         super().setupUi(widget)
 
         # Set a vertical layout for the test data widget
-        layoutTestData = QtWidgets.QVBoxLayout(self.widgetTestData)
-        layoutTestData.setObjectName("layoutBearingTestData")
-        self.widgetTestData.setLayout(layoutTestData)
+        layoutBearingTestData = QtWidgets.QVBoxLayout(self.widgetTestData)
+        layoutBearingTestData.setObjectName("layoutBearingTestData")
+        self.widgetTestData.setLayout(layoutBearingTestData)
 
         # Create and configure the chart for friction data
-        chart = QtCharts.QChart()
-        chart.setObjectName("bearingTestChart")
-        chart.setTitle(self.charttitle)
-        chart.legend().hide()
+        chartBearingTest = QtCharts.QChart()
+        chartBearingTest.setObjectName("chartBearingTest")
+        chartBearingTest.setTitle(self.charttitle)
+        chartBearingTest.legend().hide()
 
         # Create the line series and populate it with initial data
-        line_series = QtCharts.QLineSeries()
-        data = self.FrictionData
-        if data:
-            line_series.replace((QtCore.QPointF(x, y) for x, y in data))
-        chart.addSeries(line_series)
+        lineSeriesFrictionPlot = QtCharts.QLineSeries()
+        lineSeriesFrictionPlot.setName("Friction Data")
+        lineSeriesFrictionPlot.setObjectName("lineSeriesFrictionPlot")
+        chartBearingTest.addSeries(lineSeriesFrictionPlot)
 
-        axis_x = QtCharts.QValueAxis()
-        axis_x.setTitleText(self.xtitle)
-        axis_x.setLabelFormat("%.2f")
-        axis_x.setRange(self.xmin, self.xmax)
-        chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
-        line_series.attachAxis(axis_x)
+        xAxis = QtCharts.QValueAxis()
+        xAxis.setTitleText(self.xtitle)
+        xAxis.setLabelFormat("%.2f")
+        xAxis.setRange(self.xmin, self.xmax)
+        chartBearingTest.addAxis(xAxis, QtCore.Qt.AlignmentFlag.AlignBottom)
+        lineSeriesFrictionPlot.attachAxis(xAxis)
 
-        axis_y = QtCharts.QValueAxis()
-        axis_y.setTitleText(self.ytitle)
-        axis_y.setLabelFormat("%.2f")
-        axis_y.setRange(self.ymin, self.ymax)
-        chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
-        line_series.attachAxis(axis_y)
+        yAxis = QtCharts.QValueAxis()
+        yAxis.setTitleText(self.ytitle)
+        yAxis.setLabelFormat("%.2f")
+        yAxis.setRange(self.ymin, self.ymax)
+        chartBearingTest.addAxis(yAxis, QtCore.Qt.AlignmentFlag.AlignLeft)
+        lineSeriesFrictionPlot.attachAxis(yAxis)
 
-        chart_view = QtCharts.QChartView(chart, self.widgetTestData)
-        chart_view.setObjectName("bearingTestChartView")
-        chart_view.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        layoutTestData.addWidget(chart_view)
+        chartViewBearingTest = QtCharts.QChartView(
+            chartBearingTest, self.widgetTestData
+        )
+        chartViewBearingTest.setObjectName("bearingTestChartView")
+        chartViewBearingTest.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
+        )
+        layoutBearingTestData.addWidget(chartViewBearingTest)
 
         # Use a local function to avoid recreating lambda on every signal emission
-        def update_chart(data):
+        def updateFrictionChart(data):
             """
             Update the chart with new friction data.
 
             Args:
                 data (list): List of (position, current) tuples.
             """
-            line_series.replace((QtCore.QPointF(x, y) for x, y in data))
-        self.frictionDataChanged.connect(update_chart)
+            lineSeriesFrictionPlot.replace([QtCore.QPointF(x, y) for x, y in data])
 
-        self.chartFriction = chart
-        self.lineSeriesFriction = line_series
-        self.axisX = axis_x
-        self.axisY = axis_y
-        self.chartViewFriction = chart_view
+        updateFrictionChart(self.FrictionData)
+        self.frictionDataChanged.connect(updateFrictionChart)
 
     def onGenerateReport(self, report):
         """
@@ -289,8 +292,7 @@ class BearingTest(Test):
         self.checkCancelled()
         # Use zip and list comprehension for efficient tuple creation
         self.FrictionData = [
-            (4.5 * x, 100 * y)
-            for x, y in zip(_positions_raw, _currents_raw)
+            (4.5 * x, 100 * y) for x, y in zip(_positions_raw, _currents_raw)
         ]
         MSO.function_generator_state(1, False)
         MSO.function_generator_state(2, False)
