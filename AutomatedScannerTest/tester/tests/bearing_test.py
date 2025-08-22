@@ -208,12 +208,12 @@ class BearingTest(Test):
             logger.critical("[BearingTest] Failed to save friction data: %r", e)
         return super().onSaveData()
 
-    def resetParameters(self):
+    def resetTestData(self):
         """
         Reset the test parameters and clear the friction data.
         """
         logger.debug("[BearingTest] resetParameters called")
-        super().resetParameters()
+        super().resetTestData()
         self.FrictionData = []
 
     def setDataDirectory(self, data_directory):

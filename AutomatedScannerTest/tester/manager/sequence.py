@@ -457,7 +457,7 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         logger.debug(f"[TestSequenceModel] resetTestData called")
         for test in self.__tests:
             logger.debug(f"[TestSequenceModel] Resetting parameters for test: {test}")
-            test.resetParameters()
+            test.resetTestData()
         logger.debug(f"[TestSequenceModel] All test parameters reset")
 
     def setupUi(self, parent=None):

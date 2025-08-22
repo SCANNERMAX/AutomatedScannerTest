@@ -60,6 +60,7 @@ class TestWorker(QtCore.QObject):
         self.timeZone = QtCore.QTimeZone.systemTimeZone()
         self.exitCode = 0
         self.running = False
+        self.resetTestData()
 
     @QtCore.Property(str, notify=computerNameSignal)
     def ComputerName(self):
@@ -432,54 +433,49 @@ class TestWorker(QtCore.QObject):
         logger.debug(
             f"[TestWorker] onLoadData called. Loading test data from file '{path}'."
         )
+
+        def _from_qvariant(obj):
+            """
+            Recursively convert QVariant-compatible types back to Python/Qt types.
+            Handles dict, list, QDateTime strings, and QPoint dicts.
+            """
+            if isinstance(obj, dict):
+                # Handle QPoint
+                if set(obj.keys()) == {"x", "y"}:
+                    return QtCore.QPoint(obj["x"], obj["y"])
+                return {k: _from_qvariant(v) for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [_from_qvariant(v) for v in obj]
+            if isinstance(obj, str):
+                # Try to parse QDateTime from ISO string
+                dt = QtCore.QDateTime.fromString(obj, QtCore.Qt.ISODate)
+                if dt.isValid():
+                    return dt
+            return obj
+
         file_obj = QtCore.QFile(path)
         if file_obj.open(QtCore.QIODevice.ReadOnly | QtCore.QIODevice.Text):
-            doc = QtCore.QJsonDocument.fromJson(file_obj.readAll())
-            if not doc.isObject():
-                logger.warning(
-                    f"[TestWorker] File '{path}' does not contain a valid JSON object."
-                )
-                file_obj.close()
-                self.openFinishedSignal.emit()
-                return
-
-            def _from_qvariant(obj):
-                """
-                Recursively convert QVariant-compatible types back to Python/Qt types.
-                Handles dict, list, QDateTime, QPoint, and tuples.
-                """
-                if isinstance(obj, dict):
-                    # Handle QPoint
-                    if "x" in obj and "y" in obj and len(obj) == 2:
-                        return QtCore.QPoint(obj["x"], obj["y"])
-                    return {k: _from_qvariant(v) for k, v in obj.items()}
-                if isinstance(obj, list):
-                    return [_from_qvariant(v) for v in obj]
-                if isinstance(obj, str):
-                    # Try to parse QDateTime from ISO string
-                    dt = QtCore.QDateTime.fromString(obj, QtCore.Qt.ISODate)
-                    if dt.isValid():
-                        return dt
-                    return obj
-                return obj
-
-            _data = _from_qvariant(doc.object().toVariantMap())
-            _tests_data = _data.pop("Tests", None)
-            self.model.onLoadData(_tests_data)
-            for _key, _value in _data.items():
-                if hasattr(type(self), _key):
-                    logger.debug(
-                        f"[TestWorker] Setting attribute '{_key}' from loaded data."
-                    )
-                    setattr(self, _key, _value)
-                else:
-                    logger.warning(
-                        f"[TestWorker] Attribute '{_key}' not found in TestWorker."
-                    )
+            data_bytes = file_obj.readAll()
             file_obj.close()
+            doc = QtCore.QJsonDocument.fromJson(data_bytes)
+            if not doc.isNull():
+                variant_data = doc.toVariant()
+                loaded_data = _from_qvariant(variant_data)
+                keys = list(loaded_data.keys())
+                keys.reverse()
+                for key in keys:
+                    value = loaded_data[key]
+                    if key == "Tests":
+                        if hasattr(self.model, "onLoadData"):
+                            self.model.onLoadData(value)
+                    if hasattr(self, key):
+                        setattr(self, key, value)
+                logger.debug(f"[TestWorker] Test data loaded from '{path}'.")
+            else:
+                logger.warning(f"[TestWorker] Could not parse JSON from '{path}'.")
         else:
             logger.warning(f"[TestWorker] Could not open file '{path}' for reading.")
-        logger.info(f"[TestWorker] Loaded previous test data from '{path}'.")
+
         self.running = False
         self.openFinishedSignal.emit()
 

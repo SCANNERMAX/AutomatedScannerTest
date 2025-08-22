@@ -99,7 +99,7 @@ class Test(QtCore.QObject):
         logger.debug(f"[Test] Initializing Test instance with name: {name}")
         super().__init__()
         self._parameters = {}
-        self.resetParameters()
+        self.resetTestData()
         self.Name = name
         app = QtCore.QCoreApplication.instance()
         if not (app and hasattr(app, "addSettingsToObject")):
@@ -354,7 +354,7 @@ class Test(QtCore.QObject):
         groupBoxWidget = QtWidgets.QGroupBox(parent)
         groupBoxWidget.setObjectName(f"groupBox{cname}")
         groupBoxWidget.setCheckable(False)
-        groupBoxWidget.setFixedWidth(250)
+        groupBoxWidget.setFixedWidth(150)
         groupBoxWidget.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Expanding)
         groupBoxLayout = QtWidgets.QVBoxLayout(groupBoxWidget)
         groupBoxLayout.setObjectName(f"layout{cname}Params")
@@ -436,10 +436,14 @@ class Test(QtCore.QObject):
             data (dict): The parameter dictionary to load.
         """
         logger.debug(f"[Test] Loading data: {data}")
+        keys = []
         for key, value in data.items():
+            keys.append(key)
+        keys.reverse()
+        for key in keys:
             try:
-                setattr(self, key, value)
-                logger.debug(f'[Test] Set attribute "{key}" to "{value}"')
+                setattr(self, key, data[key])
+                logger.debug(f'[Test] Set attribute "{key}" to "{data[key]}"')
             except AttributeError:
                 logger.warning(f'[Test] Attribute "{key}" not found')
 
@@ -492,7 +496,7 @@ class Test(QtCore.QObject):
             self.teardown()
             self.EndTime = self.getCurrentTime()
 
-    def resetParameters(self):
+    def resetTestData(self):
         """
         Reset the test state and parameters to their initial values.
         """

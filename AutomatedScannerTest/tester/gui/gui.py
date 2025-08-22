@@ -57,7 +57,6 @@ class TesterWindow(QtWidgets.QMainWindow):
         self.worker = TestWorker()
         self.worker.setupUi(self.ui)
         self.worker.resetTestData()
-        self.worker.closeSignal.connect(self.onUpdateStatus)
         self.thread = moveWorkerToThread(self.worker)
         self.ui.tableSequence.selectionModel().currentRowChanged.connect(self.onTableSequenceRowChanged)
 
@@ -220,16 +219,15 @@ class TesterWindow(QtWidgets.QMainWindow):
             QtCore.QCoreApplication.processEvents()
         self.close()
 
-    @QtCore.Slot(str)
-    def onOpenFinished(self, file_path: str):
+    @QtCore.Slot()
+    def onOpenFinished(self):
         """
         Slot called when test data is loaded from a file.
 
         Args:
             file_path (str): The path to the loaded data file.
         """
-        logger.debug(f"[TesterWindow] Data loaded from file {file_path}.")
-        self.onUpdateStatus(f"Data loaded from: {file_path}.")
+        logger.debug(f"[TesterWindow] Data loaded from file.")
         self.ui.actionOpen.setEnabled(True)
         self.ui.actionReport.setEnabled(True)
         self.ui.actionSave.setEnabled(True)
@@ -237,8 +235,8 @@ class TesterWindow(QtWidgets.QMainWindow):
         self.ui.actionStop.setEnabled(False)
 
 
-    @QtCore.Slot(str)
-    def onReportFinished(self, file_path: str):
+    @QtCore.Slot()
+    def onReportFinished(self):
         """
         Slot called when report generation is finished.
 
@@ -253,8 +251,8 @@ class TesterWindow(QtWidgets.QMainWindow):
         self.ui.actionStart.setEnabled(True)
         self.ui.actionStop.setEnabled(False)
 
-    @QtCore.Slot(str)
-    def onSavingFinished(self, file_path: str):
+    @QtCore.Slot()
+    def onSavingFinished(self):
         """
         Slot called when test data is saved to a file.
 
@@ -314,7 +312,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         _caption = QtCore.QCoreApplication.translate("TesterWindow", "Open test data file")
         _filter = QtCore.QCoreApplication.translate("TesterWindow", "Test Data files")
         file_dialog = QtWidgets.QFileDialog(
-            self, _caption, self.LastDirectory or "", f"{_filter} (*.past)"
+            self, _caption, self.LastDirectory or "", f"{_filter} (*.json)"
         )
         file_dialog.setFileMode(QtWidgets.QFileDialog.ExistingFile)
         if file_dialog.exec() == QtWidgets.QDialog.Accepted:
@@ -360,7 +358,7 @@ class TesterWindow(QtWidgets.QMainWindow):
         _title = QtCore.QCoreApplication.translate("TesterWindow", "Save test data file")
         _filter = QtCore.QCoreApplication.translate("TesterWindow", "Test Data files")
         file_dialog = QtWidgets.QFileDialog(
-            self, _title, self.LastDirectory or "", f"{_filter} (*.past)"
+            self, _title, self.LastDirectory or "", f"{_filter} (*.json)"
         )
         file_dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
         if file_dialog.exec() == QtWidgets.QDialog.Accepted:

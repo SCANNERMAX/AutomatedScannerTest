@@ -168,8 +168,10 @@ class TorqueCenterTest(tester.tests.Test):
             # Create series
             lineSeriesTorqueCenter = QtCharts.QLineSeries()
             lineSeriesTorqueCenter.setObjectName("lineSeriesTorqueCenter")
+            lineSeriesTorqueCenter.setName("Measured")
             lineSeriesTorqueFit = QtCharts.QLineSeries()
             lineSeriesTorqueFit.setObjectName("lineSeriesTorqueFit")
+            lineSeriesTorqueFit.setName("Polynomial Fit")
             lineSeriesTorqueFit.setColor(QtCore.Qt.GlobalColor.red)
 
             # Create axes
@@ -312,13 +314,13 @@ class TorqueCenterTest(tester.tests.Test):
         logger.debug("[TorqueCenterTest] Exiting onSaveData")
         return super().onSaveData()
 
-    def resetParameters(self):
+    def resetTestData(self):
         """
         Reset the test parameters and clear the torque data and center.
         """
         logger.debug("[TorqueCenterTest] Entering resetParameters")
         try:
-            super().resetParameters()
+            super().resetTestData()
             self.TorqueData = []
             self.TorqueCenter = 0.0
         except Exception as e:
