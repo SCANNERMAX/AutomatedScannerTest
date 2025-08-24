@@ -6,7 +6,6 @@ from tester import CancelToken
 from tester.manager.sequence import TestSequenceModel
 from tester.manager.devices import DeviceManager
 from tester.manager.report import TestReport
-from tester.tests import _test_list
 
 logger = logging.getLogger(__name__)
 
@@ -430,9 +429,7 @@ class TestWorker(QtCore.QObject):
             path (str): Path to the data file.
         """
         self.running = True
-        logger.debug(
-            f"[TestWorker] onLoadData called. Loading test data from file '{path}'."
-        )
+        logger.debug(f"[TestWorker] onLoadData called. Loading test data from file '{path}'.")
 
         def _from_qvariant(obj):
             """
@@ -465,17 +462,18 @@ class TestWorker(QtCore.QObject):
                 keys.reverse()
                 for key in keys:
                     value = loaded_data[key]
-                    if key == "Tests":
-                        if hasattr(self.model, "onLoadData"):
-                            self.model.onLoadData(value)
                     if hasattr(self, key):
                         setattr(self, key, value)
+                if hasattr(self.model, "onLoadData"):
+                    self.model.onLoadData(loaded_data["Tests"], self.RunDataDirectory)
                 logger.debug(f"[TestWorker] Test data loaded from '{path}'.")
+                
             else:
                 logger.warning(f"[TestWorker] Could not parse JSON from '{path}'.")
         else:
             logger.warning(f"[TestWorker] Could not open file '{path}' for reading.")
-
+        self.onSaveData()
+        self.onGenerateReport()
         self.running = False
         self.openFinishedSignal.emit()
 
@@ -646,26 +644,6 @@ class TestWorker(QtCore.QObject):
         logger.debug(
             "[TestWorker] threadStarted called. Initializing test sequence model."
         )
-        seq = self.model
-        if hasattr(seq, "beginResetModel"):
-            logger.debug("[TestWorker] Calling beginResetModel on sequence.")
-            seq.beginResetModel()
-        logger.debug("[TestWorker] Setting ComputerName and TesterName from Devices.")
-        self.ComputerName = self.devices.ComputerName
-        self.TesterName = self.devices.UserName
-        tests = list(_test_list())
-        if hasattr(seq, "beginInsertRows") and hasattr(seq, "endInsertRows"):
-            logger.debug(
-                f"[TestWorker] Inserting {len(tests)} tests into sequence model."
-            )
-            seq.beginInsertRows(QtCore.QModelIndex(), 0, len(tests) - 1)
-            if hasattr(seq, "extend"):
-                seq.extend(tests)
-            seq.endInsertRows()
-        if hasattr(seq, "endResetModel"):
-            logger.debug("[TestWorker] Calling endResetModel on sequence.")
-            seq.endResetModel()
-        logger.debug("[TestWorker] Test sequence model initialized.")
 
     @QtCore.Slot(str, str)
     def onSaveData(self, path: str = None):
@@ -739,7 +717,8 @@ class TestWorker(QtCore.QObject):
         """
         self.running = True
         logger.debug(
-            f"[TestWorker] onStartTest called with serial_number='{serial_number}', model_name='{model_name}', test='{test}'."
+            f"[TestWorker] onStartTest called with serial_number='{serial_number}', "
+            f"model_name='{model_name}', test='{test}'."
         )
         self.resetTestData()
         self.SerialNumber = serial_number

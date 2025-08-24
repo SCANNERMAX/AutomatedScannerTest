@@ -10,8 +10,6 @@ This module provides:
 
 from PySide6 import QtCore, QtWidgets
 from asyncio import CancelledError
-import importlib
-import inspect
 import logging
 
 from tester import CancelToken
@@ -19,47 +17,6 @@ from tester.manager.devices import DeviceManager
 from tester.manager.report import TestReport
 
 logger = logging.getLogger(__name__)
-
-
-def _test_list() -> list:
-    """
-    Discover and return all test classes derived from the Test base class
-    within the AutomatedScannerTest.tester.tests package.
-
-    Returns:
-        list: List of test class types derived from Test.
-    """
-    logger.debug(f"[_test_list] Starting test class discovery in _test_list().")
-    from tester.tests import Test
-
-    _test_folder = QtCore.QFileInfo(__file__).absolutePath()
-    dir_obj = QtCore.QDir(_test_folder)
-    py_files = [
-        f
-        for f in dir_obj.entryList(["*.py"], QtCore.QDir.Files)
-        if not f.startswith("__")
-    ]
-    _tests = []
-    for _filename in py_files:
-        _module_name = f"tester.tests.{_filename[:-3]}"
-        try:
-            logger.debug(f"[_test_list] Attempting to import module: {_module_name}")
-            _module = importlib.import_module(_module_name)
-        except Exception as e:
-            logger.warning(f"[_test_list] Could not import {_module_name}: {e}")
-            continue
-        found = [
-            obj
-            for _, obj in inspect.getmembers(_module, inspect.isclass)
-            if issubclass(obj, Test) and obj is not Test
-        ]
-        if found:
-            logger.debug(
-                f"[_test_list] Discovered test classes in {_module_name}: {[cls.__name__ for cls in found]}"
-            )
-        _tests.extend(found)
-    logger.debug(f"[_test_list] Total discovered test classes: {len(_tests)}")
-    return _tests
 
 
 class Test(QtCore.QObject):

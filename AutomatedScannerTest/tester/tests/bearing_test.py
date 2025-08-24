@@ -11,7 +11,6 @@ from tester.devices.enums import (
     HrefMode,
     SourceOutputImpedance,
     Source,
-    TriggerCoupling,
     WaveformMode,
     WaveformFormat,
 )
@@ -149,7 +148,8 @@ class BearingTest(Test):
             Args:
                 data (list): List of (position, current) tuples.
             """
-            lineSeriesFrictionPlot.replace([QtCore.QPointF(x, y) for x, y in data])
+            if data:
+                lineSeriesFrictionPlot.replace([QtCore.QPointF(x, y) for x, y in data])
 
         updateFrictionChart(self.FrictionData)
         self.frictionDataChanged.connect(updateFrictionChart)
@@ -178,9 +178,7 @@ class BearingTest(Test):
                 yTickCount=9,
             )
         except Exception as e:
-            logger.critical(
-                "[BearingTest] Failed to add friction plot to report: %r", e
-            )
+            logger.critical("[BearingTest] Failed to add friction plot to report: %r", e)
 
     def onSaveData(self):
         """
@@ -228,8 +226,8 @@ class BearingTest(Test):
         dir_obj = QtCore.QDir(self.dataDirectory)
         if not dir_obj.exists():
             dir_obj.mkpath(".")
-        self.figurePath = dir_obj.filePath("friction_plot.png")
         self.dataFilePath = dir_obj.filePath("friction_plot_data.csv")
+        self.figurePath = dir_obj.filePath("friction_plot.png")
 
     def setup(self):
         """

@@ -2,8 +2,10 @@
 from PySide6 import QtCore, QtWidgets
 import logging
 
+from tester.tests.bearing_test import BearingTest
+from tester.tests.torque_center_test import TorqueCenterTest
 from tester.manager.devices import DeviceManager
-from tester.tests import CancelToken, _test_list
+from tester.tests import CancelToken
 
 # Configure Python logging
 logger = logging.getLogger(__name__)
@@ -49,8 +51,9 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         app.addSettingsToObject(self)
         self.__cancel = cancel
         self.__devices = devices
-        # Use list comprehension for faster test instantiation
-        self.__tests = [test(self.__cancel, self.__devices) for test in _test_list()]
+        self.tests = [
+            BearingTest(self.__cancel, self.__devices),
+            TorqueCenterTest(self.__cancel, self.__devices)]
 
     @QtCore.Property(str)
     def ComputerName(self):
@@ -145,7 +148,7 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         logger.debug(f"[TestSequenceModel] ModelName setter called with value={value}")
         self.__parameters["ModelName"] = value
         # Use for loop without logging for performance
-        for _test in self.__tests:
+        for _test in self.tests:
             _test.ModelName = value
 
     @QtCore.Property(str)
@@ -171,7 +174,7 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
             f"[TestSequenceModel] SerialNumber setter called with value={value}"
         )
         self.__parameters["SerialNumber"] = value
-        for _test in self.__tests:
+        for _test in self.tests:
             _test.SerialNumber = value
 
     @QtCore.Property(QtCore.QDateTime)
@@ -255,7 +258,7 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
             int: Number of rows.
         """
         logger.debug(f"[TestSequenceModel] rowCount called")
-        return len(self.__tests)
+        return len(self.tests)
 
     def columnCount(self, parent=QtCore.QModelIndex()):
         """
@@ -286,10 +289,10 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
             logger.warning(f"[TestSequenceModel] data: Invalid index")
             return None
         row, col = index.row(), index.column()
-        if row >= len(self.__tests) or col >= len(self.__header):
+        if row >= len(self.tests) or col >= len(self.__header):
             logger.warning(f"[TestSequenceModel] data: Index out of range")
             return None
-        test = self.__tests[row]
+        test = self.tests[row]
         if role == QtCore.Qt.DisplayRole:
             logger.debug(
                 f"[TestSequenceModel] data: Returning display value for row={row}, col={col}"
@@ -321,33 +324,13 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
             return self.__header[section] if section < len(self.__header) else None
         return super().headerData(section, orientation, role)
 
-    # Methods for managing the test sequence
-    def extend(self, tests: list):
-        """
-        Extend the test list with additional tests.
-
-        Args:
-            tests (list): List of test objects to add.
-
-        Raises:
-            TypeError: If tests is not a list.
-        """
-        logger.debug(f"[TestSequenceModel] extend called with tests={tests}")
-        if not isinstance(tests, list):
-            logger.critical(f"[TestSequenceModel] Argument to extend is not a list")
-            raise TypeError("tests must be a list")
-        self.beginResetModel()
-        self.__tests.extend(tests)
-        self.endResetModel()
-        logger.debug(f"[TestSequenceModel] Test list extended by {len(tests)} items.")
-
     def cliPrintTestList(self):
         """
         Print the list of available tests to the command line.
         """
         logger.debug(f"[TestSequenceModel] cliPrintTestList called")
         print("Available tests:")
-        for test in self.__tests:
+        for test in self.tests:
             test.cliPrintTest()
             print("\n")
 
@@ -361,30 +344,27 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         logger.debug(
             f"[TestSequenceModel] onGenerateReport called with report={report}"
         )
-        for _test in self.__tests:
+        for _test in self.tests:
             if getattr(_test, "Status", None) != "Skipped":
                 logger.debug(f"[TestSequenceModel] Generating report for test: {_test}")
                 _test.onGenerateReport(report)
 
-    def onLoadData(self, tests_data):
+    def onLoadData(self, tests_data, data_directory):
         """
         Load test data into the model.
 
         Args:
             tests_data (dict): Dictionary of test data keyed by test name.
         """
-        logger.debug(
-            f"[TestSequenceModel] onLoadData called with tests_data={tests_data}"
-        )
+        logger.debug(f"[TestSequenceModel] onLoadData called with tests_data={tests_data}")
         if tests_data:
-            _name_to_test = {t.Name: t for t in self.__tests}
+            _name_to_test = {t.Name: t for t in self.tests}
             for _test_name, _test_data in tests_data.items():
                 _test_obj = _name_to_test.get(_test_name)
                 if _test_obj:
-                    logger.debug(
-                        f"[TestSequenceModel] Loading data for test: {_test_name}"
-                    )
+                    logger.debug(f"[TestSequenceModel] Loading data for test: {_test_name}")
                     _test_obj.onLoadData(_test_data)
+                    _test_obj.setDataDirectory(data_directory)
 
     def onSaveData(self) -> dict:
         """
@@ -395,7 +375,11 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         """
         logger.debug(f"[TestSequenceModel] onSaveData called")
         _data = self.__parameters.copy()
-        _data["Tests"] = {t.Name: t.onSaveData() for t in self.__tests}
+        _test_data = {}
+        for test in self.tests:
+            if test:
+                _test_data[test.Name] = test.onSaveData()
+        _data["Tests"] = _test_data
         logger.debug(f"[TestSequenceModel] onSaveData returning: {_data}")
         return _data
 
@@ -422,7 +406,7 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         )
         statuses = []
         cancel = getattr(self.__cancel, "cancelled", False)
-        for index, _test in enumerate(self.__tests):
+        for index, _test in enumerate(self.tests):
             logger.info(f"[TestSequenceModel] Starting {_test.Name} (index={index})")
             self.startedTest.emit(index, _test.Name)
             if cancel:
@@ -455,7 +439,7 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         Reset parameters for all tests in the sequence.
         """
         logger.debug(f"[TestSequenceModel] resetTestData called")
-        for test in self.__tests:
+        for test in self.tests:
             logger.debug(f"[TestSequenceModel] Resetting parameters for test: {test}")
             test.resetTestData()
         logger.debug(f"[TestSequenceModel] All test parameters reset")
@@ -474,7 +458,7 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
                 widget = parent.widget(i)
                 parent.removeWidget(widget)
                 widget.deleteLater()
-            for test in self.__tests:
+            for test in self.tests:
                 logger.debug(f"[TestSequenceModel] Adding widget for test: {test}")
                 widget = QtWidgets.QWidget(parent)
                 parent.addWidget(widget)

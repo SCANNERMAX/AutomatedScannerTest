@@ -132,8 +132,9 @@ class TorqueCenterTest(tester.tests.Test):
             self.ymin = s("TorqueCurrentMinimum", 0)
             self.ymax = s("TorqueCurrentMaximum", 500.0)
             logger.debug(
-                f"[TorqueCenterTest] Settings loaded: readDelay={self.readDelay}, centerTolerance={self.centerTolerance}, "
-                f"charttitle={self.charttitle}, xtitle={self.xtitle}, xmin={self.xmin}, xmax={self.xmax}, "
+                f"[TorqueCenterTest] Settings loaded: readDelay={self.readDelay}, "
+                f"centerTolerance={self.centerTolerance}, charttitle={self.charttitle}, "
+                f"xtitle={self.xtitle}, xmin={self.xmin}, xmax={self.xmax}, "
                 f"ytitle={self.ytitle}, ymin={self.ymin}, ymax={self.ymax}"
             )
         except Exception as e:
@@ -193,6 +194,11 @@ class TorqueCenterTest(tester.tests.Test):
                 series.attachAxis(xAxis)
                 series.attachAxis(yAxis)
 
+            chartViewTorqueCenter = QtCharts.QChartView(chartTorqueCenterPlot, self.widgetTestData)
+            chartViewTorqueCenter.setObjectName("chartViewTorqueCenter")
+            chartViewTorqueCenter.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+            layoutTorqueCenterData.addWidget(chartViewTorqueCenter)
+
             def updateLineSeries(data):
                 """
                 Update the measured data series in the chart.
@@ -200,9 +206,8 @@ class TorqueCenterTest(tester.tests.Test):
                 Args:
                     data (list): List of measured data points (tuple).
                 """
-                lineSeriesTorqueCenter.clear()
                 if data:
-                    lineSeriesTorqueCenter.append([QtCore.QPointF(p[0], p[1]) for p in data])
+                    lineSeriesTorqueCenter.replace([QtCore.QPointF(p[0], p[1]) for p in data])
 
             def updateFitSeries(coeffs):
                 """
@@ -211,7 +216,6 @@ class TorqueCenterTest(tester.tests.Test):
                 Args:
                     coeffs (object): Polynomial coefficients (a, b, c) or None.
                 """
-                lineSeriesTorqueFit.clear()
                 if coeffs is not None:
                     a, b, c = coeffs
                     xs = np.linspace(self.xmin, self.xmax, 100)
@@ -225,11 +229,6 @@ class TorqueCenterTest(tester.tests.Test):
             # Connect signals
             self.torqueDataChanged.connect(updateLineSeries)
             self.polyfitCoeffsChanged.connect(updateFitSeries)
-
-            chartViewTorqueCenter = QtCharts.QChartView(chartTorqueCenterPlot, self.widgetTestData)
-            chartViewTorqueCenter.setObjectName("chartViewTorqueCenter")
-            chartViewTorqueCenter.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-            layoutTorqueCenterData.addWidget(chartViewTorqueCenter)
 
             # Add torque center display
             widgetTorqueCenter = QtWidgets.QWidget(self.widgetTestData)
@@ -256,9 +255,8 @@ class TorqueCenterTest(tester.tests.Test):
             report: The report object to which the plot and value will be added.
         """
         logger.debug("[TorqueCenterTest] Entering onGenerateReport")
+        super().onGenerateReport(report)
         try:
-            super().onGenerateReport(report)
-
             # Prepare measured data as (x, y) tuples (already tuples)
             measured_data = list(self.TorqueData)
 

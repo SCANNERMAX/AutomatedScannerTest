@@ -5,6 +5,7 @@ import inspect
 import logging
 import os
 
+from tester.devices.mso5000 import MSO5000
 from tester.devices import Device
 
 logger = logging.getLogger(__name__)
@@ -37,36 +38,7 @@ class DeviceManager(QtCore.QObject):
             logger.critical("[DeviceManager] TesterApp instance not found. Ensure the application is initialized correctly.")
             raise RuntimeError("TesterApp instance not found. Ensure the application is initialized correctly.")
         app.addSettingsToObject(self)
-
-        # Device discovery and instantiation
-        _device_module = importlib.import_module(Device.__module__)
-        _device_folder = os.path.dirname(os.path.abspath(_device_module.__file__))
-        py_files = [f for f in os.listdir(_device_folder) if f.endswith(".py") and not f.startswith("__")]
-
-        imported_modules = {}
-        device_classes = []
-        for _filename in py_files:
-            _module_name = f"tester.devices.{_filename[:-3]}"
-            try:
-                _module = imported_modules.get(_module_name)
-                if _module is None:
-                    _module = importlib.import_module(_module_name)
-                    imported_modules[_module_name] = _module
-            except Exception as e:
-                logger.warning(f"[DeviceManager] Could not import {_module_name}: {e}")
-                continue
-
-            # Use inspect.getmembers only once per module
-            for _name, _obj in inspect.getmembers(_module, inspect.isclass):
-                if _obj.__module__ == _module.__name__ and issubclass(_obj, Device) and _obj is not Device:
-                    device_classes.append((_name, _obj))
-
-        # Instantiate devices in a loop outside the import loop for better cache locality
-        for _name, _obj in device_classes:
-            try:
-                setattr(self, _name, _obj())
-            except Exception as e:
-                logger.warning(f"[DeviceManager] Could not instantiate {_name}: {e}")
+        self.MSO5000 = MSO5000()
 
     @QtCore.Property(str)
     def ComputerName(self) -> str:
