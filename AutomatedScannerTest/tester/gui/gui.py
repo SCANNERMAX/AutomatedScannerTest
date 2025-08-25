@@ -5,8 +5,9 @@ import logging
 from tester.gui.settings import SettingsDialog
 from tester.gui.tester_ui import Ui_TesterWindow
 from tester.manager.worker import TestWorker, moveWorkerToThread
+from tester.tests import TestReportGenerator
 
-_SERIAL_RE = QtCore.QRegularExpression(r"^[A-Z]{2}[0-9]{6}$")
+SERIAL_NUMBER_REGEX = QtCore.QRegularExpression(r"^[A-Z]{2}[0-9]{6}$")
 logger = logging.getLogger(__name__)
 
 
@@ -18,9 +19,6 @@ class TesterWindow(QtWidgets.QMainWindow):
     It provides actions for opening, saving, and reporting test data, as well as starting and stopping tests.
     The window uses Qt's property and signal/slot system for integration with the rest of the application.
     """
-
-    signalGenerateReport = QtCore.Signal(str)
-    """Signal emitted to generate a report, with the file path as argument."""
 
     signalLoadData = QtCore.Signal(str)
     """Signal emitted to load test data from a file."""
@@ -58,9 +56,10 @@ class TesterWindow(QtWidgets.QMainWindow):
         self.worker.setupUi(self.ui)
         self.worker.resetTestData()
         self.thread = moveWorkerToThread(self.worker)
-        self.ui.tableSequence.selectionModel().currentRowChanged.connect(self.onTableSequenceRowChanged)
+        self.ui.tableSequence.selectionModel().currentRowChanged.connect(
+            self.onTableSequenceRowChanged
+        )
 
-        self.signalGenerateReport.connect(self.worker.onGenerateReport)
         self.signalLoadData.connect(self.worker.onLoadData)
         self.signalSaveData.connect(self.worker.onSaveData)
         self.signalStartTest.connect(self.worker.onStartTest)
@@ -79,10 +78,9 @@ class TesterWindow(QtWidgets.QMainWindow):
             self.worker.testStartedSignal: self.onTestStarted,
             self.worker.testFinishedSignal: self.onTestFinished,
             self.worker.testingFinishedSignal: self.onTestingFinished,
-            self.worker.reportFinishedSignal: self.onReportFinished,
             self.worker.openFinishedSignal: self.onOpenFinished,
             self.worker.savingFinishedSignal: self.onSavingFinished,
-            }
+        }
         for signal, slot in label_signal_map.items():
             signal.connect(slot, QtCore.Qt.QueuedConnection)
 
@@ -100,15 +98,22 @@ class TesterWindow(QtWidgets.QMainWindow):
         for action, slot in actions_slots:
             action.triggered.connect(slot)
 
-        app = QtCore.QCoreApplication.instance()
-        if not (app and hasattr(app, "addSettingsToObject")):
+        self.testReportGenerator = TestReportGenerator()
+        self.worker.setupReportGenerator(self.testReportGenerator)
+
+        applicationInstance = QtCore.QCoreApplication.instance()
+        if not (
+            applicationInstance and hasattr(applicationInstance, "addSettingsToObject")
+        ):
             logger.critical("[TesterWindow] TesterApp instance not found.")
             raise RuntimeError(
                 "TesterApp instance not found. Ensure the application is initialized correctly."
             )
-        app.addSettingsToObject(self)
-        app.statusMessage.connect(self.onUpdateStatus)
-        self.ui.tableSequence.horizontalHeader().sectionResized.connect(self.onTableSequenceColumnResized)
+        applicationInstance.addSettingsToObject(self)
+        applicationInstance.statusMessage.connect(self.onUpdateStatus)
+        self.ui.tableSequence.horizontalHeader().sectionResized.connect(
+            self.onTableSequenceColumnResized
+        )
         logger.debug("[TesterWindow] Connected to TesterApp instance and settings.")
 
         # Timer to update current time label every second
@@ -150,8 +155,8 @@ class TesterWindow(QtWidgets.QMainWindow):
             RuntimeError: If no QCoreApplication instance is found.
         """
         logger.debug(f"[TesterWindow] Calling TesterWindow.show().")
-        app = QtWidgets.QApplication.instance()
-        if not app:
+        applicationInstance = QtWidgets.QApplication.instance()
+        if not applicationInstance:
             raise RuntimeError(
                 "No QCoreApplication instance found. Ensure the application is initialized correctly."
             )
@@ -170,7 +175,9 @@ class TesterWindow(QtWidgets.QMainWindow):
         self.ui.labelSubtitle.setText(subTitle)
 
     @QtCore.Slot(object, object)
-    def onTableSequenceRowChanged(self, selected: QtCore.QModelIndex, deselected: QtCore.QModelIndex):
+    def onTableSequenceRowChanged(
+        self, selected: QtCore.QModelIndex, deselected: QtCore.QModelIndex
+    ):
         """
         Slot called when the selection in the test sequence table changes.
 
@@ -178,7 +185,9 @@ class TesterWindow(QtWidgets.QMainWindow):
             selected: The newly selected indexes.
             deselected: The previously selected indexes.
         """
-        logger.debug(f"[TesterWindow] Table selection changed to {selected.row()}, changing test window.")
+        logger.debug(
+            f"[TesterWindow] Table selection changed to {selected.row()}, changing test window."
+        )
         self.ui.stackedWidgetTest.setCurrentIndex(selected.row())
 
     @QtCore.Slot()
@@ -190,21 +199,23 @@ class TesterWindow(QtWidgets.QMainWindow):
             RuntimeError: If no QCoreApplication instance is found.
         """
         logger.debug(f"[TesterWindow] Showing About dialog.")
-        app = QtCore.QCoreApplication.instance()
-        if not app:
+        applicationInstance = QtCore.QCoreApplication.instance()
+        if not applicationInstance:
             raise RuntimeError(
                 "No QCoreApplication instance found. Ensure the application is initialized correctly."
             )
-        _title = QtCore.QCoreApplication.translate("TesterWindow", "About")
-        _version_string = QtCore.QCoreApplication.translate("TesterWindow", "Version")
-        _company_string = QtCore.QCoreApplication.translate("TesterWindow", "Developed by")
-        _application = app.applicationName()
-        _version = app.applicationVersion()
-        _company = app.organizationName()
+        aboutTitle = QtCore.QCoreApplication.translate("TesterWindow", "About")
+        versionLabel = QtCore.QCoreApplication.translate("TesterWindow", "Version")
+        developedByLabel = QtCore.QCoreApplication.translate(
+            "TesterWindow", "Developed by"
+        )
+        applicationName = applicationInstance.applicationName()
+        applicationVersion = applicationInstance.applicationVersion()
+        organizationName = applicationInstance.organizationName()
         QtWidgets.QMessageBox.about(
             self,
-            _title,
-            f"{_application}\n{_version_string} {_version}\n{_company_string} {_company}",
+            aboutTitle,
+            f"{applicationName}\n{versionLabel} {applicationVersion}\n{developedByLabel} {organizationName}",
         )
 
     @QtCore.Slot()
@@ -212,54 +223,44 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         Slot to handle the exit action, stopping any running test and quitting the application.
         """
-        logger.debug(f"[TesterWindow] Exit action triggered, stopping test and quitting application.")
-        self.onUpdateStatus("Exit menu clicked, stopping test and quitting application.")
+        logger.debug(
+            f"[TesterWindow] Exit action triggered, stopping test and quitting application."
+        )
+        self.onUpdateStatus(
+            "Exit menu clicked, stopping test and quitting application."
+        )
         self.signalStopWorker.emit()
         while self.thread.isRunning():
             QtCore.QCoreApplication.processEvents()
         self.close()
 
-    @QtCore.Slot()
-    def onOpenFinished(self):
+    @QtCore.Slot(str)
+    def onOpenFinished(self, file_path: str):
         """
         Slot called when test data is loaded from a file.
 
         Args:
             file_path (str): The path to the loaded data file.
         """
-        logger.debug(f"[TesterWindow] Data loaded from file.")
+        logger.debug(f"[TesterWindow] Data loaded from file {file_path}.")
+        self.onUpdateStatus(f"Data loaded from file {file_path}.")
+        self.testReportGenerator.generate()
         self.ui.actionOpen.setEnabled(True)
         self.ui.actionReport.setEnabled(True)
         self.ui.actionSave.setEnabled(True)
         self.ui.actionStart.setEnabled(True)
         self.ui.actionStop.setEnabled(False)
 
-
-    @QtCore.Slot()
-    def onReportFinished(self):
-        """
-        Slot called when report generation is finished.
-
-        Args:
-            file_path (str): The path to the generated report file.
-        """
-        logger.debug(f"[TesterWindow] Report generated to file {file_path}.")
-        self.onUpdateStatus(f"Report generated: {file_path}.")
-        self.ui.actionOpen.setEnabled(True)
-        self.ui.actionReport.setEnabled(True)
-        self.ui.actionSave.setEnabled(True)
-        self.ui.actionStart.setEnabled(True)
-        self.ui.actionStop.setEnabled(False)
-
-    @QtCore.Slot()
-    def onSavingFinished(self):
+    @QtCore.Slot(str)
+    def onSavingFinished(self, file_path: str):
         """
         Slot called when test data is saved to a file.
 
         Args:
             file_path (str): The path to the saved data file.
         """
-        logger.debug(f"[TesterWindow] Data saved to file.")
+        logger.debug(f"[TesterWindow] Data saved to file {file_path}.")
+        self.onUpdateStatus(f"Data saved to file {file_path}.")
         self.ui.actionOpen.setEnabled(True)
         self.ui.actionReport.setEnabled(True)
         self.ui.actionSave.setEnabled(True)
@@ -276,9 +277,11 @@ class TesterWindow(QtWidgets.QMainWindow):
             name (str): The name of the test.
             result (bool): The result of the test (True for pass, False for fail).
         """
-        logger.debug(f"[TesterWindow] Test {index + 1} {name} finished with result {result}.")
-        _status = "PASSED" if result else "FAILED"
-        self.onUpdateStatus(f"Test {index + 1} {name} {_status}.")
+        logger.debug(
+            f"[TesterWindow] Test {index + 1} {name} finished with result {result}."
+        )
+        statusText = "PASSED" if result else "FAILED"
+        self.onUpdateStatus(f"Test {index + 1} {name} {statusText}.")
 
     @QtCore.Slot(bool)
     def onTestingFinished(self, result: bool):
@@ -289,8 +292,9 @@ class TesterWindow(QtWidgets.QMainWindow):
             result (bool): The overall result (True for pass, False for fail).
         """
         logger.debug(f"[TesterWindow] All tests complete with overall result {result}.")
-        _status = "Pass" if result else "Fail"
-        self.onUpdateStatus(f"All tests complete with status {_status}.")
+        testStatus = "Pass" if result else "Fail"
+        self.onUpdateStatus(f"All tests complete with status {testStatus}.")
+        self.testReportGenerator.generate()
         self.ui.actionOpen.setEnabled(True)
         self.ui.actionReport.setEnabled(True)
         self.ui.actionSave.setEnabled(True)
@@ -308,7 +312,9 @@ class TesterWindow(QtWidgets.QMainWindow):
         self.ui.actionSave.setEnabled(False)
         self.ui.actionStart.setEnabled(False)
         self.ui.actionStop.setEnabled(False)
-        _caption = QtCore.QCoreApplication.translate("TesterWindow", "Open test data file")
+        _caption = QtCore.QCoreApplication.translate(
+            "TesterWindow", "Open test data file"
+        )
         _filter = QtCore.QCoreApplication.translate("TesterWindow", "Test Data files")
         file_dialog = QtWidgets.QFileDialog(
             self, _caption, self.LastDirectory or "", f"{_filter} (*.json)"
@@ -320,8 +326,8 @@ class TesterWindow(QtWidgets.QMainWindow):
             self.onUpdateStatus(f"Loading test data from file {file_path}.")
             self.signalLoadData.emit(file_path)
 
-    @QtCore.Slot()
-    def onReport(self):
+    @QtCore.Slot(str)
+    def onReport(self, file_path: str = None):
         """
         Slot to open a file dialog for saving a test report.
         """
@@ -331,17 +337,25 @@ class TesterWindow(QtWidgets.QMainWindow):
         self.ui.actionSave.setEnabled(False)
         self.ui.actionStart.setEnabled(False)
         self.ui.actionStop.setEnabled(False)
-        _title = QtCore.QCoreApplication.translate("TesterWindow", "Save test report file")
-        _filter = QtCore.QCoreApplication.translate("TesterWindow", "Test Report files")
-        file_dialog = QtWidgets.QFileDialog(
-            self, _title, self.LastDirectory or "", f"{_filter} (*.pdf)"
-        )
-        file_dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
-        if file_dialog.exec() == QtWidgets.QDialog.Accepted:
-            file_path = file_dialog.selectedFiles()[0]
-            self.LastDirectory = QtCore.QFileInfo(file_path).absolutePath()
-            self.onUpdateStatus(f"Generating report to file {file_path}.")
-            self.signalGenerateReport.emit(file_path)
+        if file_path:
+            reportPath = file_path
+        else:
+            dialogTitle = QtCore.QCoreApplication.translate(
+                "TesterWindow", "Save test report file"
+            )
+            reportFilter = QtCore.QCoreApplication.translate(
+                "TesterWindow", "Test Report files"
+            )
+            reportFileDialog = QtWidgets.QFileDialog(
+                self, dialogTitle, self.LastDirectory or "", f"{reportFilter} (*.pdf)"
+            )
+            reportFileDialog.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
+            if reportFileDialog.exec() == QtWidgets.QDialog.Accepted:
+                reportPath = reportFileDialog.selectedFiles()[0]
+        reportPath = QtCore.QFileInfo(reportPath).absoluteFilePath()
+        self.LastDirectory = reportPath
+        self.testReportGenerator.generate(reportPath)
+        self.onUpdateStatus(f"Generated report to file {reportPath}.")
 
     @QtCore.Slot()
     def onSave(self):
@@ -354,7 +368,9 @@ class TesterWindow(QtWidgets.QMainWindow):
         self.ui.actionSave.setEnabled(False)
         self.ui.actionStart.setEnabled(False)
         self.ui.actionStop.setEnabled(False)
-        _title = QtCore.QCoreApplication.translate("TesterWindow", "Save test data file")
+        _title = QtCore.QCoreApplication.translate(
+            "TesterWindow", "Save test data file"
+        )
         _filter = QtCore.QCoreApplication.translate("TesterWindow", "Test Data files")
         file_dialog = QtWidgets.QFileDialog(
             self, _title, self.LastDirectory or "", f"{_filter} (*.json)"
@@ -371,9 +387,13 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         Slot to open the settings dialog and apply changes if accepted.
         """
-        logger.debug(f"[TesterWindow] Settings action triggered, showing settings dialog.")
+        logger.debug(
+            f"[TesterWindow] Settings action triggered, showing settings dialog."
+        )
         _dialog = SettingsDialog(self.settings)
-        _dialog.setWindowTitle(QtCore.QCoreApplication.translate("TesterWindow", "Settings"))
+        _dialog.setWindowTitle(
+            QtCore.QCoreApplication.translate("TesterWindow", "Settings")
+        )
         _dialog.setWindowIcon(QtGui.QIcon(":/rsc/Pangolin.ico"))
         _dialog.exec()
 
@@ -397,14 +417,20 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         Slot to prompt for serial number and model name, validate input, and start the test.
         """
-        logger.debug(f"[TesterWindow] Start Test action triggered, prompting for serial number and model name.")
+        logger.debug(
+            f"[TesterWindow] Start Test action triggered, prompting for serial number and model name."
+        )
         self.ui.actionOpen.setEnabled(False)
         self.ui.actionReport.setEnabled(False)
         self.ui.actionSave.setEnabled(False)
         self.ui.actionStart.setEnabled(False)
         self.ui.actionStop.setEnabled(True)
-        _title = QtCore.QCoreApplication.translate("TesterWindow", "Input Serial Number")
-        _message = QtCore.QCoreApplication.translate("TesterWindow", "Enter galvo serial number (q to quit):")
+        _title = QtCore.QCoreApplication.translate(
+            "TesterWindow", "Input Serial Number"
+        )
+        _message = QtCore.QCoreApplication.translate(
+            "TesterWindow", "Enter galvo serial number (q to quit):"
+        )
         serial_dialog = QtWidgets.QInputDialog(self)
         serial_dialog.setWindowTitle(_title)
         serial_dialog.setLabelText(_message)
@@ -414,16 +440,21 @@ class TesterWindow(QtWidgets.QMainWindow):
         _serial_number = serial_dialog.textValue().strip()
         if not _serial_number or _serial_number.lower() == "q":
             return
-        if not _SERIAL_RE.match(_serial_number):
-            _title = QtCore.QCoreApplication.translate("TesterWindow", "Invalid Serial Number")
+        if not SERIAL_NUMBER_REGEX.match(_serial_number):
+            _title = QtCore.QCoreApplication.translate(
+                "TesterWindow", "Invalid Serial Number"
+            )
             _message = QtCore.QCoreApplication.translate(
-                "TesterWindow", "Serial number must be two uppercase letters followed by six digits."
+                "TesterWindow",
+                "Serial number must be two uppercase letters followed by six digits.",
             )
             QtWidgets.QMessageBox.warning(self, _title, _message)
             return
 
         _title = QtCore.QCoreApplication.translate("TesterWindow", "Input Model Name")
-        _message = QtCore.QCoreApplication.translate("TesterWindow", "Enter model name:")
+        _message = QtCore.QCoreApplication.translate(
+            "TesterWindow", "Enter model name:"
+        )
         model_dialog = QtWidgets.QInputDialog(self)
         model_dialog.setWindowTitle(_title)
         model_dialog.setLabelText(_message)
@@ -432,8 +463,12 @@ class TesterWindow(QtWidgets.QMainWindow):
             return
         _model_name = model_dialog.textValue().strip()
         if not _model_name:
-            _title = QtCore.QCoreApplication.translate("TesterWindow", "Invalid Model Name")
-            _message = QtCore.QCoreApplication.translate("TesterWindow", "Model name cannot be empty.")
+            _title = QtCore.QCoreApplication.translate(
+                "TesterWindow", "Invalid Model Name"
+            )
+            _message = QtCore.QCoreApplication.translate(
+                "TesterWindow", "Model name cannot be empty."
+            )
             QtWidgets.QMessageBox.warning(self, _title, _message)
             return
 
@@ -447,7 +482,9 @@ class TesterWindow(QtWidgets.QMainWindow):
         """
         Slot to stop the current test and update UI actions.
         """
-        logger.debug(f"[TesterWindow] Stop Test action triggered, stopping current test.")
+        logger.debug(
+            f"[TesterWindow] Stop Test action triggered, stopping current test."
+        )
         self.onUpdateStatus("Stopping current test.")
         self.cancelToken.cancel()
 
@@ -482,11 +519,13 @@ class TesterWindow(QtWidgets.QMainWindow):
             message (str): The message to display.
         """
         _message = QtCore.QCoreApplication.translate("TesterWindow", message)
-        self.ui.statusBar.showMessage(_message, 5000)
+        self.ui.statusBar.showMessage(_message, 10000)
 
     # Add this new slot method to TesterWindow
     @QtCore.Slot(int, int, int)
-    def onTableSequenceColumnResized(self, logicalIndex: int, oldSize: int, newSize: int):
+    def onTableSequenceColumnResized(
+        self, logicalIndex: int, oldSize: int, newSize: int
+    ):
         """
         Slot called when a tableSequence column is resized. Saves the new size to settings.
         Args:
@@ -500,173 +539,3 @@ class TesterWindow(QtWidgets.QMainWindow):
         elif logicalIndex == 1:
             self.setSetting("SecondColumnWidth", newSize)
             self.secondColumnWidth = newSize
-
-    @QtCore.Slot(list, str, str, str, str, float, float, int, float, float, int, object, object)
-    def addXYPlotToReport(
-        self,
-        report: QtGui.QPdfWriter,
-        data: list,
-        title: str,
-        xlabel: str,
-        ylabel: str,
-        path: str,
-        xmin: float = -30,
-        xmax: float = 30,
-        xTickCount: int = 7,
-        ymin: float = -100,
-        ymax: float = 100,
-        yTickCount=21,
-        series_colors=None,
-        series_labels=None,
-    ):
-        """
-        Plot one or more XY data series as a chart, save as an image, and embed in the PDF.
-
-        If data is empty, an empty chart with axes and title is created and embedded.
-
-        Args:
-            data (list or list of lists): List of (x, y) tuples, or list of such lists for multiple series.
-            title (str): Chart title.
-            xlabel (str): X-axis label.
-            ylabel (str): Y-axis label.
-            path (str): Path to save the image.
-            xmin (float): Minimum X value.
-            xmax (float): Maximum X value.
-            xTickCount (int): Number of X ticks.
-            ymin (float): Minimum Y value.
-            ymax (float): Maximum Y value.
-            yTickCount (int): Number of Y ticks.
-            series_colors (list, optional): List of Qt colors for each series.
-            series_labels (list, optional): List of labels for each series.
-
-        Returns:
-            None
-        """
-        logger.debug(
-            f"[TestReport] plotXYData called with title={title}, xlabel="
-            f"{xlabel}, ylabel={ylabel}, path={path}, xmin={xmin}, xmax={xmax}"
-            f", xTickCount={xTickCount}, ymin={ymin}, ymax={ymax}, yTickCount="
-            f"{yTickCount}"
-        )
-
-        # Precompute width/height only once
-        _width = int(report.rect.width())
-        _height = min(int(0.75 * _width), report.rect.height())
-        if _height > report.rect.height():
-            report.newPage()
-
-        # Create chart and scene only once
-        _chart = QtCharts.QChart()
-        _chart.setTitle(title)
-        _chart.setBackgroundVisible(False)
-        _chart.setBackgroundRoundness(0)
-        font = report.painter.font()
-        _chart.setFont(font)
-        _chart.setTitleFont(font)
-        _chart.resize(_width, _height)
-
-        legend = _chart.legend()
-        legend.setFont(font)
-
-        def _setup_axis(axis, title, minv, maxv, ticks):
-            """
-            Configure a QValueAxis with title, range, tick count, font, and pen styles.
-
-            Args:
-                axis (QtCharts.QValueAxis): The axis to configure.
-                title (str): Axis title.
-                minv (float): Minimum value.
-                maxv (float): Maximum value.
-                ticks (int): Number of ticks.
-
-            Returns:
-                None
-            """
-            axis.setTitleText(title)
-            axis.setRange(minv, maxv)
-            axis.setTickCount(ticks)
-            axis.setTitleFont(font)
-            axis.setLabelsFont(font)
-            axis.setGridLinePen(QtGui.QPen(QtCore.Qt.lightGray, 3, QtCore.Qt.PenStyle.DotLine))
-            axis.setLinePen(QtGui.QPen(QtCore.Qt.black, 5))
-
-        if not data:
-            logger.warning(f"[TestReport] No data provided to plotXYData. Creating empty plot.")
-            axis_x = QtCharts.QValueAxis()
-            axis_y = QtCharts.QValueAxis()
-            _setup_axis(axis_x, xlabel, xmin, xmax, xTickCount)
-            _setup_axis(axis_y, ylabel, ymin, ymax, yTickCount)
-            _chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
-            _chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
-            legend.hide()
-        else:
-            is_multi = isinstance(data[0], (list, tuple)) and (
-                len(data) > 0 and isinstance(data[0][0], (list, tuple, QtCore.QPointF))
-            )
-            series_list = data if is_multi else [data]
-
-            default_colors = [
-                QtCore.Qt.blue,
-                QtCore.Qt.red,
-                QtCore.Qt.darkGreen,
-                QtCore.Qt.magenta,
-                QtCore.Qt.darkYellow,
-                QtCore.Qt.darkCyan,
-                QtCore.Qt.black,
-            ]
-            colors = series_colors if series_colors else default_colors
-            labels = series_labels if series_labels else [f"Series {i+1}" for i in range(len(series_list))]
-
-            for idx, series_data in enumerate(series_list):
-                _series = QtCharts.QLineSeries()
-                _series.setName(labels[idx] if idx < len(labels) else f"Series {idx+1}")
-                _series.setPen(QtGui.QPen(colors[idx % len(colors)], 4))
-                if series_data and isinstance(series_data[0], QtCore.QPointF):
-                    _series.append(series_data)
-                else:
-                    # Use generator expression for better memory efficiency
-                    _series.append((QtCore.QPointF(float(x), float(y)) for x, y in series_data))
-                _chart.addSeries(_series)
-
-            _chart.createDefaultAxes()
-            for axis in (_chart.axisX(), _chart.axisY()):
-                axis.setTitleFont(font)
-                axis.setLabelsFont(font)
-            _chart.axisX().setTitleText(xlabel)
-            _chart.axisY().setTitleText(ylabel)
-            _chart.axisX().setGridLinePen(QtGui.QPen(QtCore.Qt.lightGray, 3, QtCore.Qt.PenStyle.DotLine))
-            _chart.axisY().setGridLinePen(QtGui.QPen(QtCore.Qt.lightGray, 3, QtCore.Qt.PenStyle.DotLine))
-            _chart.axisX().setLinePen(QtGui.QPen(QtCore.Qt.black, 5))
-            _chart.axisY().setLinePen(QtGui.QPen(QtCore.Qt.black, 5))
-            _chart.axisX().setRange(xmin, xmax)
-            _chart.axisX().setTickCount(xTickCount)
-            _chart.axisY().setRange(ymin, ymax)
-            _chart.axisY().setTickCount(yTickCount)
-            if len(series_list) > 1:
-                legend.setVisible(True)
-                legend.setAlignment(QtCore.Qt.AlignmentFlag.AlignBottom)
-                legend.setFont(font)
-            else:
-                legend.hide()
-
-        # Use a single QGraphicsScene instance
-        _scene = QtWidgets.QGraphicsScene()
-        _scene.addItem(_chart)
-        _scene.setSceneRect(QtCore.QRectF(0, 0, _width, _height))
-
-        # Use QImage only once, avoid unnecessary fill if default is white
-        _image = QtGui.QImage(_width, _height, QtGui.QImage.Format_ARGB32)
-        _image.fill(QtCore.Qt.white)
-        _painter = QtGui.QPainter(_image)
-        _scene.render(_painter, QtCore.QRectF(0, 0, _width, _height))
-        _painter.end()
-
-        parent_dir = QtCore.QFileInfo(path).dir()
-        if not parent_dir.exists():
-            parent_dir.mkpath(".")
-        _image.save(path, None, -1)
-
-        _target_rect = QtCore.QRectF(report.rect.left(), report.rect.top(), _width, _height)
-        report.painter.drawImage(_target_rect, _image)
-        report.rect.adjust(0, _height + report.buffer, 0, 0)
-        logger.debug(f"[TestReport] XY data plot saved to {path} and drawn in report.")

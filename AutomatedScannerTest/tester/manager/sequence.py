@@ -2,6 +2,7 @@
 from PySide6 import QtCore, QtWidgets
 import logging
 
+from tester.manager.report import TestReportGenerator
 from tester.tests.bearing_test import BearingTest
 from tester.tests.torque_center_test import TorqueCenterTest
 from tester.manager.devices import DeviceManager
@@ -53,7 +54,8 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         self.__devices = devices
         self.tests = [
             BearingTest(self.__cancel, self.__devices),
-            TorqueCenterTest(self.__cancel, self.__devices)]
+            TorqueCenterTest(self.__cancel, self.__devices),
+        ]
 
     @QtCore.Property(str)
     def ComputerName(self):
@@ -334,21 +336,6 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
             test.cliPrintTest()
             print("\n")
 
-    def onGenerateReport(self, report):
-        """
-        Generate a report for all non-skipped tests.
-
-        Args:
-            report: The report object to populate.
-        """
-        logger.debug(
-            f"[TestSequenceModel] onGenerateReport called with report={report}"
-        )
-        for _test in self.tests:
-            if getattr(_test, "Status", None) != "Skipped":
-                logger.debug(f"[TestSequenceModel] Generating report for test: {_test}")
-                _test.onGenerateReport(report)
-
     def onLoadData(self, tests_data, data_directory):
         """
         Load test data into the model.
@@ -356,13 +343,17 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
         Args:
             tests_data (dict): Dictionary of test data keyed by test name.
         """
-        logger.debug(f"[TestSequenceModel] onLoadData called with tests_data={tests_data}")
+        logger.debug(
+            f"[TestSequenceModel] onLoadData called with tests_data={tests_data}"
+        )
         if tests_data:
             _name_to_test = {t.Name: t for t in self.tests}
             for _test_name, _test_data in tests_data.items():
                 _test_obj = _name_to_test.get(_test_name)
                 if _test_obj:
-                    logger.debug(f"[TestSequenceModel] Loading data for test: {_test_name}")
+                    logger.debug(
+                        f"[TestSequenceModel] Loading data for test: {_test_name}"
+                    )
                     _test_obj.onLoadData(_test_data)
                     _test_obj.setDataDirectory(data_directory)
 
@@ -443,6 +434,10 @@ class TestSequenceModel(QtCore.QAbstractTableModel):
             logger.debug(f"[TestSequenceModel] Resetting parameters for test: {test}")
             test.resetTestData()
         logger.debug(f"[TestSequenceModel] All test parameters reset")
+
+    def setupReportGenerator(self, reportGenerator: TestReportGenerator):
+        for test in self.tests:
+            test.setupReportGenerator(reportGenerator)
 
     def setupUi(self, parent=None):
         """

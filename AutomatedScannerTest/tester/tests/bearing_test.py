@@ -90,6 +90,31 @@ class BearingTest(Test):
         self.ymin = s("TorqueCurrentMinimum", -400.0)
         self.ymax = s("TorqueCurrentMaximum", 400.0)
 
+    def setupReportGenerator(self, reportGenerator):
+        super().setupReportGenerator(reportGenerator)
+        self.frictionDataChanged.connect(
+            lambda data: reportGenerator.onTestResultAdded(
+                self.Name,
+                "FrictionData",
+                {
+                    "Type": "XYPlot",
+                    "Data": data,
+                    "Title": "Friction Plot",
+                    "XLabel": "Position (deg)",
+                    "YLabel": "Current (mA)",
+                    "Path": self.figurePath,
+                    "XMin": -30,
+                    "XMax": 30,
+                    "XTickCount": 7,
+                    "YMin": -400,
+                    "YMax": 400,
+                    "YTickCount": 9,
+                    "SeriesColors": None,
+                    "SeriesLabels": ["Friction Data"],
+                },
+            )
+        )
+
     def setupUi(self, widget: QtWidgets.QWidget):
         """
         Set up the user interface for the bearing test, including the chart for friction data.
@@ -153,32 +178,6 @@ class BearingTest(Test):
 
         updateFrictionChart(self.FrictionData)
         self.frictionDataChanged.connect(updateFrictionChart)
-
-    def onGenerateReport(self, report):
-        """
-        Generate a report section for the bearing test, including a friction plot.
-
-        Args:
-            report: The report object to which the plot will be added.
-        """
-        logger.debug("[BearingTest] onGenerateReport called")
-        super().onGenerateReport(report)
-        try:
-            report.plotXYData(
-                self.FrictionData,
-                self.charttitle,
-                self.xtitle,
-                self.ytitle,
-                getattr(self, "figurePath", ""),
-                xmin=self.xmin,
-                xmax=self.xmax,
-                xTickCount=7,
-                ymin=self.ymin,
-                ymax=self.ymax,
-                yTickCount=9,
-            )
-        except Exception as e:
-            logger.critical("[BearingTest] Failed to add friction plot to report: %r", e)
 
     def onSaveData(self):
         """

@@ -14,7 +14,7 @@ import logging
 
 from tester import CancelToken
 from tester.manager.devices import DeviceManager
-from tester.manager.report import TestReport
+from tester.manager.report import TestReportGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +47,10 @@ class Test(QtCore.QObject):
     endTimeChanged = QtCore.Signal(str)
     modelNameChanged = QtCore.Signal(str)
     nameChanged = QtCore.Signal(str)
+    parameterChanged = QtCore.Signal(str, object)
     serialNumberChanged = QtCore.Signal(str)
     startTimeChanged = QtCore.Signal(str)
     statusChanged = QtCore.Signal(str)
-    parameterChanged = QtCore.Signal(str, object)
 
     def __init__(self, name: str, cancel: CancelToken, devices: DeviceManager):
         logger.debug(f"[Test] Initializing Test instance with name: {name}")
@@ -121,9 +121,10 @@ class Test(QtCore.QObject):
             logger.error(f"[Test] EndTime must be a QDateTime instance.")
             raise ValueError("EndTime must be a QDateTime instance.")
         self.setParameter("EndTime", value)
-        self.endTimeChanged.emit(
-            value.toString("HH:mm:ss") if value and value.isValid() else ""
+        valueString = (
+            value.toString("HH:mm:ss") if value and value.isValid() else "Not Set"
         )
+        self.endTimeChanged.emit(valueString)
         self.Duration = self.StartTime.secsTo(value)
 
     @QtCore.Property(str, notify=modelNameChanged)
@@ -209,7 +210,10 @@ class Test(QtCore.QObject):
             logger.error(f"[Test] StartTime must be a QDateTime instance.")
             raise ValueError("StartTime must be a QDateTime instance.")
         self.setParameter("StartTime", value)
-        self.startTimeChanged.emit(value.toString("HH:mm:ss"))
+        valueString = (
+            value.toString("HH:mm:ss") if value and value.isValid() else "Not Set"
+        )
+        self.startTimeChanged.emit(valueString)
 
     @QtCore.Property(str, notify=statusChanged)
     def Status(self):
@@ -290,6 +294,45 @@ class Test(QtCore.QObject):
                 )
             )
 
+    def setupReportGenerator(self, reportGenerator: TestReportGenerator) -> None:
+        """
+        Configure the provided TestReportGenerator with this test's parameters.
+        Args:
+            reportGenerator (TestReportGenerator): The report generator to configure.
+        """
+        logger.debug(f"[Test] Setting up report generator.")
+        if not isinstance(reportGenerator, TestReportGenerator):
+            logger.error(
+                f"[Test] reportGenerator must be a TestReportGenerator instance."
+            )
+            raise ValueError("reportGenerator must be a TestReportGenerator instance.")
+        self.durationChanged.connect(
+            lambda value: reportGenerator.onTestInfoChanged(
+                self.Name, "Duration", value
+            )
+        )
+        self.endTimeChanged.connect(
+            lambda value: reportGenerator.onTestInfoChanged(self.Name, "EndTime", value)
+        )
+        self.modelNameChanged.connect(
+            lambda value: reportGenerator.onTestInfoChanged(
+                self.Name, "ModelName", value
+            )
+        )
+        self.serialNumberChanged.connect(
+            lambda value: reportGenerator.onTestInfoChanged(
+                self.Name, "SerialNumber", value
+            )
+        )
+        self.startTimeChanged.connect(
+            lambda value: reportGenerator.onTestInfoChanged(
+                self.Name, "StartTime", value
+            )
+        )
+        self.statusChanged.connect(
+            lambda value: reportGenerator.onTestInfoChanged(self.Name, "Status", value)
+        )
+
     def setupUi(self, parent=None):
         """
         Load the test UI into the provided widget.
@@ -312,7 +355,9 @@ class Test(QtCore.QObject):
         groupBoxWidget.setObjectName(f"groupBox{cname}")
         groupBoxWidget.setCheckable(False)
         groupBoxWidget.setFixedWidth(150)
-        groupBoxWidget.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Expanding)
+        groupBoxWidget.setSizePolicy(
+            QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Expanding
+        )
         groupBoxLayout = QtWidgets.QVBoxLayout(groupBoxWidget)
         groupBoxLayout.setObjectName(f"layout{cname}Params")
         groupBoxLayout.setContentsMargins(5, 5, 5, 5)
@@ -345,45 +390,28 @@ class Test(QtCore.QObject):
             return label
 
         # Use a loop to add labels efficiently
-        self.labelTestName, self.labelSerialNumber, self.labelStartTime, \
-        self.labelEndTime, self.labelDuration, self.labelStatus = [
-            add_label(*info) for info in label_info
-        ]
+        (
+            self.labelTestName,
+            self.labelSerialNumber,
+            self.labelStartTime,
+            self.labelEndTime,
+            self.labelDuration,
+            self.labelStatus,
+        ) = [add_label(*info) for info in label_info]
 
         # Add an expanding spacer at the bottom
         spacer_widget = QtWidgets.QWidget(groupBoxWidget)
-        spacer_widget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        spacer_widget.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
+        )
         groupBoxLayout.addWidget(spacer_widget)
 
         self.widgetTestData = QtWidgets.QWidget(parent)
         self.widgetTestData.setObjectName(f"widget{cname}Data")
-        self.widgetTestData.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        layout.addWidget(self.widgetTestData)
-
-    def onGenerateReport(self, report: TestReport):
-        """
-        Add this test's results to the provided report.
-
-        Args:
-            report (TestReport): The report object to which the test results are added.
-        """
-        logger.debug(f"[Test] Generating report")
-        report.startTest(
-            self.Name,
-            self.SerialNumber,
-            (
-                self.StartTime.toString("HH:mm:ss")
-                if self.StartTime and self.StartTime.isValid()
-                else ""
-            ),
-            (
-                self.EndTime.toString("HH:mm:ss")
-                if self.EndTime and self.EndTime.isValid()
-                else ""
-            ),
-            f"{self.Duration} sec",
-            self.Status,
+        self.widgetTestData.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding
         )
+        layout.addWidget(self.widgetTestData)
 
     def onLoadData(self, data: dict):
         """

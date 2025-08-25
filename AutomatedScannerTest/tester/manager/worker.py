@@ -3,9 +3,9 @@ from PySide6 import QtCore
 import logging
 
 from tester import CancelToken
-from tester.manager.sequence import TestSequenceModel
 from tester.manager.devices import DeviceManager
-from tester.manager.report import TestReport
+from tester.manager.report import TestReportGenerator
+from tester.manager.sequence import TestSequenceModel
 
 logger = logging.getLogger(__name__)
 
@@ -17,21 +17,25 @@ class TestWorker(QtCore.QObject):
     Provides properties and signals for test status, data, and reporting.
     """
 
+    closeSignal = QtCore.Signal()
     computerNameSignal = QtCore.Signal(str)
     durationSignal = QtCore.Signal(str)
     endTimeSignal = QtCore.Signal(str)
-    reportFinishedSignal = QtCore.Signal()
-    openFinishedSignal = QtCore.Signal()
-    savingFinishedSignal = QtCore.Signal()
-    testFinishedSignal = QtCore.Signal(int, str, bool)
-    testingFinishedSignal = QtCore.Signal(bool)
     modelNameSignal = QtCore.Signal(str)
+    openFinishedSignal = QtCore.Signal(str)
+    reportFinishedSignal = QtCore.Signal(str)
+    runDataDirectorySignal = QtCore.Signal(str)
+    savingFinishedSignal = QtCore.Signal(str)
     serialNumberSignal = QtCore.Signal(str)
     startTimeSignal = QtCore.Signal(str)
-    testStartedSignal = QtCore.Signal(int, str)
     statusSignal = QtCore.Signal(str)
+    testDateSignal = QtCore.Signal(str)
     testerNameSignal = QtCore.Signal(str)
-    closeSignal = QtCore.Signal()
+    testFinishedSignal = QtCore.Signal(int, str, bool)
+    testingFinishedSignal = QtCore.Signal(bool)
+    testInfoSignal = QtCore.Signal(str, str, str)
+    testResultSignal = QtCore.Signal(str, dict)
+    testStartedSignal = QtCore.Signal(int, str)
 
     def __init__(self):
         """
@@ -42,20 +46,24 @@ class TestWorker(QtCore.QObject):
         """
         super().__init__()
         logger.debug("[TestWorker] __init__ called.")
-        app = QtCore.QCoreApplication.instance()
-        if not (app and hasattr(app, "addSettingsToObject")):
+        appInstance = QtCore.QCoreApplication.instance()
+        if not (appInstance and hasattr(appInstance, "addSettingsToObject")):
             logger.critical(
                 "[TestWorker] TesterApp instance not found. Ensure the application is initialized correctly."
             )
             raise RuntimeError(
                 "TesterApp instance not found. Ensure the application is initialized correctly."
             )
-        app.addSettingsToObject(self)
+        appInstance.addSettingsToObject(self)
         self.cancel = CancelToken()
         self.devices = DeviceManager()
         self.model = TestSequenceModel(self.cancel, self.devices)
         self.model.startedTest.connect(self.onModelStartedTest)
         self.model.finishedTest.connect(self.onModelFinishedTest)
+        self.openFinishedSignal.connect(self.clearRunning)
+        self.reportFinishedSignal.connect(self.clearRunning)
+        self.savingFinishedSignal.connect(self.clearRunning)
+        self.testingFinishedSignal.connect(self.clearRunning)
         self.timeZone = QtCore.QTimeZone.systemTimeZone()
         self.exitCode = 0
         self.running = False
@@ -174,17 +182,6 @@ class TestWorker(QtCore.QObject):
         self.modelNameSignal.emit(value)
 
     @QtCore.Property(str)
-    def PdfReportPath(self) -> str:
-        """
-        Get the path to the PDF report file for the current run.
-
-        Returns:
-            str: The PDF report file path.
-        """
-        logger.debug("[TestWorker] Getting PdfReportPath property.")
-        return QtCore.QDir(self.RunDataDirectory).filePath("report.pdf")
-
-    @QtCore.Property(str)
     def RunDataDirectory(self) -> str:
         """
         Get or create the directory for the current test run, based on serial number and start time.
@@ -193,23 +190,26 @@ class TestWorker(QtCore.QObject):
             str: The run data directory.
         """
         logger.debug("[TestWorker] Getting RunDataDirectory property.")
-        dir_path = QtCore.QDir(self.DataDirectory)
-        serial = self.SerialNumber or "Unknown"
-        if not dir_path.exists(serial):
-            dir_path.mkpath(serial)
-        dir_path.cd(serial)
-        start_time = self.StartTime
-        dir_name = (
-            start_time.toString("yyyyMMdd_HHmmss")
-            if start_time and start_time.isValid()
+        dataDir = QtCore.QDir(self.DataDirectory)
+        serialNumber = self.SerialNumber or "Unknown"
+        if not dataDir.exists(serialNumber):
+            dataDir.mkpath(serialNumber)
+        dataDir.cd(serialNumber)
+        startTime = self.StartTime
+        startTimeText = (
+            startTime.toString("yyyyMMdd_HHmmss")
+            if startTime and startTime.isValid()
             else "Unknown"
         )
-        if not dir_path.exists(dir_name):
-            dir_path.mkpath(dir_name)
-        dir_path.cd(dir_name)
-        result = dir_path.absolutePath()
-        logger.info(f"[TestWorker] RunDataDirectory resolved to '{result}'.")
-        return result
+        if not dataDir.exists(startTimeText):
+            dataDir.mkpath(startTimeText)
+        dataDir.cd(startTimeText)
+        runDataDirectoryPath = dataDir.absolutePath()
+        logger.info(
+            f"[TestWorker] RunDataDirectory resolved to '{runDataDirectoryPath}'."
+        )
+        self.runDataDirectorySignal.emit(runDataDirectoryPath)
+        return runDataDirectoryPath
 
     @QtCore.Property(str, notify=serialNumberSignal)
     def SerialNumber(self):
@@ -259,6 +259,9 @@ class TestWorker(QtCore.QObject):
         self.model.StartTime = value
         self.startTimeSignal.emit(
             value.toString("HH:mm:ss") if value and value.isValid() else ""
+        )
+        self.testDateSignal.emit(
+            value.toString("dddd MMMM dd, yyyy") if value and value.isValid() else ""
         )
 
     @QtCore.Property(str, notify=statusSignal)
@@ -314,13 +317,13 @@ class TestWorker(QtCore.QObject):
         Returns:
             QtCore.QDateTime: The current time.
         """
-        now = QtCore.QDateTime.currentDateTime()
+        currentTime = QtCore.QDateTime.currentDateTime()
         if self.timeZone.isValid():
-            now = now.toTimeZone(self.timeZone)
+            currentTime = currentTime.toTimeZone(self.timeZone)
         logger.debug(
-            f"[TestWorker] Current time is '{now.toString(QtCore.Qt.ISODate)}'."
+            f"[TestWorker] Current time is '{currentTime.toString(QtCore.Qt.ISODate)}'."
         )
-        return now
+        return currentTime
 
     def resetTestData(self):
         """
@@ -337,6 +340,50 @@ class TestWorker(QtCore.QObject):
         if self.cancel:
             self.cancel.reset()
         self.model.resetTestData()
+        self.Running = False
+
+    def setupReportGenerator(self, reportGenerator: TestReportGenerator):
+        """
+        Set up the report generator for the test worker.
+        Args:
+            reportGenerator (TestReportGenerator): The report generator instance.
+        """
+        logger.debug("[TestWorker] setupReportGenerator called.")
+        self.computerNameSignal.connect(
+            lambda value: setattr(reportGenerator, "computerName", value)
+        )
+        self.durationSignal.connect(
+            lambda value: setattr(reportGenerator, "duration", value)
+        )
+        self.endTimeSignal.connect(
+            lambda value: setattr(reportGenerator, "endTime", value)
+        )
+        self.modelNameSignal.connect(
+            lambda value: setattr(reportGenerator, "modelName", value)
+        )
+        self.runDataDirectorySignal.connect(
+            lambda value: setattr(
+                reportGenerator,
+                "filePath",
+                QtCore.QDir(value).filePath("report.pdf"),
+            )
+        )
+        self.serialNumberSignal.connect(
+            lambda value: setattr(reportGenerator, "serialNumber", value)
+        )
+        self.startTimeSignal.connect(
+            lambda value: setattr(reportGenerator, "startTime", value)
+        )
+        self.statusSignal.connect(
+            lambda value: setattr(reportGenerator, "status", value)
+        )
+        self.testDateSignal.connect(
+            lambda value: setattr(reportGenerator, "testDate", value)
+        )
+        self.testerNameSignal.connect(
+            lambda value: setattr(reportGenerator, "testerName", value)
+        )
+        self.model.setupReportGenerator(reportGenerator)
 
     def setupUi(self, parent=None):
         """
@@ -358,6 +405,16 @@ class TestWorker(QtCore.QObject):
                 "[TestWorker] setupUi: parent is None or missing required attributes."
             )
 
+    @QtCore.Slot(object)
+    def clearRunning(self, object):
+        """
+        Slot to clear the running flag when a test operation finishes.
+        Args:
+            object: The object passed from the signal (not used).
+        """
+        logger.debug("[TestWorker] clearRunning called. Clearing running flag.")
+        self.running = False
+
     @QtCore.Slot()
     def onStopWorker(self):
         """
@@ -374,53 +431,6 @@ class TestWorker(QtCore.QObject):
         self.closeSignal.emit()
 
     @QtCore.Slot(str)
-    def onGenerateReport(self, path: str = None):
-        """
-        Generate a PDF report for the current test run.
-
-        Args:
-            path (str, optional): Path to save the report. If None, uses default.
-        """
-        self.running = True
-        logger.debug(f"[TestWorker] onGenerateReport called with path='{path}'.")
-        file_path = path or self.PdfReportPath
-        parent_dir = QtCore.QFileInfo(file_path).absolutePath()
-        dir_obj = QtCore.QDir(parent_dir)
-        if not dir_obj.exists():
-            logger.warning(
-                f"[TestWorker] Report parent directory '{parent_dir}' does not exist. Creating it."
-            )
-            dir_obj.mkpath(".")
-        logger.info(f"[TestWorker] Generating report at '{file_path}'.")
-        report = TestReport(file_path)
-        start_time = self.StartTime
-        end_time = self.EndTime
-        report.titlePage(
-            self.SerialNumber,
-            self.ModelName,
-            (
-                start_time.toString("dddd, MMMM dd, yyyy")
-                if start_time and start_time.isValid()
-                else ""
-            ),
-            (
-                start_time.toString("HH:mm:ss")
-                if start_time and start_time.isValid()
-                else ""
-            ),
-            end_time.toString("HH:mm:ss") if end_time and end_time.isValid() else "",
-            f"{self.Duration} sec",
-            self.TesterName,
-            self.ComputerName,
-            self.Status,
-        )
-        self.model.onGenerateReport(report)
-        report.finish()
-        logger.debug("[TestWorker] Report generation finished.")
-        self.running = False
-        self.reportFinishedSignal.emit()
-
-    @QtCore.Slot(str)
     def onLoadData(self, path: str):
         """
         Load test data from a JSON file.
@@ -429,7 +439,9 @@ class TestWorker(QtCore.QObject):
             path (str): Path to the data file.
         """
         self.running = True
-        logger.debug(f"[TestWorker] onLoadData called. Loading test data from file '{path}'.")
+        logger.debug(
+            f"[TestWorker] onLoadData called. Loading test data from file '{path}'."
+        )
 
         def _from_qvariant(obj):
             """
@@ -445,37 +457,36 @@ class TestWorker(QtCore.QObject):
                 return [_from_qvariant(v) for v in obj]
             if isinstance(obj, str):
                 # Try to parse QDateTime from ISO string
-                dt = QtCore.QDateTime.fromString(obj, QtCore.Qt.ISODate)
-                if dt.isValid():
-                    return dt
+                parsedDateTime = QtCore.QDateTime.fromString(obj, QtCore.Qt.ISODate)
+                if parsedDateTime.isValid():
+                    return parsedDateTime
             return obj
 
-        file_obj = QtCore.QFile(path)
-        if file_obj.open(QtCore.QIODevice.ReadOnly | QtCore.QIODevice.Text):
-            data_bytes = file_obj.readAll()
-            file_obj.close()
-            doc = QtCore.QJsonDocument.fromJson(data_bytes)
-            if not doc.isNull():
-                variant_data = doc.toVariant()
-                loaded_data = _from_qvariant(variant_data)
-                keys = list(loaded_data.keys())
-                keys.reverse()
-                for key in keys:
-                    value = loaded_data[key]
+        jsonFile = QtCore.QFile(path)
+        if jsonFile.open(QtCore.QIODevice.ReadOnly | QtCore.QIODevice.Text):
+            jsonDataBytes = jsonFile.readAll()
+            jsonFile.close()
+            jsonDocument = QtCore.QJsonDocument.fromJson(jsonDataBytes)
+            if not jsonDocument.isNull():
+                testDataVariant = jsonDocument.toVariant()
+                testDataDict = _from_qvariant(testDataVariant)
+                testDataKeys = list(testDataDict.keys())
+                testDataKeys.reverse()
+                for key in testDataKeys:
+                    value = testDataDict[key]
                     if hasattr(self, key):
                         setattr(self, key, value)
                 if hasattr(self.model, "onLoadData"):
-                    self.model.onLoadData(loaded_data["Tests"], self.RunDataDirectory)
+                    self.model.onLoadData(testDataDict["Tests"], self.RunDataDirectory)
                 logger.debug(f"[TestWorker] Test data loaded from '{path}'.")
-                
+
             else:
                 logger.warning(f"[TestWorker] Could not parse JSON from '{path}'.")
         else:
             logger.warning(f"[TestWorker] Could not open file '{path}' for reading.")
         self.onSaveData()
-        self.onGenerateReport()
         self.running = False
-        self.openFinishedSignal.emit()
+        self.openFinishedSignal.emit(path)
 
     @QtCore.Slot(int, str, bool)
     def onModelFinishedTest(self, test_id: int, test_name: str, status: bool):
@@ -512,8 +523,11 @@ class TestWorker(QtCore.QObject):
         Supplies unique exit codes for each error type using an exit code map.
         """
         logger.debug("[TestWorker] run_cli called. Running CLI mode.")
-        app_instance = QtCore.QCoreApplication.instance()
-        if not (app_instance and app_instance.__class__.__name__ == "TesterApp"):
+        applicationInstance = QtCore.QCoreApplication.instance()
+        if not (
+            applicationInstance
+            and applicationInstance.__class__.__name__ == "TesterApp"
+        ):
             logger.critical(
                 "[TestWorker] TesterApp instance not found. Ensure the application is initialized correctly."
             )
@@ -524,7 +538,7 @@ class TestWorker(QtCore.QObject):
         self.ComputerName = self.devices.ComputerName
         self.TesterName = self.devices.UserName
 
-        exit_code_map = {
+        ExceptionExitCodeMap = {
             KeyboardInterrupt: 2,
             FileNotFoundError: 20,
             PermissionError: 21,
@@ -535,7 +549,7 @@ class TestWorker(QtCore.QObject):
             OSError: 26,
             Exception: 99,
         }
-        exit_code_meanings = {
+        ExitCodeMap = {
             0: "Success, help, version, or list shown",
             1: "Unknown/invalid usage",
             2: "User interrupt (KeyboardInterrupt)",
@@ -552,14 +566,14 @@ class TestWorker(QtCore.QObject):
             99: "Generic/unknown exception",
         }
 
-        options = app_instance.options
+        options = applicationInstance.options
 
         def print_exit_codes():
             """
             Print the list of exit codes and their meanings.
             """
             print("\nExit codes and their meaning:")
-            for code, meaning in sorted(exit_code_meanings.items()):
+            for code, meaning in sorted(ExitCodeMap.items()):
                 print(f"  {code}: {meaning}")
 
         if options.isSet("help"):
@@ -592,7 +606,9 @@ class TestWorker(QtCore.QObject):
                 self.onStopWorker()
             except Exception as e:
                 logger.critical(f"[TestWorker] Error listing tests: {e}")
-                code = exit_code_map.get(type(e), exit_code_map[Exception])
+                code = ExceptionExitCodeMap.get(
+                    type(e), ExceptionExitCodeMap[Exception]
+                )
                 self.exitCode = code
                 self.onStopWorker()
             return
@@ -624,7 +640,9 @@ class TestWorker(QtCore.QObject):
                     logger.critical(f"[TestWorker] Error running test: {e}")
                     options.showHelp()
                     print_exit_codes()
-                code = exit_code_map.get(type(e), exit_code_map[Exception])
+                code = ExceptionExitCodeMap.get(
+                    type(e), ExceptionExitCodeMap[Exception]
+                )
                 self.exitCode = code
                 self.onStopWorker()
                 return
@@ -655,9 +673,9 @@ class TestWorker(QtCore.QObject):
         """
         self.running = True
         logger.debug(f"[TestWorker] onSaveData called with path='{path}'.")
-        _data = self.model.onSaveData()
-        _path = path or self.DataFilePath
-        logger.info(f"[TestWorker] Saving test data to file '{_path}'.")
+        testData = self.model.onSaveData()
+        dataFilePath = path or self.DataFilePath
+        logger.info(f"[TestWorker] Saving test data to file '{dataFilePath}'.")
 
         def _to_qvariant(obj):
             """
@@ -675,22 +693,24 @@ class TestWorker(QtCore.QObject):
                 return {"x": obj.x(), "y": obj.y()}
             if isinstance(obj, QtCore.QDateTime):
                 # Convert to UTC before saving
-                utc_dt = obj.toUTC() if obj.isValid() else obj
-                return utc_dt.toString(QtCore.Qt.ISODate)
+                utcDateTime = obj.toUTC() if obj.isValid() else obj
+                return utcDateTime.toString(QtCore.Qt.ISODate)
             return obj
 
-        qjson_obj = QtCore.QJsonDocument.fromVariant(_to_qvariant(_data))
-        doc = QtCore.QJsonDocument(qjson_obj)
+        jsonDocumentVariant = QtCore.QJsonDocument.fromVariant(_to_qvariant(testData))
+        jsonDocument = QtCore.QJsonDocument(jsonDocumentVariant)
 
-        file_obj = QtCore.QFile(_path)
-        if file_obj.open(QtCore.QIODevice.WriteOnly | QtCore.QIODevice.Text):
-            file_obj.write(doc.toJson(QtCore.QJsonDocument.Indented))
-            file_obj.close()
-            logger.debug(f"[TestWorker] Test data saved to '{_path}'.")
+        dataFile = QtCore.QFile(dataFilePath)
+        if dataFile.open(QtCore.QIODevice.WriteOnly | QtCore.QIODevice.Text):
+            dataFile.write(jsonDocument.toJson(QtCore.QJsonDocument.Indented))
+            dataFile.close()
+            logger.debug(f"[TestWorker] Test data saved to '{dataFilePath}'.")
         else:
-            logger.warning(f"[TestWorker] Could not open file '{_path}' for writing.")
+            logger.warning(
+                f"[TestWorker] Could not open file '{dataFilePath}' for writing."
+            )
         self.running = False
-        self.savingFinishedSignal.emit()
+        self.savingFinishedSignal.emit(dataFilePath)
 
     @QtCore.Slot()
     def onSettingsModified(self):
@@ -706,7 +726,7 @@ class TestWorker(QtCore.QObject):
         )
 
     @QtCore.Slot(str, str, str)
-    def onStartTest(self, serial_number: str, model_name: str, test: str = None):
+    def onStartTest(self, serialNumber: str, modelName: str, test: str = None):
         """
         Start a test sequence.
 
@@ -717,35 +737,35 @@ class TestWorker(QtCore.QObject):
         """
         self.running = True
         logger.debug(
-            f"[TestWorker] onStartTest called with serial_number='{serial_number}', "
-            f"model_name='{model_name}', test='{test}'."
+            f"[TestWorker] onStartTest called with serial_number='{serialNumber}', "
+            f"model_name='{modelName}', test='{test}'."
         )
         self.resetTestData()
-        self.SerialNumber = serial_number
-        self.ModelName = model_name
+        self.SerialNumber = serialNumber
+        self.ModelName = modelName
         self.StartTime = self.getCurrentTime()
         self.Status = "Running"
         logger.info("[TestWorker] Setting up devices for tests.")
         self.devices.setup()
-        logger.debug(f"[TestWorker] Starting test sequence for {serial_number}.")
-        final_status = self.model.onStartTest(self.RunDataDirectory, test=test)
+        logger.debug(f"[TestWorker] Starting test sequence for {serialNumber}.")
+        testResult = self.model.onStartTest(self.RunDataDirectory, test=test)
         if getattr(self.cancel, "cancelled", False):
             logger.warning("[TestWorker] Test was cancelled by user.")
             self.Status = "Cancelled"
-        elif final_status is None:
+        elif testResult is None:
             logger.critical(f"[TestWorker] Test '{test}' not found.")
         else:
             logger.info(
-                f"[TestWorker] Tests finished with status: {'Pass' if final_status else 'Fail'}."
+                f"[TestWorker] Tests finished with status: {'Pass' if testResult else 'Fail'}."
             )
-            self.Status = "Pass" if final_status else "Fail"
+            self.Status = "Pass" if testResult else "Fail"
         logger.info("[TestWorker] Tearing down devices after tests.")
         self.devices.teardown()
         self.EndTime = self.getCurrentTime()
         self.onSaveData()
         self.onGenerateReport()
         self.running = False
-        self.testingFinishedSignal.emit(final_status)
+        self.testingFinishedSignal.emit(testResult)
 
 
 def moveWorkerToThread(worker, interval_ms=100, run_cli=False):
@@ -785,6 +805,7 @@ def moveWorkerToThread(worker, interval_ms=100, run_cli=False):
         else:
             if hasattr(worker, "onRunGui") and callable(worker.onRunGui):
                 worker.onRunGui()
+
     thread.started.connect(start_timer_and_method)
 
     thread.start()
