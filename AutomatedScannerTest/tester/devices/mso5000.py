@@ -2284,17 +2284,16 @@ class MSO5000(Device):
             ]
             if format_ == MSO5000.WaveformFormat.Ascii:
                 _points = "".join([chr(x) for x in _response]).split(",")
-                for _index in range(_start, _stop):
-                    _data[_index - start] = float(_points[_index - _start])
+                for _index in range(len(_points) - 1):
+                    _data[_start + _index - 1] = float(_points[_index])
             elif format_ == MSO5000.WaveformFormat.Word:
-                for _index in range(_start, _stop):
-                    _rind = _index - _start
-                    _byte1 = _response[_rind * 2]
-                    _byte2 = _response[_rind * 2 + 1]
-                    _data[_index - start] = (_byte1 << 8) + _byte2
+                for _index in range(_stop - _start):
+                    _byte1 = _response[_index * 2]
+                    _byte2 = _response[_index * 2 + 1]
+                    _data[_index + _start - 1] = (_byte1 << 8) + _byte2
             else:
-                for _index in range(_start, _stop):
-                    _data[_index - start] = _response[_index - _start]
+                for _index in range(_stop - _start):
+                    _data[_start + _index - 1] = _response[_index]
             _start = _stop
             _stop = min(_start + 100, stop)
         return _data

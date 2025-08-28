@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>ac905e11-9872-4d8a-bd1d-9802bca77056</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>main_cli.py</StartupFile>
+    <StartupFile>tester\main_cli.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -31,13 +31,13 @@
     <Compile Include="tester\gui\gui.py" />
     <Compile Include="tester\asset\tester_rc.py" />
     <Compile Include="tester\gui\tester_ui.py" />
-    <Compile Include="main_cli.py" />
+    <Compile Include="tester\main_cli.py" />
     <Compile Include="tester\manager\devices.py" />
     <Compile Include="tester\manager\report.py" />
     <Compile Include="tester\tests\bearing_test.py" />
     <Compile Include="tester\devices\mso5000.py" />
     <Compile Include="tester\devices\__init__.py" />
-    <Compile Include="main_gui.py" />
+    <Compile Include="tester\main_gui.py" />
     <Compile Include="tester\tests\__init__.py" />
     <Compile Include="tester\manager\test_sequence.py" />
     <Compile Include="tester\tests\torque_center_test.py" />
