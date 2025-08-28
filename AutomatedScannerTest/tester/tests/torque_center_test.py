@@ -102,7 +102,7 @@ class TorqueCenterTest(tester.tests.Test):
         Get the current torque data.
 
         Returns:
-            list: The list of (offset, RMS current) tuples.
+            list: The list of QPoint objects.
         """
         return self.getParameter("TorqueData", [])
 
@@ -112,7 +112,7 @@ class TorqueCenterTest(tester.tests.Test):
         Set the torque data and emit the torqueDataChanged signal.
 
         Args:
-            value (list): The new torque data as a list of (offset, RMS current) tuples.
+            value (list): The new torque data as a list of QPoint objects.
         """
         self.setParameter("TorqueData", value)
         self.torqueDataChanged.emit(value)
@@ -142,7 +142,7 @@ class TorqueCenterTest(tester.tests.Test):
     def onSettingsModified(self):
         """
         Handle modifications to the test settings.
-        Loads settings for read delay, center tolerance, chart titles, and axis ranges.
+        Loads settings for read delay, center tolerance, chart titles, axis ranges, and tick counts.
         """
         logger.debug("[TorqueCenterTest] Entering onSettingsModified")
         try:
@@ -157,11 +157,14 @@ class TorqueCenterTest(tester.tests.Test):
             self.ytitle = s("TorqueCurrentTitle", "RMS Current (mA)")
             self.ymin = s("TorqueCurrentMinimum", 0)
             self.ymax = s("TorqueCurrentMaximum", 500.0)
+            self.xtickcount = s("XTickCount", 7)
+            self.ytickcount = s("YTickCount", 9)
             logger.debug(
                 f"[TorqueCenterTest] Settings loaded: readDelay={self.readDelay}, "
                 f"centerTolerance={self.centerTolerance}, charttitle={self.charttitle}, "
                 f"xtitle={self.xtitle}, xmin={self.xmin}, xmax={self.xmax}, "
-                f"ytitle={self.ytitle}, ymin={self.ymin}, ymax={self.ymax}"
+                f"ytitle={self.ytitle}, ymin={self.ymin}, ymax={self.ymax}, "
+                f"xtickcount={self.xtickcount}, ytickcount={self.ytickcount}"
             )
         except Exception as e:
             logger.critical(
@@ -174,42 +177,42 @@ class TorqueCenterTest(tester.tests.Test):
         self.torqueDataChanged.connect(
             lambda data: reportGenerator.onTestResultAdded(
                 self.Name,
-                "FrictionData",
+                "TorqueData",
                 {
                     "Type": "XYPlot",
                     "Data": [data, self.Polyfit],
-                    "Title": "Friction Plot",
-                    "XLabel": "Position (deg)",
-                    "YLabel": "Current (mA)",
+                    "Title": self.charttitle,
+                    "XLabel": self.xtitle,
+                    "YLabel": self.ytitle,
                     "Path": self.figurePath,
-                    "XMin": -30,
-                    "XMax": 30,
-                    "XTickCount": 7,
-                    "YMin": -400,
-                    "YMax": 400,
-                    "YTickCount": 9,
+                    "XMin": self.xmin,
+                    "XMax": self.xmax,
+                    "XTickCount": self.xtickcount,
+                    "YMin": self.ymin,
+                    "YMax": self.ymax,
+                    "YTickCount": self.ytickcount,
                     "SeriesColors": None,
-                    "SeriesLabels": ["Friction Data"],
+                    "SeriesLabels": ["Torque Data", "Polynomial Fit"],
                 },
             )
         )
         self.polyfitCoeffsChanged.connect(
             lambda data: reportGenerator.onTestResultAdded(
                 self.Name,
-                "FrictionData",
+                "TorqueData",
                 {
                     "Type": "XYPlot",
                     "Data": [self.TorqueData, self.Polyfit],
-                    "Title": "Friction Plot",
-                    "XLabel": "Position (deg)",
-                    "YLabel": "Current (mA)",
+                    "Title": self.charttitle,
+                    "XLabel": self.xtitle,
+                    "YLabel": self.ytitle,
                     "Path": self.figurePath,
-                    "XMin": -30,
-                    "XMax": 30,
-                    "XTickCount": 7,
-                    "YMin": -400,
-                    "YMax": 400,
-                    "YTickCount": 9,
+                    "XMin": self.xmin,
+                    "XMax": self.xmax,
+                    "XTickCount": self.xtickcount,
+                    "YMin": self.ymin,
+                    "YMax": self.ymax,
+                    "YTickCount": self.ytickcount,
                     "SeriesColors": None,
                     "SeriesLabels": ["Torque Data", "Polynomial Fit"],
                 },
@@ -262,12 +265,14 @@ class TorqueCenterTest(tester.tests.Test):
             xAxis.setTitleText(self.xtitle)
             xAxis.setLabelFormat("%.2f")
             xAxis.setRange(self.xmin, self.xmax)
+            xAxis.setTickCount(self.xtickcount)
             chartTorqueCenterPlot.addAxis(xAxis, QtCore.Qt.AlignmentFlag.AlignBottom)
 
             yAxis = QtCharts.QValueAxis()
             yAxis.setTitleText(self.ytitle)
             yAxis.setLabelFormat("%.2f")
             yAxis.setRange(self.ymin, self.ymax)
+            yAxis.setTickCount(self.ytickcount)
             chartTorqueCenterPlot.addAxis(yAxis, QtCore.Qt.AlignmentFlag.AlignLeft)
 
             # Attach series to axes
@@ -290,11 +295,11 @@ class TorqueCenterTest(tester.tests.Test):
                 Update the measured data series in the chart.
 
                 Args:
-                    data (list): List of measured data points (tuple).
+                    data (list): List of measured data points (QPoint).
                 """
                 if data:
                     lineSeriesTorqueCenter.replace(
-                        [QtCore.QPointF(p[0], p[1]) for p in data]
+                        [QtCore.QPointF(p.x(), p.y()) for p in data]
                     )
 
             def updateFitSeries(coeffs):
@@ -359,8 +364,8 @@ class TorqueCenterTest(tester.tests.Test):
             if file.open(QtCore.QIODevice.WriteOnly | QtCore.QIODevice.Text):
                 stream = QtCore.QTextStream(file)
                 stream << f"Time (ns),{self.xtitle},{self.ytitle}\n"
-                for _time, (offset, rms) in enumerate(self.TorqueData):
-                    stream << f"{_time},{offset},{rms}\n"
+                for _time, point in enumerate(self.TorqueData):
+                    stream << f"{_time},{point.x()},{point.y()}\n"
                 file.close()
                 logger.info(f"[TorqueCenterTest] Torque data saved to {dataFilePath}")
             else:
@@ -477,7 +482,7 @@ class TorqueCenterTest(tester.tests.Test):
                     logger.info(
                         f"[TorqueCenterTest] Measured RMS: {rms} at offset: {offset}"
                     )
-                    data.append((offset_scaled, rms * 100))  # Store as tuple
+                    data.append(QtCore.QPoint(offset_scaled, rms * 100))  # Store as QPoint
                 except Exception as e:
                     logger.warning(
                         f"[TorqueCenterTest] Failed to get RMS at offset {offset:.2f}: {e}\n{traceback.format_exc()}"
@@ -510,8 +515,8 @@ class TorqueCenterTest(tester.tests.Test):
             super().analyzeResults()
             data = self.TorqueData
             if data:
-                x = np.array([p[0] for p in data])
-                y = np.array([p[1] for p in data])
+                x = np.array([p.x() for p in data])
+                y = np.array([p.y() for p in data])
 
                 # Select the seven points in the center of the plot
                 n_select = 7

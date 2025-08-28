@@ -89,6 +89,10 @@ class BearingTest(Test):
         self.ytitle = s("TorqueCurrentTitle", "Torque Current (mA)")
         self.ymin = s("TorqueCurrentMinimum", -400.0)
         self.ymax = s("TorqueCurrentMaximum", 400.0)
+        self.xtick_count = s("XTickCount", 7)
+        self.ytick_count = s("YTickCount", 9)
+        self.xtick_interval = s("XTickInterval", None)
+        self.ytick_interval = s("YTickInterval", None)
 
     def setupReportGenerator(self, reportGenerator):
         super().setupReportGenerator(reportGenerator)
@@ -98,17 +102,19 @@ class BearingTest(Test):
                 "FrictionData",
                 {
                     "Type": "XYPlot",
-                    "Data": data,
-                    "Title": "Friction Plot",
-                    "XLabel": "Position (deg)",
-                    "YLabel": "Current (mA)",
+                    "Data": [data],
+                    "Title": self.charttitle,
+                    "XLabel": self.xtitle,
+                    "YLabel": self.ytitle,
                     "Path": self.figurePath,
-                    "XMin": -30,
-                    "XMax": 30,
-                    "XTickCount": 7,
-                    "YMin": -400,
-                    "YMax": 400,
-                    "YTickCount": 9,
+                    "XMin": self.xmin,
+                    "XMax": self.xmax,
+                    "XTickCount": self.xtick_count,
+                    "XTickInterval": self.xtick_interval,
+                    "YMin": self.ymin,
+                    "YMax": self.ymax,
+                    "YTickCount": self.ytick_count,
+                    "YTickInterval": self.ytick_interval,
                     "SeriesColors": None,
                     "SeriesLabels": ["Friction Data"],
                 },
@@ -146,6 +152,9 @@ class BearingTest(Test):
         xAxis.setTitleText(self.xtitle)
         xAxis.setLabelFormat("%.2f")
         xAxis.setRange(self.xmin, self.xmax)
+        xAxis.setTickCount(self.xtick_count)
+        if self.xtick_interval is not None:
+            xAxis.setTickInterval(self.xtick_interval)
         chartBearingTest.addAxis(xAxis, QtCore.Qt.AlignmentFlag.AlignBottom)
         lineSeriesFrictionPlot.attachAxis(xAxis)
 
@@ -153,6 +162,9 @@ class BearingTest(Test):
         yAxis.setTitleText(self.ytitle)
         yAxis.setLabelFormat("%.2f")
         yAxis.setRange(self.ymin, self.ymax)
+        yAxis.setTickCount(self.ytick_count)
+        if self.ytick_interval is not None:
+            yAxis.setTickInterval(self.ytick_interval)
         chartBearingTest.addAxis(yAxis, QtCore.Qt.AlignmentFlag.AlignLeft)
         lineSeriesFrictionPlot.attachAxis(yAxis)
 
@@ -289,7 +301,7 @@ class BearingTest(Test):
         self.checkCancelled()
         # Use zip and list comprehension for efficient tuple creation
         self.FrictionData = [
-            (4.5 * x, 100 * y) for x, y in zip(_positions_raw, _currents_raw)
+            QtCore.QPointF(4.5 * x, 100 * y) for x, y in zip(_positions_raw, _currents_raw)
         ]
         MSO.function_generator_state(1, False)
         MSO.function_generator_state(2, False)
