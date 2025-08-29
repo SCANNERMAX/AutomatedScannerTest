@@ -2265,37 +2265,29 @@ class MSO5000(Device):
         self.set_waveform_source(source)
         self.set_waveform_mode(mode)
         self.set_waveform_format(format_)
-        _start = start
-        _stop = min(start + 100, stop)
         _data = [0] * (stop - start + 1)
-        while _start < stop:
-            self.set_waveform_start(_start)
-            self.set_waveform_stop(_stop)
+        for _start in range(0, stop - start, 100):
+            self.set_waveform_start(start + _start)
+            self.set_waveform_stop(min(start + _start + 99, stop))
             self.__write(":WAVeform:DATA?")
             _response = self.__instrument._read_raw()
             assert _response[0] == 35, "Data must start with the '#' character."
             assert _response[-1] == 10, "Data must end with the '\n' character."
             _header_length = int(chr(_response[1]))
-            _data_length = int(
-                "".join([chr(x) for x in _response[2 : 2 + _header_length]])
-            )
-            _response = _response[
-                2 + _header_length : 2 + _header_length + _data_length
-            ]
+            _data_length = int("".join([chr(x) for x in _response[2 : 2 + _header_length]]))
+            _response = _response[2 + _header_length : 2 + _header_length + _data_length]
             if format_ == MSO5000.WaveformFormat.Ascii:
                 _points = "".join([chr(x) for x in _response]).split(",")
                 for _index in range(len(_points) - 1):
-                    _data[_start + _index - 1] = float(_points[_index])
+                    _data[_start + _index] = float(_points[_index])
             elif format_ == MSO5000.WaveformFormat.Word:
-                for _index in range(_stop - _start):
+                for _index in range(len(_response)/2):
                     _byte1 = _response[_index * 2]
                     _byte2 = _response[_index * 2 + 1]
-                    _data[_index + _start - 1] = (_byte1 << 8) + _byte2
+                    _data[_start + _index] = (_byte1 << 8) + _byte2
             else:
-                for _index in range(_stop - _start):
-                    _data[_start + _index - 1] = _response[_index]
-            _start = _stop
-            _stop = min(_start + 100, stop)
+                for _index in range(len(_response)):
+                    _data[_start + _index] = _response[_index]
         return _data
 
     @tester._member_logger
