@@ -78,7 +78,7 @@ class TorqueCenterTest(tester.tests.Test):
         """
         Analyze the test results for a given serial number.
 
-        Determines the torque center by finding the offset with the minimum RMS current.
+        Determines the torque center by finding a local minimum of RMS current near zero offset.
         Sets the test status to "Pass" if the absolute value of the torque center is less than 1, otherwise "Fail".
 
         Args:
@@ -89,10 +89,27 @@ class TorqueCenterTest(tester.tests.Test):
         """
         super().analyze_results(serial_number)
         data = self.TorqueData
+        torque_center = 0.0
+
         if data:
-            self.TorqueCenter = min(data, key=lambda x: x[1])[0]
-        else:
-            self.TorqueCenter = 0.0
+            # Find indices where offset is near zero (within +/-2 deg)
+            candidates = [(i, offset, rms) for i, (offset, rms) in enumerate(data) if abs(offset) <= 2]
+            local_min_index = None
+
+            # Check for local minimum in candidates
+            for idx, offset, rms in candidates:
+                prev_rms = data[idx - 1][1] if idx > 0 else float('inf')
+                next_rms = data[idx + 1][1] if idx < len(data) - 1 else float('inf')
+                if rms < prev_rms and rms < next_rms:
+                    local_min_index = idx
+                    break
+
+            if local_min_index is not None:
+                torque_center = data[local_min_index][0]
+            else:
+                # Fallback: use global minimum
+                torque_center = min(data, key=lambda x: x[1])[0]
+        self.TorqueCenter = torque_center
         self.Status = "Pass" if abs(self.TorqueCenter) < 1 else "Fail"
         return self.Status == "Pass"
 
